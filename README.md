@@ -137,19 +137,6 @@ npm start
 
 ---
 
-## تصاویر / Screenshots
-
-### صفحه ورود / Login Page
-![Login Page](https://via.placeholder.com/800x400?text=Login+Page)
-
-### داشبورد / Dashboard
-![Dashboard](https://via.placeholder.com/800x400?text=Dashboard)
-
-### مدیریت لایسنس‌ها / License Management
-![License Management](https://via.placeholder.com/800x400?text=License+Management)
-
----
-
 ## Contributors
 - **Reza Karimi** - [rzatkv](https://github.com/rzatkv)
 
