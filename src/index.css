@@ -1,0 +1,80 @@
+/* تنظیمات عمومی برای کل پروژه */
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+/* تنظیمات برای عناوین */
+h1, h2, h3 {
+    margin: 0;
+    padding: 0;
+    color: #2c3e50;
+}
+
+/* استایل عمومی دکمه‌ها */
+button {
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+/* کانتینر عمومی */
+.container {
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 1200px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* نوار بالای صفحه */
+header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 24px;
+}
+
+/* استایل برای نوار کناری */
+.sidebar {
+    width: 250px;
+    background-color: #f4f4f4;
+    padding: 15px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    border-right: 1px solid #ddd;
+}
+
+.sidebar a {
+    display: block;
+    color: #333;
+    text-decoration: none;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.sidebar a:hover {
+    background-color: #ddd;
+}
+
+/* استایل برای بخش اصلی */
+.main-content {
+    margin-left: 270px;
+    padding: 20px;
+}
