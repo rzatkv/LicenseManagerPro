@@ -1,0 +1,50 @@
+.dashboard-container {
+    padding: 20px;
+}
+
+.dashboard-container h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.dashboard-summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+}
+
+.summary-box {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 200px;
+}
+
+.summary-box h2 {
+    margin-bottom: 10px;
+    font-size: 18px;
+    color: #007bff;
+}
+
+.summary-box p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    color: #333;
+}
+
+.dashboard-error {
+    color: red;
+    text-align: center;
+    font-size: 18px;
+}
+
+.dashboard-loading {
+    text-align: center;
+    font-size: 18px;
+    color: #555;
+}
