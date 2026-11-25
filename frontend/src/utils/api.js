@@ -1,4 +1,5 @@
-import {API_BASE_URL} from "../config";
+import {API_BASE_URL, DEMO_MODE} from "../config";
+import {mockRequest} from "./demoData";
 
 const authHeaders = () => {
     const token = localStorage.getItem("token");
@@ -27,6 +28,14 @@ const handleResponse = async (response, endpoint) => {
  * @returns {Promise<any>}
  */
 export const get = async (endpoint) => {
+    if (DEMO_MODE) {
+        try {
+            return await mockRequest("GET", endpoint);
+        } catch (error) {
+            console.error(`GET ${endpoint} failed:`, error);
+            throw error;
+        }
+    }
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             headers: {...authHeaders()},
@@ -45,6 +54,14 @@ export const get = async (endpoint) => {
  * @returns {Promise<any>}
  */
 export const post = async (endpoint, body) => {
+    if (DEMO_MODE) {
+        try {
+            return await mockRequest("POST", endpoint, body);
+        } catch (error) {
+            console.error(`POST ${endpoint} failed:`, error);
+            throw error;
+        }
+    }
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: "POST",
@@ -68,6 +85,14 @@ export const post = async (endpoint, body) => {
  * @returns {Promise<any>}
  */
 export const put = async (endpoint, body) => {
+    if (DEMO_MODE) {
+        try {
+            return await mockRequest("PUT", endpoint, body);
+        } catch (error) {
+            console.error(`PUT ${endpoint} failed:`, error);
+            throw error;
+        }
+    }
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: "PUT",
@@ -90,6 +115,14 @@ export const put = async (endpoint, body) => {
  * @returns {Promise<any>}
  */
 export const del = async (endpoint) => {
+    if (DEMO_MODE) {
+        try {
+            return await mockRequest("DELETE", endpoint);
+        } catch (error) {
+            console.error(`DELETE ${endpoint} failed:`, error);
+            throw error;
+        }
+    }
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: "DELETE",

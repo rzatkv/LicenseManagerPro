@@ -1,4 +1,4 @@
-import {API_BASE_URL} from "../config";
+import {API_BASE_URL, DEMO_MODE} from "../config";
 
 /**
  * ورود کاربر و ذخیره توکن
@@ -7,6 +7,11 @@ import {API_BASE_URL} from "../config";
  * @returns {Promise<void>}
  */
 export const login = async (email, password) => {
+    // Demo mode: any credentials work; there is no backend to check them.
+    if (DEMO_MODE) {
+        localStorage.setItem("token", "demo-token");
+        return;
+    }
     try {
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: "POST", headers: {
