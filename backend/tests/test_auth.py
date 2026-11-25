@@ -23,11 +23,11 @@ def test_register_after_bootstrap_requires_admin(client, auth_headers):
     # With the admin token it works.
     response = client.post(
         "/api/auth/register",
-        json={"email": "second@example.com", "password": "secretpass1", "role": "user"},
+        json={"email": "second@example.com", "password": "secretpass1", "role": "viewer"},
         headers=auth_headers,
     )
     assert response.status_code == 201
-    assert response.json()["role"] == "user"
+    assert response.json()["role"] == "viewer"
 
 
 def test_login_returns_bearer_token(client, admin_token):

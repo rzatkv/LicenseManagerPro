@@ -3,38 +3,38 @@
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-color: #f4f4f4;
+    background-color: var(--surface-2);
 }
 
 .login-form {
-    background: white;
+    background: var(--surface);
     padding: 30px;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow);
     width: 300px;
     text-align: center;
 }
 
 .login-form h1 {
     margin-bottom: 20px;
-    color: #333;
+    color: var(--text);
 }
 
 .form-group {
     margin-bottom: 15px;
-    text-align: left;
+    text-align: start;
 }
 
 .form-group label {
     display: block;
     margin-bottom: 5px;
-    color: #555;
+    color: var(--muted);
 }
 
 .form-group input {
     width: 100%;
     padding: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 5px;
     font-size: 14px;
 }
@@ -42,8 +42,8 @@
 button {
     width: 100%;
     padding: 10px;
-    background-color: #007bff;
-    color: white;
+    background-color: var(--accent);
+    color: var(--on-accent);
     border: none;
     border-radius: 5px;
     font-size: 16px;
@@ -51,11 +51,16 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: var(--accent-hover);
 }
 
 .error-message {
-    color: red;
+    color: var(--danger);
     font-size: 14px;
     margin-bottom: 10px;
 }
+.login-container { flex-direction: column; position: relative; }
+.login-top-controls { position: absolute; top: 16px; inset-inline-end: 16px; display: flex; gap: 8px; }
+.login-top-controls select { padding: 6px 8px; }
+.login-subtitle { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+.demo-notice { color: var(--muted); font-size: 13px; }

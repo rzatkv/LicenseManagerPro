@@ -1,4 +1,9 @@
-"""License routes (all require a JWT)."""
+"""License routes (all require a JWT).
+
+Writes are permission-gated (v2.0): create needs licenses:create, update
+licenses:write, delete licenses:delete, renew licenses:renew. Reads and
+validate are open to any authenticated role.
+"""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +20,9 @@ from schemas import (
     MessageResponse,
 )
 from services import licenses as license_service
+from services import webhooks as webhook_service
 from utils.auth import get_current_user
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -37,7 +44,7 @@ def list_licenses(
 def create_license(
     request: LicenseCreateRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("licenses:create")),
 ):
     license_ = license_service.create_license(request, db)
     return license_service.serialize_license(license_)
@@ -49,8 +56,22 @@ def validate_license(
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    """Validate a license key (exists, active, not expired, activations left)."""
-    valid, detail, license_ = license_service.validate_license(request.key, db)
+    """Validate a license key (exists, active, not expired, activations left,
+    plus domain/IP/install-path locks when set)."""
+    valid, detail, license_ = license_service.validate_license(
+        request.key,
+        db,
+        domain=request.domain,
+        ip=request.ip,
+        install_path=request.install_path,
+    )
+    if not valid and license_ is not None and license_.product_id is not None:
+        webhook_service.notify_license_event(
+            db,
+            license_,
+            webhook_service.EVENT_LICENSE_VALIDATED_FAILED,
+            reason=detail,
+        )
     return {
         "valid": valid,
         "detail": detail,
@@ -73,7 +94,7 @@ def update_license(
     license_id: int,
     request: LicenseUpdateRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("licenses:write")),
 ):
     license_ = license_service.update_license(license_id, request, db)
     return license_service.serialize_license(license_)
@@ -83,7 +104,7 @@ def update_license(
 def delete_license(
     license_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("licenses:delete")),
 ):
     license_service.delete_license(license_id, db)
     return {"message": "License deleted successfully"}
@@ -92,10 +113,11 @@ def delete_license(
 @router.post("/{license_id}/renew", response_model=LicenseResponse)
 def renew_license(
     license_id: int,
-    request: LicenseRenewRequest,
+    request: LicenseRenewRequest = None,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("licenses:renew")),
 ):
-    """Extend a license's expiry by the requested number of days."""
-    license_ = license_service.renew_license(license_id, request.extend_days, db)
+    """Renew a license: by its billing_cycle, or by extend_days when given."""
+    extend_days = request.extend_days if request is not None else None
+    license_ = license_service.renew_license(license_id, db, extend_days=extend_days)
     return license_service.serialize_license(license_)

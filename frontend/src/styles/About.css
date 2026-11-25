@@ -5,7 +5,7 @@
 
 .about-container h1 {
     margin-bottom: 20px;
-    color: #333;
+    color: var(--text);
 }
 
 .about-info {
@@ -15,7 +15,7 @@
 
 .about-info p {
     margin: 10px 0;
-    color: #555;
+    color: var(--muted);
 }
 
 .update-section {
@@ -25,18 +25,18 @@
 .update-section p {
     margin-bottom: 10px;
     font-size: 16px;
-    color: #d9534f;
+    color: var(--danger);
 }
 
 .update-section button {
     padding: 10px 20px;
-    background-color: #28a745;
-    color: white;
+    background-color: var(--success);
+    color: var(--surface);
     border: none;
     border-radius: 5px;
     cursor: pointer;
 }
 
 .update-section button:hover {
-    background-color: #218838;
+    background-color: var(--success);
 }

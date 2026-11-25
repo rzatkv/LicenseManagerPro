@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {get, post, put, del} from "../utils/api";
+import {useLanguage} from "../i18n";
 import "../styles/APIKeyList.css";
 
 const ALL_ACCESS_RIGHTS = [
@@ -15,6 +16,7 @@ const ALL_ACCESS_RIGHTS = [
 ];
 
 function APIKeyList() {
+    const {t} = useLanguage();
     const [apiKeys, setApiKeys] = useState([]);
     const [error, setError] = useState("");
     const [newKey, setNewKey] = useState("");
@@ -26,15 +28,16 @@ function APIKeyList() {
     const [newSingleUse, setNewSingleUse] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const fetchApiKeys = useCallback(async () => {
         try {
             const data = await get("/api-keys");
             setApiKeys(data.api_keys);
             setError("");
         } catch (err) {
-            setError(err.message || "Failed to fetch API keys.");
+            setError(err.message || t("common.failedFetch"));
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         fetchApiKeys();
@@ -45,7 +48,7 @@ function APIKeyList() {
             await del(`/api-keys/${id}`);
             setApiKeys(apiKeys.filter((key) => key.id !== id));
         } catch (err) {
-            setError(err.message || "Failed to delete API key.");
+            setError(err.message || t("common.error"));
         }
     };
 
@@ -109,19 +112,19 @@ function APIKeyList() {
             resetForm();
             setError("");
         } catch (err) {
-            setError(err.message || (editingId !== null ? "Failed to update API key." : "Failed to create API key."));
+            setError(err.message || t("common.error"));
         }
     };
 
     return (
         <div className="api-key-list-container">
-            <h1>API Keys</h1>
+            <h1>{t("apikeys.title")}</h1>
             {error && <div className="error-message">{error}</div>}
             <form className="add-api-key-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
-                <h3>{editingId !== null ? `Edit API Key #${editingId}` : "Create API Key"}</h3>
+                <h3>{editingId !== null ? `${t("apikeys.edit")} #${editingId}` : t("apikeys.create")}</h3>
                 <input
                     type="text"
-                    placeholder={editingId !== null ? "Key cannot be changed" : "Key value (leave empty to auto-generate)"}
+                    placeholder={editingId !== null ? t("apikeys.keyLocked") : t("apikeys.keyPlaceholder")}
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value)}
                     disabled={editingId !== null}
@@ -141,25 +144,25 @@ function APIKeyList() {
                 <input
                     type="number"
                     min="1"
-                    placeholder={editingId !== null ? "Expires in days (empty = no change)" : "Expires in days (optional)"}
+                    placeholder={editingId !== null ? t("apikeys.expiresEdit") : t("apikeys.expiresPlaceholder")}
                     value={newExpiresInDays}
                     onChange={(e) => setNewExpiresInDays(e.target.value)}
                 />
                 <input
                     type="text"
-                    placeholder="Restrict to IP (optional)"
+                    placeholder={t("apikeys.restrictIp")}
                     value={newIp}
                     onChange={(e) => setNewIp(e.target.value)}
                 />
                 <input
                     type="text"
-                    placeholder="Restrict to domain (optional)"
+                    placeholder={t("apikeys.restrictDomain")}
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
                 />
                 <input
                     type="text"
-                    placeholder="Restrict to directory (optional)"
+                    placeholder={t("apikeys.restrictDirectory")}
                     value={newDirectory}
                     onChange={(e) => setNewDirectory(e.target.value)}
                 />
@@ -169,12 +172,12 @@ function APIKeyList() {
                         checked={newSingleUse}
                         onChange={(e) => setNewSingleUse(e.target.checked)}
                     />{" "}
-                    Single-use key
+                    {t("apikeys.singleUseLabel")}
                 </label>
-                <button type="submit">{editingId !== null ? "Save Changes" : "Create API Key"}</button>
+                <button type="submit">{editingId !== null ? t("apikeys.saveChanges") : t("apikeys.create")}</button>
                 {editingId !== null && (
                     <button type="button" onClick={resetForm} style={{marginLeft: "8px"}}>
-                        Cancel
+                        {t("common.cancel")}
                     </button>
                 )}
             </form>
@@ -182,11 +185,11 @@ function APIKeyList() {
                 <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Key</th>
-                    <th>Access Rights</th>
-                    <th>Expires</th>
-                    <th>Single-use</th>
-                    <th>Actions</th>
+                    <th>{t("apikeys.key")}</th>
+                    <th>{t("apikeys.accessRights")}</th>
+                    <th>{t("apikeys.expires")}</th>
+                    <th>{t("apikeys.singleUse")}</th>
+                    <th>{t("common.actions")}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -195,14 +198,14 @@ function APIKeyList() {
                         <td>{key.id}</td>
                         <td>{key.key}</td>
                         <td>{key.access_rights.join(", ")}</td>
-                        <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : "Never"}</td>
-                        <td>{key.single_use ? "Yes" : "No"}</td>
+                        <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : t("common.never")}</td>
+                        <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
                         <td>
                             <button className="edit-btn" onClick={() => handleEdit(key)}>
-                                Edit
+                                {t("common.edit")}
                             </button>{" "}
                             <button className="delete-btn" onClick={() => handleDelete(key.id)}>
-                                Delete
+                                {t("common.delete")}
                             </button>
                         </td>
                     </tr>

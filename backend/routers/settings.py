@@ -11,6 +11,7 @@ from services.settings import (
     update_setting,
 )
 from utils.auth import get_current_user
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ def update_system_setting(
     key: str,
     request: SystemSettingRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("settings:write")),
 ):
     """Create or update one setting."""
     if key != request.key:
@@ -53,7 +54,8 @@ def update_system_setting(
 def delete_system_setting(
     key: str,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    # Managers may write settings but not delete them (see permissions map).
+    _current_user=Depends(require_permission("settings:delete")),
 ):
     """Delete one setting."""
     delete_setting(db, key)

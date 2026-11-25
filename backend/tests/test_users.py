@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 
 
-def _create_user(client, auth_headers, email, role="user"):
+def _create_user(client, auth_headers, email, role="viewer"):
     response = client.post(
         "/api/users",
         json={"email": email, "password": "userpass123", "role": role},
@@ -26,7 +26,7 @@ def test_list_users_requires_admin(client, auth_headers):
     assert response.status_code == 200
     assert len(response.json()) == 1  # only the bootstrap admin
 
-    _create_user(client, auth_headers, "plain@example.com", role="user")
+    _create_user(client, auth_headers, "plain@example.com", role="viewer")
     headers = _login(client, "plain@example.com")
     response = client.get("/api/users", headers=headers)
     assert response.status_code == 403
@@ -36,7 +36,7 @@ def test_create_user_duplicate_email_rejected(client, auth_headers):
     _create_user(client, auth_headers, "dup@example.com")
     response = client.post(
         "/api/users",
-        json={"email": "dup@example.com", "password": "userpass123", "role": "user"},
+        json={"email": "dup@example.com", "password": "userpass123", "role": "viewer"},
         headers=auth_headers,
     )
     assert response.status_code == 400

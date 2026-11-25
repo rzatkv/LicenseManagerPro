@@ -9,9 +9,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import APP_VERSION, CORS_ORIGINS
-from database import SessionLocal, create_tables, seed_settings
+from database import SessionLocal, create_tables, ensure_schema, seed_settings
 from models import User
-from routers import api_keys, auth, dashboard, licenses, settings, system, users
+from routers import (
+    api_keys,
+    auth,
+    dashboard,
+    languages,
+    licenses,
+    products,
+    settings,
+    system,
+    users,
+    webhooks,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,6 +32,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting up the application...")
     create_tables()
+    ensure_schema()
     db = SessionLocal()
     try:
         seed_settings(db)
@@ -56,6 +68,9 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["API Keys"])
 app.include_router(licenses.router, prefix="/api/licenses", tags=["Licenses"])
+app.include_router(products.router, prefix="/api/products", tags=["Products"])
+app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
+app.include_router(languages.router, prefix="/api/languages", tags=["Languages"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])

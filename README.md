@@ -12,6 +12,22 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.0.0
+
+- **Products & billing cycles:** products with monthly / quarterly / semiannual / annual / biennial / lifetime cycles; license expiry is computed automatically from the product's cycle. Licenses can still be created without a product (the old flow).
+- **CRM shell:** sidebar + topbar layout (Dashboard, Products, Licenses, API Keys, Users, Languages, API Docs, Settings, About) with a mobile hamburger menu, theme toggle and language switcher in the topbar. Navigation hides Users and Languages for roles that cannot use them.
+- **Bilingual + language management:** full English / Persian UI (RTL for Persian) with a Language Management page — built-in en/fa are read-only, custom languages can be added (cloned from English), edited key by key (grouped by section, with search) and deleted. Missing keys fall back to English.
+- **Dark / light / auto theme:** CSS-variable theming across every page; Auto follows the OS setting.
+- **Roles & permissions:** admin / manager / support / viewer, enforced on write endpoints (403 otherwise), with a permission matrix on the Users page.
+- **License locking:** allowed domains, allowed IPs and install path per license; validate checks the locks and reports a reason on mismatch.
+- **Webhooks:** per-product webhook URL, events and secret; test-webhook button, recent-deliveries list, HMAC signature verification docs, and a daily `POST /api/system/check-expiring?days=7` cron endpoint.
+- **In-app API docs:** authentication (JWT + the `api-key` header check-access endpoint), endpoint reference, cURL examples, and WHMCS / WordPress-WooCommerce PHP templates.
+- **Dashboard v2:** license-by-status donut, licenses-per-month and licenses-by-product bar charts (hand-rolled SVG, no new dependencies) plus an auto-rotating highlights slider.
+
+### Existing-database auto-migration on startup
+
+On startup the backend creates any missing tables/columns for v2.0 automatically (products, webhook deliveries, languages, and the new license fields), so an existing v1.x database keeps working — no manual migration step is needed. Back up your database before upgrading anyway, as with any release.
+
 ## Key Features
 - **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit.
 - **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, renew, and validate license keys.
@@ -47,7 +63,10 @@ LicenseManagerPro/
 │       ├── App.js           # Routes + ProtectedRoute
 │       ├── config.js        # API_BASE_URL (REACT_APP_API_URL or http://127.0.0.1:8000/api)
 │       ├── index.js         # React 18 createRoot entrypoint
-│       ├── pages/           # Login, Dashboard, Settings, LicenseList, APIKeyList, UserManagement, About
+│       ├── pages/           # Login, Dashboard, Products, Settings, LicenseList, APIKeyList, UserManagement, Languages, ApiDocs, About
+│       ├── components/      # Layout (sidebar + topbar CRM shell)
+│       ├── i18n/            # translations.js (en/fa) + LanguageContext
+│       ├── theme.js         # ThemeContext (light/dark/auto)
 │       ├── styles/
 │       └── utils/           # api.js (get/post/put/del), auth.js, updateChecker.js
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)

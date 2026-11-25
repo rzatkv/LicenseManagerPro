@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -30,6 +31,77 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class Product(Base):
+    """A sellable product; licenses link to it (v2.0)."""
+
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(50), default="active", nullable=False
+    )  # active / inactive
+    # JSON lists stored as text: e.g. ["monthly", "annual"].
+    billing_cycles: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    webhook_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    webhook_events: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    webhook_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    licenses: Mapped[list["License"]] = relationship(
+        "License", back_populates="product_obj"
+    )
+    webhook_deliveries: Mapped[list["WebhookDelivery"]] = relationship(
+        "WebhookDelivery", back_populates="product"
+    )
+
+
+class WebhookDelivery(Base):
+    """One recorded attempt to POST a webhook event to a product URL."""
+
+    __tablename__ = "webhook_deliveries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True
+    )
+    event: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    response_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    product: Mapped[Product | None] = relationship(
+        "Product", back_populates="webhook_deliveries"
+    )
+
+
+class CustomLanguage(Base):
+    """A user-added language (code + full translation map).
+
+    Built-in languages (en/fa) live in the frontend, not in this table.
+    """
+
+    __tablename__ = "custom_languages"
+
+    code: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # JSON object stored as text: {key: value, ...}.
+    translations: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
 
 
 class ApiKey(Base):
@@ -76,7 +148,17 @@ class License(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     key: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    # Legacy free-text product name, kept for backward compatibility; filled
+    # from the linked product's name when product_id is given.
     product: Mapped[str] = mapped_column(String(255), nullable=False)
+    product_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True
+    )
+    billing_cycle: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Comma-separated lock lists; empty/None means "no restriction".
+    allowed_domains: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allowed_ips: Mapped[str | None] = mapped_column(Text, nullable=True)
+    install_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     owner_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Stored status: active / inactive / revoked. "expired" is derived on read
     # when expires_at is in the past.
@@ -87,6 +169,10 @@ class License(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    product_obj: Mapped[Product | None] = relationship(
+        "Product", back_populates="licenses"
     )
 
     @property

@@ -1,23 +1,54 @@
-/* تنظیمات عمومی برای کل پروژه */
+/* Theme variables: light (:root) and dark ([data-theme="dark"]). */
+:root {
+    --bg: #f9f9f9;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --text: #222222;
+    --muted: #666666;
+    --border: #dddddd;
+    --accent: #007bff;
+    --accent-hover: #0056b3;
+    --on-accent: #ffffff;
+    --danger: #dc3545;
+    --success: #28a745;
+    --warning: #f59e0b;
+    --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    color-scheme: light;
+}
+[data-theme="dark"] {
+    --bg: #121417;
+    --surface: #1c1f24;
+    --surface-2: #262a30;
+    --text: #e8eaed;
+    --muted: #a8adb5;
+    --border: #3a3f46;
+    --accent: #4da3ff;
+    --accent-hover: #2f8bff;
+    --on-accent: #ffffff;
+    --danger: #e5534b;
+    --success: #3fb950;
+    --warning: #d29922;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+}
+
 body {
     margin: 0;
     font-family: 'Arial', sans-serif;
-    background-color: #f9f9f9;
-    color: #333;
+    background-color: var(--bg);
+    color: var(--text);
 }
 
-/* تنظیمات برای عناوین */
 h1, h2, h3 {
     margin: 0;
     padding: 0;
-    color: #2c3e50;
+    color: var(--text);
 }
 
-/* استایل عمومی دکمه‌ها */
 button {
     padding: 10px 15px;
-    background-color: #007bff;
-    color: white;
+    background-color: var(--accent);
+    color: var(--on-accent);
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -25,56 +56,88 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: var(--accent-hover);
 }
 
-/* کانتینر عمومی */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+input, select, textarea {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--muted);
+}
+
+a { color: var(--accent); }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    color: var(--text);
+}
+table th, table td {
+    border: 1px solid var(--border);
+    padding: 10px;
+    text-align: center;
+}
+table th {
+    background-color: var(--accent);
+    color: var(--on-accent);
+}
+
 .container {
     margin: 20px auto;
     padding: 20px;
     max-width: 1200px;
-    background: white;
+    background: var(--surface);
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow);
 }
 
-/* نوار بالای صفحه */
 header {
-    background-color: #007bff;
-    color: white;
+    background-color: var(--accent);
+    color: var(--on-accent);
     padding: 10px 20px;
     text-align: center;
     font-size: 24px;
 }
 
-/* استایل برای نوار کناری */
-.sidebar {
-    width: 250px;
-    background-color: #f4f4f4;
-    padding: 15px;
-    height: 100vh;
-    position: fixed;
-    left: 0;
-    top: 0;
-    border-right: 1px solid #ddd;
-}
+.error-message { color: var(--danger); text-align: center; margin-bottom: 10px; }
 
-.sidebar a {
-    display: block;
-    color: #333;
-    text-decoration: none;
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 1px 2px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    white-space: nowrap;
 }
+.badge-accent { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.badge-success { background: var(--success); color: #fff; border-color: var(--success); }
+.badge-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.badge-warning { background: var(--warning); color: #111; border-color: var(--warning); }
 
-.sidebar a:hover {
-    background-color: #ddd;
-}
-
-/* استایل برای بخش اصلی */
-.main-content {
-    margin-left: 270px;
-    padding: 20px;
+pre {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    direction: ltr;
+    text-align: left;
+    font-size: 13px;
 }

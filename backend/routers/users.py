@@ -9,6 +9,7 @@ from models import User
 from schemas import MessageResponse, UserCreateRequest, UserResponse, UserUpdateRequest
 from services import users as user_service
 from utils.auth import get_current_user, require_admin
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -31,7 +32,7 @@ def list_users(
 def create_user(
     request: UserCreateRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("users:write")),
 ):
     return user_service.create_user(request, db)
 
@@ -41,7 +42,7 @@ def update_user(
     user_id: int,
     request: UserUpdateRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("users:write")),
 ):
     return user_service.update_user(user_id, request, db)
 
@@ -50,7 +51,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("users:write")),
 ):
     user_service.delete_user(user_id, db, current_user)
     return {"message": "User deleted successfully"}

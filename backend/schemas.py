@@ -20,13 +20,13 @@ class TokenResponse(BaseModel):
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, description="At least 8 characters")
-    role: str = Field(default="admin", description="admin or user")
+    role: str = Field(default="admin", description="admin, manager, support or viewer")
 
 
 class UserCreateRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
-    role: str = Field(default="user", description="admin or user")
+    role: str = Field(default="viewer", description="admin, manager, support or viewer")
 
 
 class UserUpdateRequest(BaseModel):
@@ -102,33 +102,168 @@ class ApiKeyListResponse(BaseModel):
     api_keys: List[ApiKeyResponse]
 
 
+# --- Products (v2.0) ------------------------------------------------------
+
+BILLING_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"]
+
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    currency: str = "USD"
+    status: str = "active"
+    billing_cycles: List[str] = Field(..., description="Non-empty subset of the six cycles")
+    webhook_url: Optional[str] = None
+    webhook_events: List[str] = Field(default_factory=list)
+    webhook_secret: Optional[str] = None
+
+
+class ProductUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    status: Optional[str] = None
+    billing_cycles: Optional[List[str]] = None
+    webhook_url: Optional[str] = None
+    webhook_events: Optional[List[str]] = None
+    webhook_secret: Optional[str] = None
+
+
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    description: Optional[str] = None
+    price: Optional[float] = None
+    currency: str
+    status: str
+    billing_cycles: List[str] = Field(default_factory=list)
+    webhook_url: Optional[str] = None
+    webhook_events: List[str] = Field(default_factory=list)
+    webhook_secret: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Webhooks (v2.0) --------------------------------------------------------
+
+
+class WebhookDeliveryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: Optional[int] = None
+    event: str
+    url: str
+    status_code: Optional[int] = None
+    success: bool
+    response_body: Optional[str] = None
+    created_at: datetime
+
+
+class TestWebhookResponse(BaseModel):
+    success: bool
+    status_code: Optional[int] = None
+
+
+# --- Custom languages (v2.0) ------------------------------------------------
+
+
+class CustomLanguageListItem(BaseModel):
+    code: str
+    name: str
+
+
+class CustomLanguageUpsertRequest(BaseModel):
+    name: str
+    translations: dict = Field(default_factory=dict)
+
+
+class CustomLanguageResponse(BaseModel):
+    code: str
+    name: str
+    translations: dict = Field(default_factory=dict)
+
+
 # --- Licenses ---------------------------------------------------------------
+
+def _split_lock_list(value):
+    """Accept a comma-separated string or a list for lock fields.
+
+    The frontend sends lock fields as comma-separated strings; the API
+    also accepts a JSON list. Normalise both to a list of strings.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    return value
+
 
 class LicenseCreateRequest(BaseModel):
     key: Optional[str] = Field(
         default=None, description="License key; generated server-side when omitted"
     )
-    product: str
+    product: Optional[str] = Field(
+        default=None,
+        description="Legacy product name; filled from the product when product_id is given",
+    )
+    product_id: Optional[int] = None
+    billing_cycle: Optional[str] = Field(
+        default=None,
+        description="Required with product_id; one of the product's cycles",
+    )
+    allowed_domains: Optional[List[str]] = None
+    allowed_ips: Optional[List[str]] = None
+    install_path: Optional[str] = None
     owner_email: Optional[EmailStr] = None
     status: str = Field(default="active", description="active / inactive / revoked")
     expires_in_days: Optional[int] = Field(default=None, description="Days until expiry")
     max_activations: int = Field(default=1, ge=1)
 
+    @field_validator("allowed_domains", "allowed_ips", mode="before")
+    @classmethod
+    def _split_lock_fields(cls, value):
+        return _split_lock_list(value)
+
 
 class LicenseUpdateRequest(BaseModel):
     product: Optional[str] = None
+    product_id: Optional[int] = None
+    billing_cycle: Optional[str] = None
+    allowed_domains: Optional[List[str]] = None
+    allowed_ips: Optional[List[str]] = None
+    install_path: Optional[str] = None
     owner_email: Optional[EmailStr] = None
     status: Optional[str] = None
     expires_in_days: Optional[int] = None
     max_activations: Optional[int] = Field(default=None, ge=1)
 
+    @field_validator("allowed_domains", "allowed_ips", mode="before")
+    @classmethod
+    def _split_lock_fields(cls, value):
+        return _split_lock_list(value)
+
 
 class LicenseRenewRequest(BaseModel):
-    extend_days: int = Field(default=30, gt=0, description="Days to extend the expiry by")
+    extend_days: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description="Days to extend by; when omitted the license's billing_cycle decides",
+    )
 
 
 class LicenseValidateRequest(BaseModel):
     key: str
+    domain: Optional[str] = None
+    ip: Optional[str] = None
+    install_path: Optional[str] = None
 
 
 class LicenseResponse(BaseModel):
@@ -137,6 +272,11 @@ class LicenseResponse(BaseModel):
     id: int
     key: str
     product: str
+    product_id: Optional[int] = None
+    billing_cycle: Optional[str] = None
+    allowed_domains: List[str] = Field(default_factory=list)
+    allowed_ips: List[str] = Field(default_factory=list)
+    install_path: Optional[str] = None
     owner_email: Optional[str] = None
     status: str  # effective status (expired is derived on read)
     expires_at: Optional[datetime] = None

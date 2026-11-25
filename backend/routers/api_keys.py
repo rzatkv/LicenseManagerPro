@@ -20,6 +20,7 @@ from schemas import (
 )
 from services import api_keys as api_key_service
 from utils.auth import get_current_user
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -62,7 +63,7 @@ def list_api_keys(
 def create_api_key(
     request: AddApiKeyRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("api_keys:create")),
 ):
     """Create an API key (a random key is generated when none is supplied)."""
     return api_key_service.add_api_key(request, db)
@@ -87,7 +88,7 @@ def update_api_key(
     api_key_id: int,
     request: UpdateApiKeyRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("api_keys:write")),
 ):
     """Update an existing API key."""
     return api_key_service.update_api_key(api_key_id, request, db)
@@ -97,7 +98,7 @@ def update_api_key(
 def delete_api_key(
     api_key_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("api_keys:write")),
 ):
     api_key_service.delete_api_key(api_key_id, db)
     return {"message": "API Key deleted successfully"}

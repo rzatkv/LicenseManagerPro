@@ -6,13 +6,14 @@ from models import User
 from schemas import UserCreateRequest, UserUpdateRequest
 from utils.auth import hash_password
 
-USER_ROLES = ["admin", "user"]
+USER_ROLES = ["admin", "manager", "support", "viewer"]
 
 
 def create_user(request: UserCreateRequest, db: Session) -> User:
     if request.role not in USER_ROLES:
         raise HTTPException(
-            status_code=400, detail=f"Invalid role: {request.role} (expected admin or user)"
+            status_code=400,
+            detail=f"Invalid role: {request.role} (expected one of {USER_ROLES})",
         )
     if db.query(User).filter(User.email == request.email).first():
         raise HTTPException(status_code=400, detail="A user with this email already exists")
@@ -39,7 +40,8 @@ def update_user(user_id: int, request: UserUpdateRequest, db: Session) -> User:
     if request.role is not None:
         if request.role not in USER_ROLES:
             raise HTTPException(
-                status_code=400, detail=f"Invalid role: {request.role} (expected admin or user)"
+                status_code=400,
+                detail=f"Invalid role: {request.role} (expected one of {USER_ROLES})",
             )
         user.role = request.role
     if request.is_active is not None:

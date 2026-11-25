@@ -7,50 +7,43 @@ import LicenseList from "./pages/LicenseList";
 import APIKeyList from "./pages/APIKeyList";
 import UserManagement from "./pages/UserManagement";
 import About from "./pages/About";
+import Products from "./pages/Products";
+import Languages from "./pages/Languages";
+import ApiDocs from "./pages/ApiDocs";
+import Layout from "./components/Layout";
+import {LanguageProvider} from "./i18n";
+import {ThemeProvider} from "./theme";
 import {isAuthenticated} from "./utils/auth";
 import {DEMO_MODE} from "./config";
 
-// Redirect to the login page when no token is stored.
 function ProtectedRoute({children}) {
     return isAuthenticated() ? children : <Navigate to="/" replace/>;
 }
 
-// GitHub Pages serves static files only, so the demo build uses hash
-// routing (no server-side fallback needed). Normal builds keep
-// BrowserRouter.
 const Router = DEMO_MODE ? HashRouter : BrowserRouter;
 
 function App() {
     return (
-        <Router>
-            {DEMO_MODE && (
-                <div
-                    style={{
-                        position: "fixed",
-                        top: 8,
-                        right: 8,
-                        zIndex: 1000,
-                        background: "#f59e0b",
-                        color: "#111",
-                        fontSize: 12,
-                        fontWeight: "bold",
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                    }}
-                >
-                    Demo — sample data, stored only in your browser
-                </div>
-            )}
-            <Routes>
-                <Route path="/" element={<Login/>}/>
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/>
-                <Route path="/settings" element={<ProtectedRoute><Settings/></ProtectedRoute>}/>
-                <Route path="/licenses" element={<ProtectedRoute><LicenseList/></ProtectedRoute>}/>
-                <Route path="/api-keys" element={<ProtectedRoute><APIKeyList/></ProtectedRoute>}/>
-                <Route path="/users" element={<ProtectedRoute><UserManagement/></ProtectedRoute>}/>
-                <Route path="/about" element={<ProtectedRoute><About/></ProtectedRoute>}/>
-            </Routes>
-        </Router>
+        <ThemeProvider>
+            <LanguageProvider>
+                <Router>
+                    <Routes>
+                        <Route path="/" element={<Login/>}/>
+                        <Route element={<ProtectedRoute><Layout/></ProtectedRoute>}>
+                            <Route path="/dashboard" element={<Dashboard/>}/>
+                            <Route path="/products" element={<Products/>}/>
+                            <Route path="/licenses" element={<LicenseList/>}/>
+                            <Route path="/api-keys" element={<APIKeyList/>}/>
+                            <Route path="/users" element={<UserManagement/>}/>
+                            <Route path="/languages" element={<Languages/>}/>
+                            <Route path="/docs" element={<ApiDocs/>}/>
+                            <Route path="/settings" element={<Settings/>}/>
+                            <Route path="/about" element={<About/>}/>
+                        </Route>
+                    </Routes>
+                </Router>
+            </LanguageProvider>
+        </ThemeProvider>
     );
 }
 

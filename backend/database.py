@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from config import DATABASE_URL
@@ -60,6 +60,58 @@ def create_tables():
 
     Base.metadata.create_all(bind=engine)
     logger.info("Tables created successfully.")
+
+
+def ensure_schema():
+    """Bring pre-v2.0 databases up to the current models (no Alembic).
+
+    After create_all, inspect every mapped table and ADD COLUMN for any
+    mapped column missing from the real table. New tables are already
+    created by create_all, so only missing columns are handled here. Column
+    types are rendered through the dialect's type compiler, and new columns
+    are all nullable/simple types (String/Text/Integer/Float/Boolean/
+    DateTime) so the DDL works on both SQLite and MySQL.
+    """
+    import models  # noqa: F401
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    preparer = engine.dialect.identifier_preparer
+    with engine.begin() as conn:
+        for table in Base.metadata.tables.values():
+            if table.name not in existing_tables:
+                continue  # create_all already created it
+            existing_cols = {
+                col["name"] for col in inspector.get_columns(table.name)
+            }
+            for column in table.columns:
+                if column.name in existing_cols:
+                    continue
+                coltype = column.type.compile(dialect=engine.dialect)
+                ddl = (
+                    f"ALTER TABLE {preparer.quote(table.name)} "
+                    f"ADD COLUMN {preparer.quote(column.name)} {coltype}"
+                )
+                if not column.nullable:
+                    default = (
+                        column.default.arg
+                        if column.default is not None and column.default.arg is not None
+                        else None
+                    )
+                    if default is None:
+                        # A NOT NULL column with no default cannot be added
+                        # to a populated table; add it nullable instead and
+                        # let the application enforce the constraint.
+                        logger.warning(
+                            "Adding column %s.%s as nullable (mapped NOT NULL, no default)",
+                            table.name,
+                            column.name,
+                        )
+                    else:
+                        ddl += f" DEFAULT {default!r}"
+                logger.info("Schema migration: %s", ddl)
+                conn.execute(text(ddl)
+                )
 
 
 def seed_settings(db):

@@ -8,7 +8,7 @@
 }
 
 .error-message {
-    color: red;
+    color: var(--danger);
     text-align: center;
     margin-bottom: 10px;
 }
@@ -20,25 +20,25 @@ table {
 
 table th,
 table td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     padding: 10px;
     text-align: center;
 }
 
 table th {
-    background-color: #007bff;
-    color: white;
+    background-color: var(--accent);
+    color: var(--surface);
 }
 
 table .delete-btn {
     padding: 5px 10px;
-    background-color: #dc3545;
-    color: white;
+    background-color: var(--danger);
+    color: var(--surface);
     border: none;
     border-radius: 5px;
     cursor: pointer;
 }
 
 table .delete-btn:hover {
-    background-color: #c82333;
+    background-color: var(--danger);
 }

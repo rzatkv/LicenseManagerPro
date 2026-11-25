@@ -17,12 +17,12 @@
 
 .filter-container select {
     padding: 5px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 5px;
 }
 
 .error-message {
-    color: red;
+    color: var(--danger);
     text-align: center;
     margin-bottom: 10px;
 }
@@ -34,38 +34,47 @@ table {
 
 table th,
 table td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     padding: 10px;
     text-align: center;
 }
 
 table th {
-    background-color: #007bff;
-    color: white;
+    background-color: var(--accent);
+    color: var(--surface);
 }
 
 table .view-btn {
     padding: 5px 10px;
-    background-color: #28a745;
-    color: white;
+    background-color: var(--success);
+    color: var(--surface);
     border: none;
     border-radius: 5px;
     cursor: pointer;
 }
 
 table .view-btn:hover {
-    background-color: #218838;
+    background-color: var(--success);
 }
 
 table .delete-btn {
     padding: 5px 10px;
-    background-color: #dc3545;
-    color: white;
+    background-color: var(--danger);
+    color: var(--surface);
     border: none;
     border-radius: 5px;
     cursor: pointer;
 }
 
 table .delete-btn:hover {
-    background-color: #c82333;
+    background-color: var(--danger);
 }
+.hint { color: var(--muted); font-size: 12px; display: block; }
+.validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+.validate-form h4 { width: 100%; margin: 0; color: var(--text); }
+.validate-form input { flex: 1; min-width: 140px; }
+.license-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; color: var(--text); }
+.validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.dashboard-empty { text-align: center; color: var(--muted); }
+.add-license-form { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.add-license-form input, .add-license-form select { width: 100%; box-sizing: border-box; }

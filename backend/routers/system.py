@@ -7,14 +7,16 @@ see the README.
 """
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
 from schemas import CheckUpdatesResponse, MessageResponse, SystemInfoResponse
+from services import webhooks as webhook_service
 from services.settings import get_all_settings, update_setting
 from utils.auth import require_admin
+from utils.permissions import require_admin_or_manager
 
 router = APIRouter()
 
@@ -62,3 +64,19 @@ def apply_update(
     update_setting(db, "app_version", latest)
     update_setting(db, "last_updated", date.today().isoformat())
     return {"message": f"System updated to version {latest}"}
+
+
+@router.post("/check-expiring", response_model=dict)
+def check_expiring(
+    days: int = Query(default=7, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _current_user=Depends(require_admin_or_manager),
+):
+    """Scan for expiring/expired licenses and fire their webhooks.
+
+    Fires license.expiring for active licenses expiring within `days` days
+    and license.expired for active licenses whose expiry already passed.
+    Only licenses whose product has a webhook_url configured produce a
+    delivery (and are counted). Intended to be called daily, e.g. by cron.
+    """
+    return webhook_service.check_expiring_licenses(db, days=days)

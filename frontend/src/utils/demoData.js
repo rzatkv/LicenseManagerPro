@@ -1,7 +1,7 @@
 import {DEMO_MODE} from "../config";
 
 /**
- * Demo backend: an in-browser mock of the real FastAPI API.
+ * Demo backend: an in-browser mock of the real FastAPI API (v2.0).
  *
  * Active only when the app is built with REACT_APP_DEMO_MODE=true
  * (the GitHub Pages demo). Data lives in localStorage so creates and
@@ -11,7 +11,7 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v2";
+const STORAGE_KEY = "lmp-demo-db-v3";
 const ACCESS_RIGHTS = [
     "create_license",
     "edit_license",
@@ -23,6 +23,10 @@ const ACCESS_RIGHTS = [
     "change_access_key",
     "create_temporary_access_key",
 ];
+export const BILLING_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"];
+export const CYCLE_MONTHS = {monthly: 1, quarterly: 3, semiannual: 6, annual: 12, biennial: 24, lifetime: null};
+export const WEBHOOK_EVENTS = ["license.created", "license.renewed", "license.revoked", "license.expiring", "license.expired", "license.validated_failed"];
+export const ROLES = ["admin", "manager", "support", "viewer"];
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -37,6 +41,23 @@ const isoDaysAgo = (days) => {
     d.setDate(d.getDate() - days);
     return d.toISOString();
 };
+
+// Add whole calendar months (same rule as the backend: Jan 31 + 1 month -> Feb 28).
+function addMonths(date, months) {
+    const d = new Date(date);
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + months);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, last));
+    return d;
+}
+
+function expiryForCycle(cycle, from) {
+    const months = CYCLE_MONTHS[cycle];
+    if (months == null) return null; // lifetime
+    return addMonths(from || new Date(), months).toISOString();
+}
 
 const randomToken = (length) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -55,35 +76,84 @@ const randomLicenseKey = () => {
     return `LIC-${group()}-${group()}-${group()}`;
 };
 
+const splitList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    return String(value).split(",").map((v) => v.trim()).filter(Boolean);
+};
+
 function seed() {
     const now = new Date().toISOString();
+    const products = [
+        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
+        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
+        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
+    ];
+    const lic = (id, productId, product, owner, status, expires, created, extra) => ({
+        id, key: randomLicenseKey(), product, product_id: productId,
+        billing_cycle: productId === 1 ? "annual" : productId === 2 ? "monthly" : "annual",
+        owner_email: owner, status, expires_at: expires, max_activations: 5, activations: 1,
+        allowed_domains: [], allowed_ips: [], install_path: null,
+        created_at: created, updated_at: created, ...(extra || {}),
+    });
     return {
         users: [
             {id: 1, email: "demo@demo.com", role: "admin", is_active: true, created_at: isoDaysAgo(30)},
-            {id: 2, email: "sara@example.com", role: "user", is_active: true, created_at: isoDaysAgo(12)},
-            {id: 3, email: "ops@example.com", role: "user", is_active: true, created_at: isoDaysAgo(5)},
+            {id: 2, email: "manager@demo.com", role: "manager", is_active: true, created_at: isoDaysAgo(12)},
+            {id: 3, email: "support@demo.com", role: "support", is_active: true, created_at: isoDaysAgo(5)},
+            {id: 4, email: "viewer@demo.com", role: "viewer", is_active: true, created_at: isoDaysAgo(3)},
         ],
+        currentUserId: 1,
+        products,
         licenses: [
-            {id: 1, key: "LIC-7F3A-9K2M-4Q8D", product: "Acme CRM", owner_email: "acme@example.com", status: "active", expires_at: isoDaysFromNow(200), max_activations: 10, activations: 3, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
-            {id: 2, key: "LIC-2B8E-5T6Y-1W3R", product: "PhotoPro", owner_email: "studio@example.com", status: "active", expires_at: isoDaysFromNow(30), max_activations: 5, activations: 1, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(1)},
-            {id: 3, key: "LIC-9D1C-3H7J-8M5K", product: "Acme CRM", owner_email: "acme@example.com", status: "inactive", expires_at: isoDaysAgo(10), max_activations: 10, activations: 0, created_at: isoDaysAgo(45), updated_at: isoDaysAgo(10)},
-            {id: 4, key: "LIC-4P6Q-2Z9X-7V1N", product: "InvoiceFlow", owner_email: "billing@example.com", status: "active", expires_at: isoDaysFromNow(365), max_activations: 1, activations: 0, created_at: now, updated_at: now},
-            {id: 5, key: "LIC-8M3S-6F4D-2K9P", product: "PhotoPro", owner_email: "studio@example.com", status: "active", expires_at: isoDaysFromNow(120), max_activations: 5, activations: 2, created_at: isoDaysAgo(3), updated_at: isoDaysAgo(3)},
+            lic(1, 1, "CloudPanel Pro", "acme@example.com", "active", isoDaysFromNow(200), isoDaysAgo(30), {billing_cycle: "annual", allowed_domains: ["acme.example.com"], activations: 3, max_activations: 10}),
+            lic(2, 1, "CloudPanel Pro", "studio@example.com", "active", isoDaysFromNow(30), isoDaysAgo(20), {billing_cycle: "quarterly", allowed_domains: ["studio.example.com"], allowed_ips: ["203.0.113.10"]}),
+            lic(3, 2, "CRM Suite", "acme@example.com", "inactive", isoDaysAgo(10), isoDaysAgo(45), {billing_cycle: "monthly"}),
+            lic(4, 3, "HelpDesk", "billing@example.com", "active", isoDaysFromNow(365), now, {billing_cycle: "annual", install_path: "/var/www/html"}),
+            lic(5, 2, "CRM Suite", "studio@example.com", "active", isoDaysFromNow(120), isoDaysAgo(3), {billing_cycle: "semiannual", activations: 2}),
+            lic(6, 1, "CloudPanel Pro", "ops@example.com", "active", null, isoDaysAgo(10), {billing_cycle: "lifetime", activations: 0}),
+            lic(7, 3, "HelpDesk", "help@example.com", "active", isoDaysFromNow(15), isoDaysAgo(2), {billing_cycle: "monthly", allowed_domains: ["help.example.com"]}),
+            lic(8, 2, "CRM Suite", "sales@example.com", "active", isoDaysFromNow(60), isoDaysAgo(1), {billing_cycle: "annual"}),
         ],
         apiKeys: [
             {id: 1, key: "lmp_demo_A1b2C3d4E5f6G7h8", access_rights: ["create_license", "get_license_info", "renew_license"], expires_at: isoDaysFromNow(90), associated_ip: null, associated_domain: null, associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(30)},
             {id: 2, key: "lmp_demo_X9y8Z7w6V5u4T3s2", access_rights: ["get_license_info"], expires_at: null, associated_ip: null, associated_domain: null, associated_directory: null, single_use: true, consumed: false, created_at: isoDaysAgo(12)},
             {id: 3, key: "lmp_demo_M4n5B6v7C8x9Z0a1", access_rights: [...ACCESS_RIGHTS], expires_at: isoDaysFromNow(365), associated_ip: null, associated_domain: "example.com", associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(5)},
         ],
+        languages: [
+            {code: "en", name: "English", builtin: true, translations: {}},
+            {code: "fa", name: "فارسی", builtin: true, translations: {}},
+            {code: "de", name: "Deutsch (sample)", builtin: false, translations: {
+                "common.appName": "License Manager Pro",
+                "nav.dashboard": "Dashboard",
+                "nav.products": "Produkte",
+                "nav.licenses": "Lizenzen",
+                "nav.apiKeys": "API-Schlüssel",
+                "nav.users": "Benutzer",
+                "nav.settings": "Einstellungen",
+                "nav.about": "Über",
+                "common.save": "Speichern",
+                "common.cancel": "Abbrechen",
+                "common.delete": "Löschen",
+                "login.title": "Anmelden",
+                "login.button": "Anmelden",
+            }},
+        ],
+        deliveries: [
+            {id: 1, product_id: 1, event: "license.created", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(1)},
+            {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
+        ],
         settings: {
-            app_version: "1.2.0",
-            latest_version: "1.2.0",
+            app_version: "2.0.0",
+            latest_version: "2.0.0",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
         },
-        nextLicenseId: 6,
+        nextLicenseId: 9,
         nextApiKeyId: 4,
-        nextUserId: 4,
+        nextUserId: 5,
+        nextProductId: 4,
+        nextDeliveryId: 3,
     };
 }
 
@@ -93,18 +163,24 @@ function loadDb() {
         if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && Array.isArray(parsed.licenses)) {
+                // Migrate a v2-shaped DB forward if it ever lands under v3 key.
+                if (!parsed.products) {
+                    const fresh = seed();
+                    parsed.products = fresh.products;
+                    parsed.languages = fresh.languages;
+                    parsed.deliveries = fresh.deliveries;
+                    parsed.nextProductId = fresh.nextProductId;
+                    parsed.nextDeliveryId = fresh.nextDeliveryId;
+                    parsed.currentUserId = parsed.currentUserId || 1;
+                }
                 return parsed;
             }
         }
-    } catch (e) {
-        // Corrupt demo data: fall through to a fresh seed.
-    }
+    } catch (e) {}
     const fresh = seed();
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-    } catch (e) {
-        // Storage unavailable (private mode): keep it in memory only.
-    }
+    } catch (e) {}
     return fresh;
 }
 
@@ -113,12 +189,9 @@ let db = loadDb();
 function save() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    } catch (e) {
-        // Ignore storage failures in demo mode.
-    }
+    } catch (e) {}
 }
 
-/** Restore the original sample data (used by the demo's reset affordance). */
 export function resetDemoData() {
     db = seed();
     save();
@@ -129,6 +202,19 @@ function fail(status, message) {
     const error = new Error(message);
     error.status = status;
     throw error;
+}
+
+function currentUser() {
+    return db.users.find((u) => u.id === db.currentUserId) || db.users[0];
+}
+
+// Role enforcement mirroring the backend: viewer is read-only, support
+// cannot delete or manage products/users/settings, manager cannot manage users.
+function requireRole(allowed) {
+    const role = currentUser().role;
+    if (!allowed.includes(role)) {
+        fail(403, `Role '${role}' is not allowed to perform this action`);
+    }
 }
 
 function effectiveStatus(license) {
@@ -142,25 +228,36 @@ function withEffectiveStatus(license) {
     return {...license, status: effectiveStatus(license)};
 }
 
-/**
- * Handle one mock API call. `endpoint` is the path the real frontend
- * would send (e.g. "/licenses?filter=active"). Returns the same JSON
- * shapes the FastAPI backend returns.
- */
+function recordDelivery(productId, event, url) {
+    const delivery = {
+        id: db.nextDeliveryId++,
+        product_id: productId,
+        event,
+        url: url || null,
+        status_code: 200,
+        success: true,
+        created_at: new Date().toISOString(),
+    };
+    db.deliveries.unshift(delivery);
+    return delivery;
+}
+
 export async function mockRequest(method, endpoint, body) {
-    // A short pause so the demo feels like a real round trip.
     await delay(250);
 
     const [path, queryString] = endpoint.split("?");
     const query = new URLSearchParams(queryString || "");
-    const parts = path.split("/").filter(Boolean); // e.g. ["licenses", "3"]
+    const parts = path.split("/").filter(Boolean);
 
     // ---- Auth -------------------------------------------------------------
     if (method === "POST" && path === "/auth/login") {
+        const match = db.users.find((u) => u.email === (body && body.email));
+        db.currentUserId = match ? match.id : 1;
+        save();
         return {access_token: "demo-token", token_type: "bearer"};
     }
     if (method === "GET" && path === "/users/me") {
-        return {...db.users[0]};
+        return {...currentUser()};
     }
 
     // ---- Dashboard ----------------------------------------------------------
@@ -174,16 +271,95 @@ export async function mockRequest(method, endpoint, body) {
         };
     }
 
+    // ---- Products -----------------------------------------------------------
+    if (parts[0] === "products") {
+        if (method === "GET" && parts.length === 1) {
+            return db.products.map((p) => ({
+                ...p,
+                license_count: db.licenses.filter((l) => l.product_id === p.id).length,
+            }));
+        }
+        if (method === "POST" && parts.length === 1) {
+            requireRole(["admin", "manager"]);
+            if (!body || !body.name) fail(400, "Product name is required");
+            const cycles = (body.billing_cycles || []).filter((c) => BILLING_CYCLES.includes(c));
+            const created = {
+                id: db.nextProductId++,
+                name: body.name,
+                slug: body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+                description: body.description || null,
+                price: Number(body.price) || 0,
+                currency: body.currency || "USD",
+                status: body.status || "active",
+                billing_cycles: cycles,
+                webhook_url: body.webhook_url || null,
+                webhook_events: (body.webhook_events || []).filter((e) => WEBHOOK_EVENTS.includes(e)),
+                webhook_secret: body.webhook_secret || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            db.products.push(created);
+            save();
+            return {...created, license_count: 0};
+        }
+        if (parts.length === 3 && parts[2] === "test-webhook" && /^\d+$/.test(parts[1])) {
+            requireRole(["admin", "manager"]);
+            const product = db.products.find((p) => p.id === Number(parts[1]));
+            if (!product) fail(404, "Product not found");
+            if (!product.webhook_url) fail(400, "Product has no webhook URL configured");
+            recordDelivery(product.id, "license.created", product.webhook_url);
+            save();
+            return {success: true, status_code: 200};
+        }
+        if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+            const id = Number(parts[1]);
+            const product = db.products.find((p) => p.id === id);
+            if (!product) fail(404, "Product not found");
+            if (method === "GET") {
+                return {...product, license_count: db.licenses.filter((l) => l.product_id === id).length};
+            }
+            if (method === "PUT") {
+                requireRole(["admin", "manager"]);
+                Object.assign(product, body || {}, {updated_at: new Date().toISOString()});
+                if (body && body.billing_cycles) {
+                    product.billing_cycles = body.billing_cycles.filter((c) => BILLING_CYCLES.includes(c));
+                }
+                save();
+                return {...product, license_count: db.licenses.filter((l) => l.product_id === id).length};
+            }
+            if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
+                if (db.licenses.some((l) => l.product_id === id)) {
+                    fail(400, "Cannot delete product: licenses still reference this product");
+                }
+                db.products = db.products.filter((p) => p.id !== id);
+                save();
+                return {message: "Product deleted"};
+            }
+        }
+    }
+
+    // ---- Webhook deliveries -------------------------------------------------
+    if (parts[0] === "webhooks" && parts[1] === "deliveries" && method === "GET") {
+        const productId = query.get("product_id");
+        const limit = Number(query.get("limit")) || 50;
+        let list = [...db.deliveries];
+        if (productId) list = list.filter((d) => d.product_id === Number(productId));
+        return list.slice(0, limit);
+    }
+
     // ---- Licenses -----------------------------------------------------------
     if (parts[0] === "licenses") {
         if (method === "GET" && parts.length === 1) {
             const filter = query.get("filter") || "all";
+            const productFilter = query.get("product");
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const startOfWeek = new Date(startOfToday);
             startOfWeek.setDate(startOfWeek.getDate() - 6);
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
             let list = db.licenses.map(withEffectiveStatus);
+            if (productFilter) list = list.filter((l) => String(l.product_id) === String(productFilter));
             if (filter === "active") list = list.filter((l) => l.status === "active");
             if (filter === "inactive") list = list.filter((l) => l.status !== "active");
             if (filter === "daily") list = list.filter((l) => new Date(l.created_at) >= startOfToday);
@@ -192,23 +368,42 @@ export async function mockRequest(method, endpoint, body) {
             return list;
         }
         if (method === "POST" && parts.length === 1) {
-            if (!body || !body.product) {
-                fail(400, "Product name is required");
+            requireRole(["admin", "manager", "support"]);
+            const productId = body && body.product_id ? Number(body.product_id) : null;
+            let product = null;
+            let expiresAt = null;
+            let cycle = (body && body.billing_cycle) || null;
+            if (productId) {
+                product = db.products.find((p) => p.id === productId);
+                if (!product) fail(400, "Product not found");
+                if (!cycle || !product.billing_cycles.includes(cycle)) {
+                    fail(400, "billing_cycle must be one of the product's billing cycles");
+                }
+                expiresAt = expiryForCycle(cycle, new Date());
+            } else {
+                if (!body || !body.product) fail(400, "Product name is required");
+                const days = Number(body.expires_in_days) || 365;
+                expiresAt = isoDaysFromNow(days);
             }
-            const days = Number(body.expires_in_days) || 365;
             const created = {
                 id: db.nextLicenseId++,
-                key: randomLicenseKey(),
-                product: body.product,
-                owner_email: body.owner_email || null,
+                key: (body && body.key) || randomLicenseKey(),
+                product: product ? product.name : body.product,
+                product_id: productId,
+                billing_cycle: cycle,
+                owner_email: (body && body.owner_email) || null,
                 status: "active",
-                expires_at: isoDaysFromNow(days),
-                max_activations: Number(body.max_activations) || 1,
+                expires_at: expiresAt,
+                max_activations: Number(body && body.max_activations) || 1,
                 activations: 0,
+                allowed_domains: splitList(body && body.allowed_domains),
+                allowed_ips: splitList(body && body.allowed_ips),
+                install_path: (body && body.install_path) || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
             db.licenses.unshift(created);
+            if (product && product.webhook_url) recordDelivery(product.id, "license.created", product.webhook_url);
             save();
             return {...created};
         }
@@ -218,25 +413,42 @@ export async function mockRequest(method, endpoint, body) {
             if (!license) fail(404, "License not found");
             if (method === "GET") return withEffectiveStatus(license);
             if (method === "PUT") {
-                Object.assign(license, body || {}, {updated_at: new Date().toISOString()});
+                requireRole(["admin", "manager", "support"]);
+                const updates = {...(body || {})};
+                if (updates.allowed_domains !== undefined) updates.allowed_domains = splitList(updates.allowed_domains);
+                if (updates.allowed_ips !== undefined) updates.allowed_ips = splitList(updates.allowed_ips);
+                Object.assign(license, updates, {updated_at: new Date().toISOString()});
                 save();
                 return withEffectiveStatus(license);
             }
             if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
                 db.licenses = db.licenses.filter((l) => l.id !== id);
                 save();
                 return {message: "License deleted"};
             }
         }
         if (method === "POST" && parts.length === 3 && parts[2] === "renew" && /^\d+$/.test(parts[1])) {
+            requireRole(["admin", "manager", "support"]);
             const id = Number(parts[1]);
             const license = db.licenses.find((l) => l.id === id);
             if (!license) fail(404, "License not found");
-            const days = Number((body && (body.extend_days ?? body.days))) || 365;
             const base = license.expires_at && new Date(license.expires_at) > new Date()
                 ? new Date(license.expires_at)
                 : new Date();
-            base.setDate(base.getDate() + days);
+            if (body && body.extend_days != null) {
+                base.setDate(base.getDate() + Number(body.extend_days));
+            } else if (license.billing_cycle) {
+                const months = CYCLE_MONTHS[license.billing_cycle];
+                if (months == null) fail(400, "Lifetime licenses do not expire and cannot be renewed");
+                license.expires_at = addMonths(base, months).toISOString();
+                license.status = "active";
+                license.updated_at = new Date().toISOString();
+                save();
+                return withEffectiveStatus(license);
+            } else {
+                base.setDate(base.getDate() + 365);
+            }
             license.expires_at = base.toISOString();
             license.status = "active";
             license.updated_at = new Date().toISOString();
@@ -246,9 +458,24 @@ export async function mockRequest(method, endpoint, body) {
         if (method === "POST" && parts.length === 2 && parts[1] === "validate") {
             const found = db.licenses.find((l) => l.key === (body && body.key));
             if (!found) return {valid: false, detail: "License key not found", reason: "License key not found", license: null};
+            const failWith = (reason) => {
+                const product = found.product_id ? db.products.find((p) => p.id === found.product_id) : null;
+                if (product && product.webhook_url) recordDelivery(product.id, "license.validated_failed", product.webhook_url);
+                save();
+                return {valid: false, detail: reason, reason, license: withEffectiveStatus(found)};
+            };
             const status = effectiveStatus(found);
-            const detail = status === "active" ? "License is valid" : `License is ${status}`;
-            return {valid: status === "active", detail, reason: detail, license: withEffectiveStatus(found)};
+            if (status !== "active") return failWith(`License is ${status}`);
+            if (body && body.domain && found.allowed_domains && found.allowed_domains.length && !found.allowed_domains.includes(body.domain)) {
+                return failWith(`Domain ${body.domain} is not allowed for this license`);
+            }
+            if (body && body.ip && found.allowed_ips && found.allowed_ips.length && !found.allowed_ips.includes(body.ip)) {
+                return failWith(`IP ${body.ip} is not allowed for this license`);
+            }
+            if (body && body.install_path && found.install_path && found.install_path !== body.install_path) {
+                return failWith(`Install path ${body.install_path} does not match this license`);
+            }
+            return {valid: true, detail: "License is valid", reason: "License is valid", license: withEffectiveStatus(found)};
         }
     }
 
@@ -261,16 +488,13 @@ export async function mockRequest(method, endpoint, body) {
             return {valid: true, access_rights: ["get_license_info"], message: "Demo key is valid"};
         }
         if (method === "POST" && parts.length === 1) {
+            requireRole(["admin", "manager", "support"]);
             const rights = (body && body.access_rights) || [];
             for (const right of rights) {
-                if (!ACCESS_RIGHTS.includes(right)) {
-                    fail(400, `Invalid access right: ${right}`);
-                }
+                if (!ACCESS_RIGHTS.includes(right)) fail(400, `Invalid access right: ${right}`);
             }
             const key = (body && body.key) || `lmp_${randomToken(32)}`;
-            if (db.apiKeys.some((k) => k.key === key)) {
-                fail(400, "API Key already exists");
-            }
+            if (db.apiKeys.some((k) => k.key === key)) fail(400, "API Key already exists");
             const created = {
                 id: db.nextApiKeyId++,
                 key,
@@ -293,17 +517,14 @@ export async function mockRequest(method, endpoint, body) {
             if (!key) fail(404, "API Key not found");
             if (method === "GET") return {...key};
             if (method === "PUT") {
+                requireRole(["admin", "manager", "support"]);
                 if (body && body.access_rights) {
                     for (const right of body.access_rights) {
-                        if (!ACCESS_RIGHTS.includes(right)) {
-                            fail(400, `Invalid access right: ${right}`);
-                        }
+                        if (!ACCESS_RIGHTS.includes(right)) fail(400, `Invalid access right: ${right}`);
                     }
                     key.access_rights = body.access_rights;
                 }
-                if (body && body.expires_in_days != null) {
-                    key.expires_at = isoDaysFromNow(Number(body.expires_in_days));
-                }
+                if (body && body.expires_in_days != null) key.expires_at = isoDaysFromNow(Number(body.expires_in_days));
                 for (const field of ["associated_ip", "associated_domain", "associated_directory", "single_use"]) {
                     if (body && body[field] !== undefined) key[field] = body[field];
                 }
@@ -311,6 +532,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {...key};
             }
             if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
                 db.apiKeys = db.apiKeys.filter((k) => k.id !== id);
                 save();
                 return {message: "API Key deleted"};
@@ -324,17 +546,15 @@ export async function mockRequest(method, endpoint, body) {
             return db.users.map((u) => ({...u}));
         }
         if (method === "POST" && parts.length === 1) {
+            requireRole(["admin"]);
             if (!body || !body.email) fail(400, "Email is required");
-            if (!body.password || body.password.length < 8) {
-                fail(400, "Password must be at least 8 characters");
-            }
-            if (db.users.some((u) => u.email === body.email)) {
-                fail(400, "User already exists");
-            }
+            if (!body.password || body.password.length < 8) fail(400, "Password must be at least 8 characters");
+            if (!ROLES.includes(body.role || "viewer")) fail(400, `Invalid role: ${body.role}`);
+            if (db.users.some((u) => u.email === body.email)) fail(400, "User already exists");
             const created = {
                 id: db.nextUserId++,
                 email: body.email,
-                role: body.role || "user",
+                role: body.role || "viewer",
                 is_active: true,
                 created_at: new Date().toISOString(),
             };
@@ -347,18 +567,62 @@ export async function mockRequest(method, endpoint, body) {
             const user = db.users.find((u) => u.id === id);
             if (!user) fail(404, "User not found");
             if (method === "PUT") {
+                requireRole(["admin"]);
+                if (body && body.role && !ROLES.includes(body.role)) fail(400, `Invalid role: ${body.role}`);
                 Object.assign(user, body || {});
                 save();
                 return {...user};
             }
             if (method === "DELETE") {
+                requireRole(["admin"]);
                 const admins = db.users.filter((u) => u.role === "admin");
-                if (user.role === "admin" && admins.length <= 1) {
-                    fail(400, "Cannot delete the last admin");
-                }
+                if (user.role === "admin" && admins.length <= 1) fail(400, "Cannot delete the last admin");
                 db.users = db.users.filter((u) => u.id !== id);
                 save();
                 return {message: "User deleted"};
+            }
+        }
+    }
+
+    // ---- Languages ----------------------------------------------------------
+    if (parts[0] === "languages") {
+        if (method === "GET" && parts.length === 1) {
+            return db.languages.map((l) => ({code: l.code, name: l.name}));
+        }
+        if (method === "POST" && parts.length === 1) {
+            requireRole(["admin", "manager"]);
+            if (!body || !body.code) fail(400, "Language code is required");
+            if (db.languages.some((l) => l.code === body.code)) fail(400, "Language already exists");
+            const created = {code: body.code, name: body.name || body.code, builtin: false, translations: (body.translations || {})};
+            db.languages.push(created);
+            save();
+            return {...created};
+        }
+        if (parts.length === 2) {
+            const code = decodeURIComponent(parts[1]);
+            let lang = db.languages.find((l) => l.code === code);
+            if (!lang && method === "PUT") {
+                // PUT upserts: the Languages page creates a language this way.
+                requireRole(["admin", "manager"]);
+                lang = {code, name: (body && body.name) || code, builtin: false, translations: {}};
+                db.languages.push(lang);
+            }
+            if (!lang) fail(404, "Language not found");
+            if (method === "GET") return {code: lang.code, name: lang.name, translations: {...lang.translations}};
+            if (method === "PUT") {
+                requireRole(["admin", "manager"]);
+                if (lang.builtin) fail(400, "Built-in languages cannot be edited");
+                if (body && body.name) lang.name = body.name;
+                if (body && body.translations) lang.translations = {...body.translations};
+                save();
+                return {code: lang.code, name: lang.name, translations: {...lang.translations}};
+            }
+            if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
+                if (lang.builtin) fail(400, "Built-in languages cannot be deleted");
+                db.languages = db.languages.filter((l) => l.code !== code);
+                save();
+                return {message: "Language deleted"};
             }
         }
     }
@@ -375,11 +639,13 @@ export async function mockRequest(method, endpoint, body) {
                 return {key, value: db.settings[key]};
             }
             if (method === "PUT") {
+                requireRole(["admin", "manager"]);
                 db.settings[key] = String(body && body.value !== undefined ? body.value : "");
                 save();
                 return {key, value: db.settings[key]};
             }
             if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
                 if (!(key in db.settings)) fail(404, "Setting not found");
                 delete db.settings[key];
                 save();
@@ -396,10 +662,27 @@ export async function mockRequest(method, endpoint, body) {
         return {updateAvailable: db.settings.latest_version !== db.settings.app_version};
     }
     if (method === "POST" && path === "/system/update") {
+        requireRole(["admin", "manager"]);
         db.settings.app_version = db.settings.latest_version;
         db.settings.last_updated = new Date().toISOString().slice(0, 10);
         save();
         return {message: "System updated successfully", version: db.settings.app_version};
+    }
+    if (method === "POST" && path === "/system/check-expiring") {
+        requireRole(["admin", "manager"]);
+        const days = Number(query.get("days")) || 7;
+        const horizon = new Date();
+        horizon.setDate(horizon.getDate() + days);
+        const now = new Date();
+        let expiring = 0;
+        let expired = 0;
+        for (const lic of db.licenses) {
+            if (!lic.expires_at) continue;
+            const exp = new Date(lic.expires_at);
+            if (exp < now) expired += 1;
+            else if (exp <= horizon && lic.status === "active") expiring += 1;
+        }
+        return {expiring_notified: expiring, expired_notified: expired};
     }
 
     fail(404, `Demo API has no route ${method} ${path}`);

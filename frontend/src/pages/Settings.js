@@ -1,10 +1,12 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {get, put, del} from "../utils/api";
+import {useLanguage} from "../i18n";
 import {DEMO_MODE} from "../config";
 import {resetDemoData} from "../utils/demoData";
 import "../styles/Settings.css";
 
 function Settings() {
+    const {t} = useLanguage();
     const [settings, setSettings] = useState({});
     const [updateMessage, setUpdateMessage] = useState("");
     const [error, setError] = useState("");
@@ -33,7 +35,7 @@ function Settings() {
         try {
             await put(`/settings/${key}`, {key, value});
             setSettings((prev) => ({...prev, [key]: value}));
-            flash("Settings updated successfully!");
+            flash(t("settings.updated"));
         } catch (err) {
             console.error("Failed to update settings.");
         }
@@ -43,7 +45,7 @@ function Settings() {
         e.preventDefault();
         const key = newKey.trim();
         if (!key) {
-            setError("Setting key is required.");
+            setError(t("settings.keyRequired"));
             return;
         }
         try {
@@ -80,32 +82,32 @@ function Settings() {
 
     return (
         <div className="settings-container">
-            <h1>System Settings</h1>
+            <h1>{t("settings.title")}</h1>
             {updateMessage && <p className="update-message">{updateMessage}</p>}
             {error && <div className="error-message">{error}</div>}
             <form className="add-setting-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
-                <h3>Create Setting</h3>
+                <h3>{t("settings.create")}</h3>
                 <input
                     type="text"
-                    placeholder="Setting key"
+                    placeholder={t("settings.keyPlaceholder")}
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value)}
                     required
                 />
                 <input
                     type="text"
-                    placeholder="Setting value"
+                    placeholder={t("settings.valuePlaceholder")}
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
                 />
-                <button type="submit">Create Setting</button>
+                <button type="submit">{t("settings.createButton")}</button>
             </form>
             <table>
                 <thead>
                 <tr>
-                    <th>Setting</th>
-                    <th>Value</th>
-                    <th>Action</th>
+                    <th>{t("settings.setting")}</th>
+                    <th>{t("settings.value")}</th>
+                    <th>{t("common.actions")}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -121,10 +123,10 @@ function Settings() {
                         </td>
                         <td>
                             <button onClick={() => handleUpdate(key, settings[key])}>
-                                Update
+                                {t("common.update")}
                             </button>{" "}
                             <button className="delete-btn" onClick={() => handleDelete(key)}>
-                                Delete
+                                {t("common.delete")}
                             </button>
                         </td>
                     </tr>
@@ -133,8 +135,8 @@ function Settings() {
             </table>
             {DEMO_MODE && (
                 <div style={{marginTop: "24px", textAlign: "center"}}>
-                    <button onClick={handleResetDemo}>Reset demo data</button>
-                    <p>Restores the original sample licenses, API keys, users and settings.</p>
+                    <button onClick={handleResetDemo}>{t("settings.resetDemo")}</button>
+                    <p>{t("settings.resetDemoHint")}</p>
                 </div>
             )}
         </div>
