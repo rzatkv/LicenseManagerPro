@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {getList} from "../utils/api";
+import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import Pagination from "../components/Pagination";
@@ -11,7 +12,7 @@ const PAGE_SIZE = 10;
 const ENTITIES = ["license", "product", "user", "api_key", "setting"];
 
 function AuditLogs() {
-  const {t} = useLanguage();
+  const {t, lang} = useLanguage();
   const {toast} = useToast();
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
@@ -96,6 +97,7 @@ function AuditLogs() {
         <EmptyState title={t("audit.noLogs")} text={t("common.noResults")} />
       ) : (
         <>
+          <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -110,7 +112,7 @@ function AuditLogs() {
             <tbody>
               {filtered.map((log, i) => (
                 <tr key={log.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
-                  <td>{log.created_at ? new Date(log.created_at).toLocaleString() : "-"}</td>
+                  <td className="nowrap">{log.created_at ? formatDateTime(log.created_at, lang) : "-"}</td>
                   <td>{log.actor_email}</td>
                   <td><span className="badge badge-accent">{log.action}</span></td>
                   <td>{entityLabel(log.entity)}</td>
@@ -120,6 +122,7 @@ function AuditLogs() {
               ))}
             </tbody>
           </table>
+          </div>
           <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}

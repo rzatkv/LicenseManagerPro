@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {getList, post, put, del} from "../utils/api";
+import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -24,7 +25,7 @@ const ALL_ACCESS_RIGHTS = [
 ];
 
 function APIKeyList() {
-    const {t} = useLanguage();
+    const {t, lang} = useLanguage();
     const {toast} = useToast();
     const [apiKeys, setApiKeys] = useState([]);
     const [total, setTotal] = useState(0);
@@ -157,7 +158,7 @@ function APIKeyList() {
                 />
                 <div>
                     {ALL_ACCESS_RIGHTS.map((right) => (
-                        <label key={right} style={{display: "inline-block", marginRight: "12px"}}>
+                        <label key={right} className="check-label">
                             <input
                                 type="checkbox"
                                 checked={newRights.includes(right)}
@@ -192,7 +193,7 @@ function APIKeyList() {
                     value={newDirectory}
                     onChange={(e) => setNewDirectory(e.target.value)}
                 />
-                <label>
+                <label className="check-label">
                     <input
                         type="checkbox"
                         checked={newSingleUse}
@@ -202,7 +203,7 @@ function APIKeyList() {
                 </label>
                 <button type="submit">{editingId !== null ? t("apikeys.saveChanges") : t("apikeys.create")}</button>
                 {editingId !== null && (
-                    <button type="button" className="btn-ghost" onClick={resetForm} style={{marginLeft: "8px"}}>
+                    <button type="button" className="btn-ghost" onClick={resetForm} style={{marginInlineStart: "8px"}}>
                         {t("common.cancel")}
                     </button>
                 )}
@@ -221,6 +222,7 @@ function APIKeyList() {
                 <EmptyState title={t("dashboard.noApiKeys")} text={search ? t("common.noResults") : undefined} />
             ) : (
                 <>
+                <div className="table-wrap">
                 <table>
                     <thead>
                     <tr>
@@ -236,9 +238,9 @@ function APIKeyList() {
                     {visible.map((key, i) => (
                         <tr key={key.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
                             <td>{key.id}</td>
-                            <td>{key.key} <CopyButton text={key.key} /></td>
+                            <td className="key-cell">{key.key} <CopyButton text={key.key} /></td>
                             <td>{key.access_rights.join(", ")}</td>
-                            <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : t("common.never")}</td>
+                            <td className="nowrap">{key.expires_at ? formatDate(key.expires_at, lang) : t("common.never")}</td>
                             <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
                             <td>
                                 <button className="edit-btn" onClick={() => handleEdit(key)}>
@@ -252,6 +254,7 @@ function APIKeyList() {
                     ))}
                     </tbody>
                 </table>
+                </div>
                 <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
                 </>
             )}

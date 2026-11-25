@@ -123,6 +123,7 @@ function Languages() {
         <button type="submit">{t("languages.add")}</button>
       </form>
 
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
@@ -148,6 +149,7 @@ function Languages() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {selectedCode ? (
         <div className="lang-editor">

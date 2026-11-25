@@ -28,6 +28,16 @@ function Layout() {
   const user = getCurrentUser();
   const role = user && user.role ? user.role : "viewer";
 
+  // Escape closes the mobile drawer (listener only while it is open).
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   useEffect(() => {
     fetchLanguages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,6 +92,9 @@ function Layout() {
   return (
     <div className="layout">
       <aside className={`layout-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <button className="layout-sidebar-close" aria-label={t("common.close")} onClick={() => setSidebarOpen(false)}>
+          ×
+        </button>
         <div className="layout-brand">{t("common.appName")}</div>
         <nav>
           {navSections.map((section, si) => (
@@ -97,7 +110,20 @@ function Layout() {
           ))}
         </nav>
       </aside>
-      {sidebarOpen && <div className="layout-backdrop" onClick={() => setSidebarOpen(false)} />}
+      {/* Rendered only while open: closing removes the overlay from the DOM,
+          so no invisible layer can block taps afterwards. */}
+      {sidebarOpen && (
+        <div
+          className="layout-backdrop"
+          role="button"
+          aria-label={t("common.close")}
+          tabIndex={0}
+          onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setSidebarOpen(false);
+          }}
+        />
+      )}
       <div className="layout-main">
         <header className="layout-topbar">
           <button className="layout-hamburger" aria-label={t("nav.menu")} onClick={() => setSidebarOpen((v) => !v)}>

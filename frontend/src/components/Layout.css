@@ -57,14 +57,35 @@
 .layout-demo-badge { background: var(--warning); color: var(--on-warning); font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 999px; }
 .layout-hamburger { display: none; width: auto; padding: 8px 10px; background: transparent; border: 1px solid var(--border); }
 .layout-hamburger span { display: block; width: 18px; height: 2px; background: var(--text); margin: 3px 0; }
+.layout-sidebar-close { display: none; }
 .layout-backdrop { display: none; }
 .layout-content { padding: 20px; }
-@media (max-width: 768px) {
+/* Drawer breakpoint is 1024px (not 768px): narrow portrait phones report
+   widths around 886px, and at those widths the docked sidebar squeezes the
+   content — they must get the drawer + hamburger instead. */
+@media (max-width: 1024px) {
   .layout-sidebar { position: fixed; inset-inline-start: 0; top: 0; z-index: 100; transform: translateX(-110%); transition: transform 0.2s ease; }
   [dir="rtl"] .layout-sidebar { transform: translateX(110%); }
   .layout-sidebar.open { transform: translateX(0); }
+  .layout-sidebar-close {
+    display: block;
+    position: absolute;
+    inset-inline-end: 12px;
+    top: 12px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 20px;
+    line-height: 1;
+    box-shadow: none;
+  }
+  .layout-sidebar-close:hover { transform: none; box-shadow: var(--shadow); filter: none; }
   .layout-hamburger { display: block; }
-  .layout-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; }
+  .layout-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; cursor: pointer; }
   .layout-user { display: none; }
   .layout-content { padding: 12px; }
 }

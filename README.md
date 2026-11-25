@@ -12,9 +12,18 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.1.1
+
+- **RTL fix (the big one):** the layout shell is now fully logical — sidebar docks to the inline-start side (right in Persian, left in English), the mobile drawer breakpoint is 1024px so narrow portrait phones (~886px) get the drawer instead of a squeezed docked sidebar, and `overflow-x: hidden` on the page root stops a wide element from shifting the whole page sideways in RTL.
+- **Sidebar drawer now closes properly:** the dimmed overlay closes on click (and is removed from the DOM when closed, so it can never block taps afterwards), Escape closes it, and there is a visible × button inside the drawer.
+- **Dates are formatted:** no more raw ISO timestamps (`2026-11-25T08:37:36.534Z`) anywhere — every table shows locale dates (Persian calendar/digits for fa, e.g. `۴ آذر ۱۴۰۵`), and chart month labels follow the current language.
+- **Mobile tables:** every data table lives in a horizontally scrollable container; long license/API keys wrap cleanly (`word-break: break-all`) with a copy button; "15 days" / "49 USD" cells never split across lines; search inputs go full width on narrow screens; webhook-event checkboxes are proper flex rows.
+- **Dashboard stat cards** are a responsive grid that fills the available width instead of fixed 200px boxes.
+- **Persian ZWNJ audit:** all 375 fa strings re-checked programmatically — plurals (`لایسنس‌ها`), verb prefixes (`می‌شود`) and compounds all use the correct half-space; the four strings named in the visual check were already correct in the dictionary.
+
 ## What's new in v2.1.0
 
-- **Design refresh (KimiaAi design language):** glassmorphism surfaces with backdrop blur, the signature magenta → pink → violet gradient as the primary accent, 16–24px radii, pill chips/buttons, soft layered shadows — in both light and dark themes, and in RTL. Pure-CSS animations throughout: page fade/slide, staggered cards, button lift + glow, shimmer skeletons, animated charts, crossfading highlights slider, pulsing active-status dots, smooth theme transitions.
+- **Design refresh (the project design language):** glassmorphism surfaces with backdrop blur, the signature magenta → pink → violet gradient as the primary accent, 16–24px radii, pill chips/buttons, soft layered shadows — in both light and dark themes, and in RTL. Pure-CSS animations throughout: page fade/slide, staggered cards, button lift + glow, shimmer skeletons, animated charts, crossfading highlights slider, pulsing active-status dots, smooth theme transitions.
 - **Complete translations:** 375 UI strings in English and Persian (was 259) — including the full ApiDocs prose, toasts, validation errors, confirm dialogs and empty states — with `npm run check-i18n` parity-checking every key. New shared components: Toasts, ConfirmModal, Skeleton, CopyButton, EmptyState, ErrorBoundary.
 - **Production hardening:** paginated lists (`skip`/`limit`, `X-Total-Count` header), in-memory rate limiting on login/register (10/min) and license-validate/check-access (60/min, env-overridable), security-headers + request-ID/logging middleware, `GET /api/system/ready` readiness probe, and a full audit log (`GET /api/audit-logs`, admin/manager only) recording every create/update/delete and role change, with its own Audit Logs page in the sidebar.
 - **Lists:** search/filter on Licenses, Products, API Keys, Users and Audit Logs, with server pagination (10 per page).

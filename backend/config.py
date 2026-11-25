@@ -33,7 +33,7 @@ CORS_ORIGINS = [
 ]
 
 # Current application version, shown by GET /api/system/info.
-APP_VERSION = os.getenv("APP_VERSION", "2.1.0")
+APP_VERSION = os.getenv("APP_VERSION", "2.1.1")
 
 # Rate limits (requests per minute, per client IP) for the hand-rolled
 # sliding-window limiter in utils/rate_limit.py.

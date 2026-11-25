@@ -228,6 +228,7 @@ api-key: lmp_...
       </Section>
 
       <Section id="endpoints" title={t("docs.endpoints")}>
+        <div className="table-wrap">
         <table>
           <thead>
             <tr><th>{t("docs.method")}</th><th>{t("docs.path")}</th><th>{t("docs.purpose")}</th></tr>
@@ -242,6 +243,7 @@ api-key: lmp_...
             ))}
           </tbody>
         </table>
+        </div>
       </Section>
 
       <Section id="curl" title={t("docs.curl")}>

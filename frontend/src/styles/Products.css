@@ -6,7 +6,8 @@
 .form-row > * { flex: 1; min-width: 140px; }
 .product-form fieldset { border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
 .product-form legend { color: var(--muted); font-size: 14px; padding: 0 6px; }
-.check-label { display: inline-block; margin: 4px 12px 4px 0; font-size: 14px; color: var(--text); }
+/* .check-label lives in index.css (shared): inline-flex, checkbox at the
+   inline-start of its label in both LTR and RTL. */
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
 .selected-row { outline: 2px solid var(--accent); }
 .update-message { color: var(--success); text-align: center; }

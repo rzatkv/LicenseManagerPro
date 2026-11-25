@@ -11,7 +11,7 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v4";
+const STORAGE_KEY = "lmp-demo-db-v5";
 const ACCESS_RIGHTS = [
     "create_license",
     "edit_license",
@@ -144,8 +144,8 @@ function seed() {
             {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
         ],
         settings: {
-            app_version: "2.1.0",
-            latest_version: "2.1.0",
+            app_version: "2.1.1",
+            latest_version: "2.1.1",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
         },

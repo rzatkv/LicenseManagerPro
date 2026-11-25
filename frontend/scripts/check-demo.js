@@ -45,10 +45,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v2.1 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.1.0
+  // 1. Seed versions bumped to 2.1.1
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.1.0", settings.app_version === "2.1.0", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.1.0", settings.latest_version === "2.1.0", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.1.1", settings.app_version === "2.1.1", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.1.1", settings.latest_version === "2.1.1", JSON.stringify(settings.latest_version));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
   const productsAll = await mockRequest("GET", "/products");

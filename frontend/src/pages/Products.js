@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {Link} from "react-router-dom";
 import {get, getList, post, put, del} from "../utils/api";
+import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -20,7 +21,7 @@ const emptyForm = {
 };
 
 function Products() {
-  const {t} = useLanguage();
+  const {t, lang} = useLanguage();
   const {toast} = useToast();
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -194,6 +195,7 @@ function Products() {
         <EmptyState title={t("products.noProducts")} text={search ? t("common.noResults") : undefined} />
       ) : (
         <>
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -212,7 +214,7 @@ function Products() {
               <tr key={p.id} className={`${selectedId === p.id ? "selected-row " : ""}stagger-item`} style={{animationDelay: `${i * 40}ms`}}>
                 <td>{p.name}</td>
                 <td>{p.slug}</td>
-                <td>{p.price} {p.currency}</td>
+                <td className="nowrap">{p.price} {p.currency}</td>
                 <td>{(p.billing_cycles || []).map((c) => <span key={c} className="badge">{t(`cycle.${c}`)}</span>)}</td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
                 <td>
@@ -230,6 +232,7 @@ function Products() {
             ))}
           </tbody>
         </table>
+        </div>
         <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
@@ -246,6 +249,7 @@ function Products() {
           {deliveries.length === 0 ? (
             <p className="dashboard-empty">{t("products.noDeliveries")}</p>
           ) : (
+            <div className="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -261,11 +265,12 @@ function Products() {
                     <td>{d.event}</td>
                     <td>{d.url}</td>
                     <td>{d.success ? `HTTP ${d.status_code}` : `HTTP ${d.status_code ?? "-"}`}</td>
-                    <td>{d.created_at}</td>
+                    <td className="nowrap">{formatDateTime(d.created_at, lang)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}

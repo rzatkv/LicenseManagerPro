@@ -129,6 +129,7 @@ function UserManagement() {
                 <EmptyState title={t("dashboard.noUsers")} text={search ? t("common.noResults") : undefined} />
             ) : (
                 <>
+                <div className="table-wrap">
                 <table>
                     <thead>
                     <tr>
@@ -174,12 +175,14 @@ function UserManagement() {
                     ))}
                     </tbody>
                 </table>
+                </div>
                 <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
                 </>
             )}
 
             <div className="dashboard-section">
                 <h2>{t("users.permissionMatrix")}</h2>
+                <div className="table-wrap">
                 <table>
                     <thead>
                         <tr>
@@ -199,6 +202,7 @@ function UserManagement() {
                         <tr><td>{t("users.viewOnly")}</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
                     </tbody>
                 </table>
+                </div>
                 <p className="hint">{t("roles.adminDesc")} {t("roles.managerDesc")} {t("roles.supportDesc")} {t("roles.viewerDesc")}</p>
             </div>
             <ConfirmModal

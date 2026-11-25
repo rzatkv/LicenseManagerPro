@@ -96,6 +96,7 @@ function Settings() {
                 />
                 <button type="submit">{t("settings.createButton")}</button>
             </form>
+            <div className="table-wrap">
             <table>
                 <thead>
                 <tr>
@@ -127,6 +128,7 @@ function Settings() {
                 ))}
                 </tbody>
             </table>
+            </div>
             {DEMO_MODE && (
                 <div style={{marginTop: "24px", textAlign: "center"}}>
                     <button onClick={() => setConfirmReset(true)}>{t("settings.resetDemo")}</button>

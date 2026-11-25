@@ -8,11 +8,15 @@
     color: var(--text);
 }
 
+/* Stat cards fill the available width: a responsive grid instead of fixed
+   200px boxes centred in a wide row (which left large side margins and
+   ~60%-wide cards on narrow screens). */
 .dashboard-summary {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    max-width: 900px;
+    margin: 0 auto 8px;
 }
 
 .summary-box {
@@ -24,7 +28,6 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     text-align: center;
-    width: 200px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .summary-box:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }

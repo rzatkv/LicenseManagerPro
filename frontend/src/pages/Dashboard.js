@@ -1,6 +1,7 @@
 import React, {useEffect, useState, useCallback, useMemo} from "react";
 import {Link, useNavigate} from "react-router-dom";
 import {get, post} from "../utils/api";
+import {formatDate, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {SkeletonCard} from "../components/Skeleton";
@@ -94,7 +95,7 @@ function BarChart({data, title, color}) {
 }
 
 function Dashboard() {
-    const {t} = useLanguage();
+    const {t, lang} = useLanguage();
     const {toast} = useToast();
     const [summary, setSummary] = useState(null);
     const [licenses, setLicenses] = useState([]);
@@ -171,12 +172,12 @@ function Dashboard() {
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-            const label = d.toLocaleDateString(undefined, {month: "short"});
+            const label = formatMonthShort(d, lang);
             const count = licenses.filter((l) => l.created_at && l.created_at.slice(0, 7) === key).length;
             months.push({label, value: count});
         }
         return months;
-    }, [licenses]);
+    }, [licenses, lang]);
 
     const byProduct = useMemo(() => {
         const map = {};
@@ -273,29 +274,33 @@ function Dashboard() {
                 {expiringSoon.length === 0 ? (
                     <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
                 ) : (
+                    <div className="table-wrap">
                     <table>
                         <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
                         <tbody>
                         {expiringSoon.map((lic) => (
                             <tr key={lic.id}>
                                 <td>{lic.product}</td>
-                                <td>{lic.key}</td>
-                                <td>{daysLeft(lic.expires_at)} {t("common.days")}</td>
+                                <td className="key-cell">{lic.key}</td>
+                                <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
                                 <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
                             </tr>
                         ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
 
             <div className="dashboard-section">
                 <h2>{t("dashboard.recentLicenses")}</h2>
                 {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
+                    <div className="table-wrap">
                     <table>
                         <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
-                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td>{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td>{lic.created_at}</td></tr>))}</tbody>
+                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
                     </table>
+                    </div>
                 )}
                 <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
             </div>
@@ -303,10 +308,12 @@ function Dashboard() {
             <div className="dashboard-section">
                 <h2>{t("dashboard.recentApiKeys")}</h2>
                 {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
+                    <div className="table-wrap">
                     <table>
                         <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
-                        <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td>{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
+                        <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
                     </table>
+                    </div>
                 )}
                 <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
             </div>
@@ -314,10 +321,12 @@ function Dashboard() {
             <div className="dashboard-section">
                 <h2>{t("dashboard.recentUsers")}</h2>
                 {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
+                    <div className="table-wrap">
                     <table>
                         <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
                         <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
                     </table>
+                    </div>
                 )}
                 <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
             </div>

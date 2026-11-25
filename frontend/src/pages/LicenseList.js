@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useSearchParams} from "react-router-dom";
 import {get, getList, post, del} from "../utils/api";
+import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -23,7 +24,7 @@ function statusPill(status, t) {
 }
 
 function LicenseList() {
-    const {t} = useLanguage();
+    const {t, lang} = useLanguage();
     const {toast} = useToast();
     const [licenses, setLicenses] = useState([]);
     const [total, setTotal] = useState(0);
@@ -223,6 +224,7 @@ function LicenseList() {
                 <EmptyState title={t("licenses.noLicenses")} text={search ? t("common.noResults") : undefined} />
             ) : (
             <>
+            <div className="table-wrap">
             <table>
                 <thead>
                 <tr>
@@ -239,13 +241,13 @@ function LicenseList() {
                 {visible.map((license, i) => (
                     <tr key={license.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
                         <td>{license.id}</td>
-                        <td>
+                        <td className="key-cell">
                             {license.key} <CopyButton text={license.key} />
                         </td>
                         <td>{license.product}</td>
                         <td>{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
                         <td>{statusPill(license.status, t)}</td>
-                        <td>{license.created_at}</td>
+                        <td className="nowrap">{formatDate(license.created_at, lang)}</td>
                         <td>
                             <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
                                 {t("common.view")}
@@ -261,6 +263,7 @@ function LicenseList() {
                 ))}
                 </tbody>
             </table>
+            </div>
             <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
             </>
             )}
@@ -272,13 +275,13 @@ function LicenseList() {
                     <p><strong>{t("licenses.billingCycle")}:</strong> {selected.billing_cycle ? t(`cycle.${selected.billing_cycle}`) : "-"}</p>
                     <p><strong>{t("licenses.owner")}:</strong> {selected.owner_email || "-"}</p>
                     <p><strong>{t("common.status")}:</strong> {statusPill(selected.status, t)}</p>
-                    <p><strong>{t("licenses.expiresAt")}:</strong> {selected.expires_at || t("common.never")}</p>
+                    <p><strong>{t("licenses.expiresAt")}:</strong> {selected.expires_at ? formatDate(selected.expires_at, lang) : t("common.never")}</p>
                     <p><strong>{t("licenses.activations")}:</strong> {selected.activations} / {selected.max_activations}</p>
                     <p><strong>{t("licenses.allowedDomains")}:</strong> {(selected.allowed_domains || []).join(", ") || "-"}</p>
                     <p><strong>{t("licenses.allowedIps")}:</strong> {(selected.allowed_ips || []).join(", ") || "-"}</p>
                     <p><strong>{t("licenses.installPath")}:</strong> {selected.install_path || "-"}</p>
-                    <p><strong>{t("common.createdAt")}:</strong> {selected.created_at}</p>
-                    <p><strong>{t("common.updatedAt")}:</strong> {selected.updated_at}</p>
+                    <p><strong>{t("common.createdAt")}:</strong> {formatDate(selected.created_at, lang)}</p>
+                    <p><strong>{t("common.updatedAt")}:</strong> {formatDate(selected.updated_at, lang)}</p>
                     <div className="validate-form">
                         <h4>{t("licenses.validateWith")}</h4>
                         <input type="text" placeholder={t("licenses.domain")} value={validateDomain} onChange={(e) => setValidateDomain(e.target.value)} />

@@ -1,11 +1,11 @@
 /* ==========================================================================
-   License Manager Pro — v2.1 design system (KimiaAi kit, desktop CRM adapt.)
+   License Manager Pro — v2.1 design system
    All colours live here as CSS variables, defined for BOTH themes.
    No page stylesheet may hard-code a theme colour: use the variables.
    ========================================================================== */
 
 :root {
-    /* Light theme — KimiaAi kit tokens */
+    /* Light theme tokens */
     --bg: #F6F6FB;
     --surface: #FFFFFF;
     --surface-2: #F1F1F8;
@@ -67,6 +67,12 @@ body {
     background-color: var(--bg);
     color: var(--text);
     transition: background-color 0.3s ease, color 0.3s ease;
+    /* Safety net: a stray wide element (e.g. a long table) must never shift
+       the whole page sideways — in RTL such overflow extends to the left and
+       the page looks shifted right with empty space on the left. Only on
+       body, so sticky topbar/sidebar keep working (body overflow propagates
+       to the viewport). The real fix is the .table-wrap scroller below. */
+    overflow-x: hidden;
 }
 
 h1, h2, h3, h4 { margin: 0; padding: 0; color: var(--text); }
@@ -269,6 +275,40 @@ pre {
     display: inline-flex;
 }
 .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+
+/* Horizontally scrollable table container: a wide table scrolls inside its
+   own box instead of overflowing (and in RTL shifting) the whole page. */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 20px;
+    margin: 10px 0;
+}
+.table-wrap > table { margin: 0; }
+
+/* Long license / API keys wrap cleanly instead of exploding their column. */
+.key-cell {
+    word-break: break-all;
+    font-family: ui-monospace, 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+/* Values that must never split across lines ("15 days", "49 USD"). */
+.nowrap { white-space: nowrap; }
+
+/* Checkbox + label in one flex row: the box sits at the inline-start of its
+   label in both LTR and RTL, never centred above the text. */
+.check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+    margin-inline-end: 12px;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+}
+.check-label input[type="checkbox"] { margin: 0; flex-shrink: 0; }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }
@@ -474,4 +514,11 @@ pre {
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Narrow screens: search inputs take the full width of their container. */
+@media (max-width: 768px) {
+    .search-wrap { width: 100%; }
+    .search-wrap .search-input { max-width: none; flex: 1; min-width: 0; }
+    .toolbar .search-wrap { flex: 1 1 100%; }
 }
