@@ -340,6 +340,21 @@ pre {
 }
 .row-actions .icon-btn svg { flex-shrink: 0; }
 
+/* Row actions inside a details popup: wrap, with breathing room. */
+.row-actions.modal-actions { margin: 12px 0; flex-wrap: wrap; }
+
+/* Real phones (CSS widths ~360–500px): only the eye (details) button
+   stays in a table row — the other row actions live in the details
+   popup (Products.js / LicenseList.js). At 886px the fixed column
+   widths fit; below ~640px they squeeze the flexible column to 0px
+   (measured live-DOM: Products Name 14px at 500px, 0px at 400px;
+   Licenses Product 0px), so the split has to go further here. */
+@media (max-width: 640px) {
+  /* Specificity must beat .row-actions .icon-btn (which sets
+     display: inline-flex), or the extra buttons stay visible. */
+  .row-actions .row-action-extra { display: none; }
+}
+
 /* Checkbox groups: a plain div, NOT <fieldset>. <fieldset> keeps a
    UA min-inline-size: min-content (and a legend box) that the v2.2.0
    `fieldset {min-width: 0}` rule did not fully tame — in RTL long labels

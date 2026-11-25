@@ -1,6 +1,6 @@
 # License Manager Pro — OpenCart Extension
 
-Version **2.3.0** — for License Manager Pro 2.3.0 and OpenCart **3.0.x / 4.0.x**.
+Version **2.3.1** — for License Manager Pro 2.3.1 and OpenCart **3.0.x / 4.0.x**.
 
 Mints a License Manager Pro license when an OpenCart order completes,
 and shows the customer their keys at **Account → My Licenses**
@@ -17,7 +17,7 @@ and shows the customer their keys at **Account → My Licenses**
 ## Install
 
 1. Download the module ZIP from the License Manager Pro admin panel
-   (**Downloads** page) or from the GitHub release for v2.3.0.
+   (**Downloads** page) or from the GitHub release for v2.3.1.
 2. In OpenCart admin go to **Extensions → Installer**, upload the ZIP
    and install it. The ZIP contains an `upload/` tree plus
    `install.json`, which the Extension Installer reads.
@@ -118,7 +118,7 @@ upload/
     view/theme/default/template/extension/module/licensemanagerpro.twig  license cards
     language/en-gb/extension/module/licensemanagerpro.php
 install.json   OpenCart Extension Installer metadata
-version.json   {"version": "2.3.0"}
+version.json   {"version": "2.3.1"}
 ```
 
 OpenCart admin and catalog are separate applications, so the API
@@ -128,7 +128,7 @@ sync when the client changes.
 
 ## Notes on the backend contract
 
-Verified against the License Manager Pro 2.3.0 backend in this repo:
+Verified against the License Manager Pro 2.3.1 backend in this repo:
 
 - `POST /licenses` accepts `product_id` (integer) plus
   `owner_email` and `billing_cycle`; there is no `product_slug`

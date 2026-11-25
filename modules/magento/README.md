@@ -1,6 +1,6 @@
 # License Manager Pro — Magento 2 Module
 
-Version 2.3.0 — for License Manager Pro 2.3.0+ and Magento 2.4.6+ (PHP 8.1+).
+Version 2.3.1 — for License Manager Pro 2.3.0+ and Magento 2.4.6+ (PHP 8.1+).
 
 Mints a License Manager Pro license when a Magento invoice is paid, and
 shows the customer's licenses under **My Account → My Licenses** (branded
@@ -23,7 +23,7 @@ cards with status pills, license-key chip and a copy button).
 ## Install
 
 1. Download the module ZIP from the License Manager Pro admin panel
-   (**Downloads** page) or from the GitHub release for v2.3.0.
+   (**Downloads** page) or from the GitHub release for v2.3.1.
 2. Copy the contents into `app/code/Lmp/LicenseManager/` in your Magento
    root, so that `app/code/Lmp/LicenseManager/registration.php` exists.
 3. Run:
@@ -33,7 +33,7 @@ cards with status pills, license-key chip and a copy button).
    bin/magento setup:di:compile
    bin/magento cache:flush
    ```
-   (Composer install: `composer require lmp/license-manager:2.3.0` — the
+   (Composer install: `composer require lmp/license-manager:2.3.1` — the
    package type is `magento2-module`.)
 
 ## API-key setup (no passwords)

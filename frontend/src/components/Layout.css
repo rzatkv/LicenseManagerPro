@@ -124,6 +124,13 @@
    report ~886px widths). The bar floats above the content scroll
    region, so the content gets bottom padding equal to the bar height +
    the safe-area inset so nothing hides underneath it. */
+@media (max-width: 640px) {
+  /* Real phones (CSS widths ~360–500px): the topbar is crowded
+     (hamburger + search + badge + bell + theme + avatar) and the
+     badge used to cover the end of the search box. The demo state is
+     still shown on the login page and the About page. */
+  .layout-demo-badge { display: none; }
+}
 @media (max-width: 1024px) {
   .layout-bottomnav {
     display: flex;

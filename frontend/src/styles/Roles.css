@@ -52,6 +52,22 @@
     border: 1px solid var(--border);
 }
 
+/* Icon buttons in the table keep their 32px size (same pattern as
+   Products/Licenses — the global .row-actions .icon-btn rule sizes
+   them; these rules only colour them). */
+.roles-container table .row-actions .delete-btn { background: var(--danger); color: var(--on-accent); border: none; }
+
+/* Real phones (CSS widths ~360–500px): the auto-layout table with all
+   five columns is ~499px wide (measured live-DOM) and pushes the
+   actions off-screen. SPLIT harder: slug and the permission pills
+   join the edit form, the row keeps name + users + actions. */
+@media (max-width: 640px) {
+  .roles-container .col-slug, .roles-container .col-perms { display: none; }
+  .roles-container table { table-layout: fixed; }
+  .roles-container table th:nth-child(3) { width: 64px; }
+  .roles-container table th:nth-child(5) { width: 96px; }
+}
+
 /* Small read-only permission pills (labels, not controls). */
 .perm-pills {
     display: flex;

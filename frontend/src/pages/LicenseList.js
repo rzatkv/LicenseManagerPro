@@ -396,7 +396,7 @@ function LicenseList() {
                 <tr>
                     <th className="col-id">ID</th>
                     <th>{t("licenses.key")}</th>
-                    <th>{t("licenses.product")}</th>
+                    <th className="col-product">{t("licenses.product")}</th>
                     <th className="col-cycle">{t("licenses.billingCycle")}</th>
                     <th>{t("common.status")}</th>
                     <th className="col-created">{t("common.createdAt")}</th>
@@ -410,7 +410,7 @@ function LicenseList() {
                         <td className="key-cell">
                             <span className="key-cell-text">{license.key}</span> <CopyButton text={license.key} />
                         </td>
-                        <td>{license.product}</td>
+                        <td className="col-product">{license.product}</td>
                         <td className="col-cycle">{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
                         <td>{statusPill(license.status, t)}</td>
                         <td className="nowrap col-created">{formatDate(license.created_at, lang)}</td>
@@ -419,13 +419,13 @@ function LicenseList() {
                                 <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
                                     {ICONS.view}
                                 </button>
-                                <button className="renew-btn icon-btn" title={t("common.renew")} aria-label={t("common.renew")} onClick={() => handleRenew(license.id)}>
+                                <button className="renew-btn icon-btn row-action-extra" title={t("common.renew")} aria-label={t("common.renew")} onClick={() => handleRenew(license.id)}>
                                     {ICONS.renew}
                                 </button>
-                                <button className="icon-btn" title={t("licenses.reissue")} aria-label={t("licenses.reissue")} onClick={() => setPendingReissue(license.id)}>
+                                <button className="icon-btn row-action-extra" title={t("licenses.reissue")} aria-label={t("licenses.reissue")} onClick={() => setPendingReissue(license.id)}>
                                     {ICONS.reissue}
                                 </button>
-                                <button className="delete-btn icon-btn" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(license.id)}>
+                                <button className="delete-btn icon-btn row-action-extra" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(license.id)}>
                                     {ICONS.delete}
                                 </button>
                             </div>
@@ -474,9 +474,10 @@ function LicenseList() {
                         <input type="text" placeholder={t("licenses.installPath")} value={validatePath} onChange={(e) => setValidatePath(e.target.value)} />
                         <button onClick={() => handleValidate(selected)}>{t("common.validate")}</button>
                     </div>
-                    <div className="row-actions">
+                    <div className="row-actions modal-actions">
                         <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>
-                        <button onClick={() => setPendingReissue(selected.id)}>{t("licenses.reissue")}</button>
+                        <button onClick={() => { const id = selected.id; setSelected(null); setPendingReissue(id); }}>{t("licenses.reissue")}</button>
+                        <button className="btn-danger" onClick={() => { const id = selected.id; setSelected(null); setPendingDelete(id); }}>{t("common.delete")}</button>
                     </div>
                     {validateResult && (
                         <p className="validate-result">

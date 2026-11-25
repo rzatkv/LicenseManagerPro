@@ -393,7 +393,7 @@ function Products() {
               <th>{t("products.name")}</th>
               <th className="col-slug">{t("products.slug")}</th>
               <th className="col-group">{t("products.group")}</th>
-              <th>{t("products.price")}</th>
+              <th className="col-price">{t("products.price")}</th>
               <th className="col-cycles">{t("products.cycles")}</th>
               <th>{t("products.status")}</th>
               <th className="col-webhook">{t("products.webhook")}</th>
@@ -407,7 +407,7 @@ function Products() {
                 <td className="cell-ellipsis cell-name">{p.name}</td>
                 <td className="cell-ellipsis cell-slug col-slug">{p.slug}</td>
                 <td className="col-group">{groupName(p.group_id)}</td>
-                <td className="nowrap">{p.price} {p.currency}</td>
+                <td className="nowrap col-price">{p.price} {p.currency}</td>
                 <td className="col-cycles"><span className="cycle-chips">{(p.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
                 <td className="col-webhook">
@@ -417,10 +417,10 @@ function Products() {
                 <td>
                   <div className="row-actions">
                     <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setDetailsId(p.id)}>{ICONS.view}</button>
-                    <button className="edit-btn icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => handleEdit(p)}>{ICONS.edit}</button>
-                    {p.webhook_url && <button className="icon-btn" title={t("products.testWebhook")} aria-label={t("products.testWebhook")} onClick={() => handleTestWebhook(p.id)}>{ICONS.test}</button>}
-                    <Link className="icon-btn" title={t("products.viewLicenses")} aria-label={t("products.viewLicenses")} to={`/licenses?product=${p.id}`}>{ICONS.licenses}</Link>
-                    <button className="delete-btn icon-btn" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(p.id)}>{ICONS.delete}</button>
+                    <button className="edit-btn icon-btn row-action-extra" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => handleEdit(p)}>{ICONS.edit}</button>
+                    {p.webhook_url && <button className="icon-btn row-action-extra" title={t("products.testWebhook")} aria-label={t("products.testWebhook")} onClick={() => handleTestWebhook(p.id)}>{ICONS.test}</button>}
+                    <Link className="icon-btn row-action-extra" title={t("products.viewLicenses")} aria-label={t("products.viewLicenses")} to={`/licenses?product=${p.id}`}>{ICONS.licenses}</Link>
+                    <button className="delete-btn icon-btn row-action-extra" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(p.id)}>{ICONS.delete}</button>
                   </div>
                 </td>
               </tr>
@@ -450,6 +450,20 @@ function Products() {
           <div className="detail-row"><strong>{t("products.webhookEvents")}</strong><span>{(detailsProduct.webhook_events || []).join(", ") || "-"}</span></div>
           <div className="detail-row"><strong>{t("products.licenseCount")}</strong><span>{detailsProduct.license_count ?? "-"}</span></div>
           <div className="detail-row"><strong>{t("products.keyFormat")}</strong><span>{detailsProduct.key_prefix ? `${detailsProduct.key_prefix}-XXXX × ${detailsProduct.key_segments}` : t("products.notConfigured")}</span></div>
+          {/* Row actions live here on phones (the table row shows only the
+              eye button below 640px — split, don't squeeze): edit, test,
+              view-licenses and delete are one tap away in this popup. */}
+          <div className="row-actions modal-actions">
+            <button onClick={() => { setDetailsId(null); handleEdit(detailsProduct); }}>{t("common.edit")}</button>
+            {detailsProduct.webhook_url && <button onClick={() => handleTestWebhook(detailsProduct.id)}>{t("products.testWebhook")}</button>}
+            <Link className="btn-ghost" to={`/licenses?product=${detailsProduct.id}`}>{t("products.viewLicenses")}</Link>
+            <button className="btn-danger" onClick={() => { setDetailsId(null); setPendingDelete(detailsProduct.id); }}>{t("common.delete")}</button>
+          </div>
+          {testResult && testResult.id === detailsProduct.id && (
+            <p className="validate-result">
+              {t("products.testResult")}: {testResult.success ? `${t("common.success")} (HTTP ${testResult.status_code})` : (testResult.error || t("common.error"))}
+            </p>
+          )}
           <h4>{t("products.deliveries")}</h4>
           {deliveries.length === 0 ? (
             <p className="dashboard-empty">{t("products.noDeliveries")}</p>

@@ -76,16 +76,38 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
    padding, and would otherwise override .row-actions .icon-btn. */
 .license-list-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
 .license-list-container table .row-actions .icon-btn svg { display: block; }
-@media (max-width: 1024px) {
+@media (max-width: 1400px) {
   .license-list-container .col-id, .license-list-container .col-created, .license-list-container .col-cycle { display: none; }
   /* Fixed layout with explicit widths: with table-layout auto the actions
      column absorbed all leftover width (~348px) and the key column grew
      past its ellipsis cap. Fixed widths keep key/product/status/actions
-     inside 886px with no horizontal scroll. */
+     inside the viewport with no horizontal scroll.
+     Breakpoint is 1400px, not 1024px: with the sidebar docked above
+     1024px the content is only ~840px wide at 1200px, and the
+     seven-column auto table (~894px) overflows it. The split applies
+     until the full table fits (~1440px). */
   .license-list-container table { table-layout: fixed; }
   .license-list-container table th:nth-child(2) { width: 230px; }
   .license-list-container table th:nth-child(5) { width: 112px; }
   .license-list-container table th:nth-child(7) { width: 172px; }
+}
+/* Real phones (CSS widths ~360–500px): the 230px key + 112px status +
+   172px actions fixed columns (designed for 886px) squeeze the
+   product column to 0px (measured live-DOM at 500/400px). SPLIT
+   harder: product joins the details popup, only the eye stays in the
+   row — renew, reissue and delete live in the popup (see
+   LicenseList.js). The key is flexible, status 88px, actions 56px. */
+@media (max-width: 640px) {
+  .license-list-container .col-product { display: none; }
+  .license-list-container table th:nth-child(2) { width: auto; }
+  .license-list-container table th:nth-child(5) { width: 88px; }
+  .license-list-container table th:nth-child(7) { width: 56px; }
+  /* The key truncates to the cell width now (not the fixed 200px cap,
+     which would overflow a ~110px phone column). */
+  .license-list-container table .key-cell-text { max-width: 100%; }
+  /* No room for the row copy button in a phone key cell; the full key
+     + copy live in the details popup. */
+  .license-list-container table .key-cell .copy-btn { display: none; }
 }
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }

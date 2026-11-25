@@ -1,5 +1,11 @@
 /* Global search dropdown (v2.3) */
 .global-search { position: relative; flex: 1 1 320px; max-width: 460px; min-width: 160px; }
+@media (max-width: 640px) {
+  /* Real phones: the 160px min-width pushed the topbar past the
+     viewport and the Demo badge covered the search box. The search
+     may shrink to nothing rather than overflow. */
+  .global-search { min-width: 0; flex-basis: 120px; }
+}
 .global-search-box {
   display: flex; align-items: center; gap: 6px;
   background: var(--surface-2);

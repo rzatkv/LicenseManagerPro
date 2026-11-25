@@ -3,7 +3,7 @@
  * Plugin Name: License Manager Pro — WordPress
  * Plugin URI: https://github.com/rzatkv/LicenseManagerPro
  * Description: Connects WordPress to License Manager Pro with a scoped module API key. Maps posts and pages to License Manager Pro products, lets logged-in users view and mint their licenses on a "My Licenses" page, and lets admins mint licenses from Settings. No WooCommerce required.
- * Version: 2.3.0
+ * Version: 2.3.1
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: License Manager Pro
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LMP_WP_VERSION', '2.3.0');
+define('LMP_WP_VERSION', '2.3.1');
 define('LMP_WP_PATH', plugin_dir_path(__FILE__));
 
 require_once LMP_WP_PATH . 'includes/Model/ApiClient.php';

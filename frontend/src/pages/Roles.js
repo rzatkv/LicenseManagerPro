@@ -9,6 +9,14 @@ import ChipSelect from "../components/ChipSelect";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Roles.css";
 
+/** Compact 32px action icons (same set as Products/Licenses): text
+ * buttons made the actions cell too wide on phones, and icon buttons
+ * keep the row actions identical across all list pages. */
+const ICONS = {
+  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
+
 /** Map a permission string to its roles.perm.* i18n key suffix.
  * "products:write" -> "productsWrite",
  * "system:check-expiring" -> "systemCheckExpiring",
@@ -178,9 +186,9 @@ function Roles() {
                         <thead>
                             <tr>
                                 <th>{t("roles.name")}</th>
-                                <th>slug</th>
+                                <th className="col-slug">slug</th>
                                 <th>{t("roles.usersCount")}</th>
-                                <th>{t("roles.permissions")}</th>
+                                <th className="col-perms">{t("roles.permissions")}</th>
                                 <th>{t("common.actions")}</th>
                             </tr>
                         </thead>
@@ -196,9 +204,9 @@ function Roles() {
                                             <div className="role-description">{role.description}</div>
                                         )}
                                     </td>
-                                    <td className="role-slug">{role.slug}</td>
+                                    <td className="role-slug col-slug">{role.slug}</td>
                                     <td>{role.users_count ?? 0}</td>
-                                    <td>
+                                    <td className="col-perms">
                                         <div className="perm-pills">
                                             {(role.permissions || []).map((perm) => (
                                                 <span key={perm} className="perm-pill" title={perm}>
@@ -209,15 +217,17 @@ function Roles() {
                                     </td>
                                     <td>
                                         <div className="row-actions">
-                                            <button className="edit-btn" onClick={() => openEdit(role)}>
-                                                {t("common.edit")}
+                                            <button className="edit-btn icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => openEdit(role)}>
+                                                {ICONS.edit}
                                             </button>
                                             {!role.is_builtin && (
                                                 <button
-                                                    className="delete-btn"
+                                                    className="delete-btn icon-btn"
+                                                    title={t("common.delete")}
+                                                    aria-label={t("common.delete")}
                                                     onClick={() => setPendingDelete(role)}
                                                 >
-                                                    {t("common.delete")}
+                                                    {ICONS.delete}
                                                 </button>
                                             )}
                                         </div>

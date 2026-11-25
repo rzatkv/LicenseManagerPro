@@ -6,3 +6,17 @@
 .download-install { font-size: 13px; }
 .download-demo-note { font-size: 13px; color: var(--warning); }
 .download-card button { align-self: flex-start; margin-top: 8px; }
+/* Direct-download links look and behave like the button above (real
+   <a href> so a tap always works — window.open was swallowed by
+   in-app browsers). Shares the global button look. */
+.download-card .download-btn {
+  align-self: flex-start; margin-top: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 18px; background: var(--accent-gradient);
+  background-color: var(--accent); color: var(--on-accent);
+  border: none; border-radius: 16px; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.3s ease;
+}
+.download-card .download-btn:hover { text-decoration: none; }

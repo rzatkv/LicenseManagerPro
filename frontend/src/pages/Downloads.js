@@ -41,13 +41,12 @@ function Downloads() {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
+    // Streaming fallback (only when there is no direct URL): fetch a ZIP
+    // of the installed module files from the backend and save it.
+    // Direct GitHub release assets are plain <a> links in the markup
+    // (not window.open — in-app browsers silently swallow window.open,
+    // so the v2.3.0 download button appeared to do nothing).
     const handleDownload = async (mod) => {
-        // Direct GitHub release asset (primary path, version parity).
-        if (mod.download_url && /^https?:\/\//.test(mod.download_url)) {
-            window.open(mod.download_url, "_blank", "noopener");
-            return;
-        }
-        // Fallback: stream a ZIP of the installed module files.
         setDownloading(mod.id);
         try {
             const response = await fetch(`${API_BASE_URL}/downloads/${mod.id}`, {
@@ -110,9 +109,15 @@ function Downloads() {
                                     {mod.id === "whmcs" ? t("downloads.installWhmcs") : mod.id === "woocommerce" ? t("downloads.installWoo") : t("downloads.installGeneric")}
                                 </p>
                                 {DEMO_MODE && <p className="download-demo-note">{t("downloads.demoNote")}</p>}
-                                <button onClick={() => handleDownload(mod)} disabled={downloading === mod.id}>
-                                    {downloading === mod.id ? t("common.loading") : t("downloads.download")}
-                                </button>
+                                {mod.download_url && /^https?:\/\//.test(mod.download_url) ? (
+                                    <a className="download-btn" href={mod.download_url} target="_blank" rel="noopener noreferrer">
+                                        {t("downloads.download")}
+                                    </a>
+                                ) : (
+                                    <button onClick={() => handleDownload(mod)} disabled={downloading === mod.id}>
+                                        {downloading === mod.id ? t("common.loading") : t("downloads.download")}
+                                    </button>
+                                )}
                             </div>
                         );
                     })}

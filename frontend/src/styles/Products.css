@@ -13,12 +13,17 @@
    stack): small chips, no margins, 3px gaps. */
 .cycle-chips { display: inline-flex; flex-wrap: wrap; gap: 3px; }
 .badge-sm { font-size: 11px; padding: 1px 7px; margin: 0; }
-/* Narrow screens (phone drawer widths): SPLIT, don't squeeze. Only the
-   essential columns stay — name, price, status, actions. Slug, group,
-   cycles, webhook and license count live in the animated details popup
-   (the eye button opens it). Nothing here shrinks padding or buttons:
-   rows keep their comfortable height and the actions stay 32px. */
-@media (max-width: 1024px) {
+/* Narrow screens: SPLIT, don't squeeze. Only the essential columns
+   stay — name, price, status, actions. Slug, group, cycles, webhook
+   and license count live in the animated details popup (the eye
+   button opens it). Nothing here shrinks padding or buttons: rows
+   keep their comfortable height and the actions stay 32px.
+   Breakpoint is 1400px, not 1024px: with the sidebar docked above
+   1024px the content is only ~840px wide at 1200px, and the
+   nine-column auto table (~1027px) overflows it — measured
+   live-DOM at 1366px (table 1027 vs wrap 1006) and it is worse at
+   1200px. The split applies until the full table fits (~1440px). */
+@media (max-width: 1400px) {
   .products-container .col-slug, .products-container .col-group, .products-container .col-cycles, .products-container .col-webhook, .products-container .col-count { display: none; }
   /* Fixed layout with explicit widths: with table-layout auto the actions
      column absorbed all leftover width (~348px). Fixed widths keep
@@ -29,6 +34,19 @@
   /* 5 icon buttons × 32px + 4 × 6px gap + cell padding = 204px; 172px
      clipped the leftmost (delete) button in RTL. */
   .products-container table th:nth-child(9) { width: 204px; }
+}
+/* Real phones (CSS widths ~360–500px — the 886px figure from earlier
+   checks is the physical screen width; the layout viewport is about
+   half that at DPR ~2): the 112+104+204px fixed columns above eat the
+   whole table and squeeze Name to 14px at 500px and 0px at 400px
+   (measured live-DOM). SPLIT harder instead: price joins the details
+   popup, only the eye button stays in the row — edit, test,
+   view-licenses and delete live in the popup (see Products.js).
+   Status 88px + actions 56px leave Name the whole remaining width. */
+@media (max-width: 640px) {
+  .products-container .col-price { display: none; }
+  .products-container table th:nth-child(6) { width: 88px; }
+  .products-container table th:nth-child(9) { width: 56px; }
 }
 /* Icon buttons inside the table must keep their 32px size: the table
    .view-btn/.delete-btn rules below set text-button padding, and their

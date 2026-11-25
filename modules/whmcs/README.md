@@ -1,6 +1,6 @@
 # License Manager Pro — WHMCS Module
 
-Version 2.3.0 — for License Manager Pro 2.3.0+.
+Version 2.3.1 — for License Manager Pro 2.3.0+.
 
 Provisions License Manager Pro licenses from WHMCS: when a customer orders
 (and pays for) a product that uses this module, WHMCS creates a license in

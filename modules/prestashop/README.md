@@ -1,4 +1,4 @@
-# License Manager Pro — PrestaShop module (v2.3.0)
+# License Manager Pro — PrestaShop module (v2.3.1)
 
 Connects a PrestaShop 1.7/8 shop to a License Manager Pro backend. When an
 order reaches a paid or shipped status, a license is minted for every
@@ -123,7 +123,7 @@ not affected.
   licenses page.
 - `views/templates/admin/configure.tpl` — branded settings header, status,
   mapping form. `views/templates/front/licenses.tpl` — customer licenses.
-- `config.xml`, `version.json` — module metadata (version 2.3.0).
+- `config.xml`, `version.json` — module metadata (version 2.3.1).
 
 ## Testing (still needed on a live shop)
 
