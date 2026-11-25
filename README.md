@@ -12,6 +12,18 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.2.1
+
+UI polish round for v2.2.0, from a phone-browser visual check (886×1920) of the live demo:
+
+- **Notification dropdown no longer clips off-screen:** the panel is now fixed-positioned and clamped inside the viewport in JS (right-aligned to the bell when there is room, otherwise pushed in from the edge); titles wrap instead of truncating.
+- **Sidebar gains Notifications + Product Groups:** Notifications links to the `/notifications` page (previously reachable only via the bell); Product Groups is now a dedicated `/product-groups` route — the manager moved out of the Products page, which keeps only its group filter and group column.
+- **Products table rows are compact again:** name/slug cells truncate with ellipsis, billing-cycle pills sit in one small horizontal wrap, and the five text action buttons are now 32px icon buttons (eye / edit / test webhook / view licenses / delete) with title tooltips and aria-labels — the actions cell fits without sideways scrolling.
+- **Checkbox groups fixed for real in RTL:** the `<fieldset>` is gone (its UA `min-inline-size: min-content` and legend box kept long labels overflowing even with `min-width: 0`). Groups are now plain bordered divs, every label is a flex row with a shrinkable text span (`overflow-wrap: anywhere`), and `min-width: 0` runs through the whole chain (card → group → label). Applies to the product wizard, the API-key wizard and the inline edit forms.
+- **Drawer brand row fits:** the gradient text moved from the brand container onto the name span itself (the container-level `background-clip: text` let the logo overlap the name), and the span is now a real flex item with `min-width: 0` — long site names ellipsize instead of overflowing the 248px sidebar.
+- **Dashboard nits:** the 14-day trend chart's y-axis no longer shows a duplicated "1" (unique integer ticks only); Estimated MRR now reads "48.25 USD" instead of a bare number.
+- **License wizard polish:** step 1 cannot advance without a product selected or a name typed (with an inline error message instead of a silently disabled Next); the customer step's fields have visible labels; the review step labels a name-only license "Expires in 365 days" instead of calling it a billing cycle.
+
 ## What's new in v2.2.0
 
 - **Real WHMCS module + WooCommerce plugin (downloadable):** the Downloads page in the admin panel serves both as ZIPs built on the fly (`GET /api/downloads/{whmcs,woocommerce}`), with versions tracked in `modules.json` and an "update available" badge when GitHub has a newer one. The WHMCS server module (`modules/whmcs/`) implements the full lifecycle — CreateAccount (creates the license, stores the key in the service's password field), Suspend/Unsuspend, Terminate, Renew, ChangePackage, TestConnection and an admin Services tab — with `RequiresServer = false` and the API URL + admin credentials configured per product. The WooCommerce plugin (`modules/woocommerce/`) creates one license per mapped line item when an order completes, stores the key in order item meta, shows it in the order details / order email, and adds a My Account → Licenses tab with live status, expiry and per-installation deactivate. Both are built from a competitor study (WHMCS Software Licensing addon + marketplace modules, License Manager for WooCommerce / Gatemi / LicenseKit, Keygen.sh, Cryptlex, LemonSqueezy).

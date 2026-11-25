@@ -206,16 +206,16 @@ function APIKeyList() {
                     ) : null}
                 >
                     {wizardStep === 0 && (
-                        <fieldset>
-                            <legend>{t("apikeys.accessRights")}</legend>
+                        <div className="check-field">
+                            <div className="check-field-title">{t("apikeys.accessRights")}</div>
                             <div className="check-group">
                                 {ALL_ACCESS_RIGHTS.map((right) => (
                                     <label key={right} className="check-label">
-                                        <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /> {right}
+                                        <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /><span className="check-label-text">{right}</span>
                                     </label>
                                 ))}
                             </div>
-                        </fieldset>
+                        </div>
                     )}
                     {wizardStep === 1 && (
                         <>
@@ -225,7 +225,7 @@ function APIKeyList() {
                             <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
                             <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
                             <label className="check-label">
-                                <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /> {t("apikeys.singleUseLabel")}
+                                <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /><span className="check-label-text">{t("apikeys.singleUseLabel")}</span>
                             </label>
                         </>
                     )}
@@ -243,22 +243,22 @@ function APIKeyList() {
                 <form className="add-api-key-form glass-card" onSubmit={handleUpdate} style={{margin: "16px 0"}}>
                     <h3>{`${t("apikeys.edit")} #${editingId}`}</h3>
                     <input type="text" placeholder={t("apikeys.keyLocked")} value={newKey} disabled />
-                    <fieldset>
-                        <legend>{t("apikeys.accessRights")}</legend>
+                    <div className="check-field">
+                        <div className="check-field-title">{t("apikeys.accessRights")}</div>
                         <div className="check-group">
                             {ALL_ACCESS_RIGHTS.map((right) => (
                                 <label key={right} className="check-label">
-                                    <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /> {right}
+                                    <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /><span className="check-label-text">{right}</span>
                                 </label>
                             ))}
                         </div>
-                    </fieldset>
+                    </div>
                     <input type="number" min="1" placeholder={t("apikeys.expiresEdit")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictIp")} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
                     <label className="check-label">
-                        <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /> {t("apikeys.singleUseLabel")}
+                        <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /><span className="check-label-text">{t("apikeys.singleUseLabel")}</span>
                     </label>
                     <div className="form-row">
                         <button type="submit">{t("apikeys.saveChanges")}</button>

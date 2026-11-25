@@ -21,6 +21,8 @@ const ICONS = {
   audit: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>,
   downloads: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>,
   blacklist: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M5.7 5.7l12.6 12.6"/></svg>,
+  notifications: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>,
+  groups: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2v11z"/></svg>,
 };
 
 function Layout() {
@@ -77,6 +79,7 @@ function Layout() {
     "/blacklist": t("nav.blacklist"),
     "/downloads": t("nav.downloads"),
     "/notifications": t("nav.notifications"),
+    "/product-groups": t("nav.productGroups"),
   };
   const title = titles[location.pathname] || siteName;
 
@@ -90,8 +93,10 @@ function Layout() {
       items: [
         {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
         {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
+        {to: "/product-groups", label: t("nav.productGroups"), icon: ICONS.groups, show: true},
         {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
         {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
+        {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
         {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
         {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
       ],

@@ -28,10 +28,12 @@
   align-items: center;
   justify-content: center;
 }
+/* Fixed to the viewport (position computed in JS, clamped inside it):
+   absolute positioning against the bell overflowed off-screen whenever
+   the topbar wrapped and the bell sat near a viewport edge. The inline
+   style sets left/top/width; this width is the fallback before it lands. */
 .notif-panel {
-  position: absolute;
-  top: 46px;
-  inset-inline-end: 0;
+  position: fixed;
   width: min(360px, calc(100vw - 24px));
   max-height: 70vh;
   display: flex;
@@ -71,7 +73,7 @@
 .notif-dot.notif-warning { background: var(--warning); }
 .notif-dot.notif-error { background: var(--danger); }
 .notif-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.notif-title { font-weight: 700; font-size: 14px; }
+.notif-title { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
 .notif-message { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .notif-time { font-size: 12px; color: var(--muted-2); }
 .notif-view-all {

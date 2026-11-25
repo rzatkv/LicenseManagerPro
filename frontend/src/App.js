@@ -8,6 +8,7 @@ import APIKeyList from "./pages/APIKeyList";
 import UserManagement from "./pages/UserManagement";
 import About from "./pages/About";
 import Products from "./pages/Products";
+import ProductGroups from "./pages/ProductGroups";
 import Languages from "./pages/Languages";
 import ApiDocs from "./pages/ApiDocs";
 import AuditLogs from "./pages/AuditLogs";
@@ -39,6 +40,7 @@ function App() {
                         <Route element={<ProtectedRoute><ErrorBoundary><Layout/></ErrorBoundary></ProtectedRoute>}>
                             <Route path="/dashboard" element={<Dashboard/>}/>
                             <Route path="/products" element={<Products/>}/>
+                            <Route path="/product-groups" element={<ProductGroups/>}/>
                             <Route path="/licenses" element={<LicenseList/>}/>
                             <Route path="/api-keys" element={<APIKeyList/>}/>
                             <Route path="/users" element={<UserManagement/>}/>

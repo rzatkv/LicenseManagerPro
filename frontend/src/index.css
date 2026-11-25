@@ -313,10 +313,33 @@ pre {
     font-size: 13px;
     white-space: nowrap;
 }
+/* Compact icon-only action buttons (32px): five text buttons in a row
+   made the actions cell wider than a phone viewport; icons keep the cell
+   narrow and the rows short. The visible label moves to title/aria-label. */
+.row-actions .icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+}
+.row-actions .icon-btn svg { flex-shrink: 0; }
 
-/* <fieldset> defaults to min-width: min-content, which stops it shrinking
-   inside a flex/grid form and clips long checkbox labels in RTL. */
-fieldset { min-width: 0; }
+/* Checkbox groups: a plain div, NOT <fieldset>. <fieldset> keeps a
+   UA min-inline-size: min-content (and a legend box) that the v2.2.0
+   `fieldset {min-width: 0}` rule did not fully tame — in RTL long labels
+   ("license.validated_failed", "مادام‌العمر") still overflowed the group
+   and the form card. The div has no such UA sizing behaviour. */
+.check-field {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px;
+    min-width: 0;
+}
+.check-field-title { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
 
 /* Checkbox + label in one flex row: the box sits at the inline-start of its
    label in both LTR and RTL, never centred above the text. */
@@ -331,7 +354,11 @@ fieldset { min-width: 0; }
 .nowrap { white-space: nowrap; }
 
 /* Checkbox + label in one flex row: the box sits at the inline-start of its
-   label in both LTR and RTL, never centred above the text. */
+   label in both LTR and RTL, never centred above the text. The label itself
+   must be allowed to shrink (min-width: 0) and its text must be allowed to
+   break (overflow-wrap: anywhere) — otherwise a single long unbreakable
+   word ("license.validated_failed") forces the whole row wider than the
+   form and it overflows in RTL. */
 .check-label {
     display: inline-flex;
     align-items: center;
@@ -341,8 +368,10 @@ fieldset { min-width: 0; }
     font-size: 14px;
     color: var(--text);
     cursor: pointer;
+    min-width: 0;
 }
 .check-label input[type="checkbox"] { margin: 0; flex-shrink: 0; }
+.check-label-text { overflow-wrap: anywhere; min-width: 0; }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }

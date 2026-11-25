@@ -4,8 +4,20 @@
 .product-form input, .product-form select { width: 100%; box-sizing: border-box; }
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .form-row > * { flex: 1; min-width: 140px; }
-.product-form fieldset { border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
-.product-form legend { color: var(--muted); font-size: 14px; padding: 0 6px; }
+/* One-line name/slug cells with ellipsis: wrapping names and slugs
+   stretched the rows to 230–330px on a phone viewport. */
+.cell-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-name { max-width: 180px; }
+.cell-slug { max-width: 140px; }
+/* Billing-cycle pills in one compact horizontal wrap (not a vertical
+   stack): small chips, no margins, 3px gaps. */
+.cycle-chips { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.badge-sm { font-size: 11px; padding: 1px 7px; margin: 0; }
+/* Icon buttons inside the table must keep their 32px size: the table
+   .view-btn/.delete-btn rules below set text-button padding, and their
+   higher specificity would otherwise override .row-actions .icon-btn. */
+.products-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
+.products-container table .row-actions .icon-btn svg { display: block; }
 /* .check-label lives in index.css (shared): inline-flex, checkbox at the
    inline-start of its label in both LTR and RTL. */
 .hint { color: var(--muted); font-size: 13px; margin: 0; }

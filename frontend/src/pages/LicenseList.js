@@ -234,14 +234,30 @@ function LicenseList() {
             || (lic.owner_email || "").toLowerCase().includes(q);
     });
 
+    // Step 0 must not advance with neither a product nor a name: the
+    // old `true` let the wizard reach step 1 with nothing selected, where
+    // Next then sat disabled with no explanation.
     const wizardCanNext =
-        wizardStep === 0 ? true
+        wizardStep === 0 ? (wProductId !== "" || wProduct.trim().length > 0)
         : wizardStep === 1 ? (wProductId ? wCycle.length > 0 : wProduct.trim().length > 0)
         : true;
 
+    // Inline per-step validation message (the Next button is disabled
+    // while the step is incomplete, so the reason must be visible).
+    const stepError =
+        wizardStep === 0 && wProductId === "" && !wProduct.trim()
+            ? t("licenses.productRequired")
+            : wizardStep === 1 && wProductId !== "" && !wCycle
+                ? t("licenses.cycleRequired")
+                : wizardStep === 1 && wProductId === "" && !wProduct.trim()
+                    ? t("licenses.productRequired")
+                    : "";
+
     const reviewRows = [
         [t("licenses.product"), wProductId ? (selectedProduct ? selectedProduct.name : `#${wProductId}`) : (wProduct || "-")],
-        [t("licenses.billingCycle"), wProductId ? (wCycle ? t(`cycle.${wCycle}`) : "-") : `${wExpiresInDays} ${t("common.days")}`],
+        // Without a product there is no billing cycle — the value is an
+        // expiry in days, so label it as such (not "Billing Cycle").
+        [wProductId ? t("licenses.billingCycle") : t("licenses.expiresInDays"), wProductId ? (wCycle ? t(`cycle.${wCycle}`) : "-") : `${wExpiresInDays} ${t("common.days")}`],
         [t("licenses.owner"), wOwnerEmail || "-"],
         [t("licenses.maxActivations"), String(wMaxActivations)],
         [t("licenses.allowedDomains"), wDomains || "-"],
@@ -298,20 +314,34 @@ function LicenseList() {
                             {!wProductId && (
                                 <input type="text" placeholder={t("licenses.productName")} value={wProduct} onChange={(e) => setWProduct(e.target.value)} required />
                             )}
+                            {stepError && <p className="wizard-error" role="alert">{stepError}</p>}
                         </>
                     )}
                     {wizardStep === 1 && (
                         <>
                             {wProductId ? (
-                                <select value={wCycle} onChange={(e) => setWCycle(e.target.value)} required>
-                                    <option value="">{t("licenses.billingCycle")}</option>
-                                    {cycles.map((c) => <option key={c} value={c}>{t(`cycle.${c}`)}</option>)}
-                                </select>
+                                <label className="field-label">
+                                    <span>{t("licenses.billingCycle")}</span>
+                                    <select value={wCycle} onChange={(e) => setWCycle(e.target.value)} required>
+                                        <option value="">{t("licenses.billingCycle")}</option>
+                                        {cycles.map((c) => <option key={c} value={c}>{t(`cycle.${c}`)}</option>)}
+                                    </select>
+                                </label>
                             ) : (
-                                <input type="number" min="1" placeholder={t("licenses.expiresInDays")} value={wExpiresInDays} onChange={(e) => setWExpiresInDays(e.target.value)} />
+                                <label className="field-label">
+                                    <span>{t("licenses.expiresInDays")}</span>
+                                    <input type="number" min="1" placeholder={t("licenses.expiresInDays")} value={wExpiresInDays} onChange={(e) => setWExpiresInDays(e.target.value)} />
+                                </label>
                             )}
-                            <input type="email" placeholder={t("licenses.ownerEmail")} value={wOwnerEmail} onChange={(e) => setWOwnerEmail(e.target.value)} />
-                            <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={wMaxActivations} onChange={(e) => setWMaxActivations(e.target.value)} />
+                            <label className="field-label">
+                                <span>{t("licenses.ownerEmail")}</span>
+                                <input type="email" placeholder={t("licenses.ownerEmail")} value={wOwnerEmail} onChange={(e) => setWOwnerEmail(e.target.value)} />
+                            </label>
+                            <label className="field-label">
+                                <span>{t("licenses.maxActivations")}</span>
+                                <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={wMaxActivations} onChange={(e) => setWMaxActivations(e.target.value)} />
+                            </label>
+                            {stepError && <p className="wizard-error" role="alert">{stepError}</p>}
                         </>
                     )}
                     {wizardStep === 2 && (

@@ -11,7 +11,7 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v6";
+const STORAGE_KEY = "lmp-demo-db-v7";
 const MODULES = [
     {id: "whmcs", name: "WHMCS Module", version: "1.0.0", description: "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS."},
     {id: "woocommerce", name: "WooCommerce Plugin", version: "1.0.0", description: "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer."},
@@ -157,8 +157,8 @@ function seed() {
             {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
         ],
         settings: {
-            app_version: "2.2.0",
-            latest_version: "2.2.0",
+            app_version: "2.2.1",
+            latest_version: "2.2.1",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
             site_name: "License Manager Pro",

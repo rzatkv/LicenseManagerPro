@@ -17,6 +17,29 @@ function NotificationsBell() {
     const [unread, setUnread] = useState(0);
     const [open, setOpen] = useState(false);
     const panelRef = useRef(null);
+    const btnRef = useRef(null);
+    // Fixed-position style for the panel, clamped inside the viewport.
+    // The panel used to be absolutely positioned against the bell: when
+    // the topbar wraps on a narrow screen the bell sits near a viewport
+    // edge and the 360px panel overflowed off-screen (clipped titles).
+    const [panelStyle, setPanelStyle] = useState(null);
+
+    // Clamp the open panel inside the viewport (right-aligned to the bell
+    // when there is room, otherwise pushed in from the edge).
+    useEffect(() => {
+        if (!open) return;
+        const place = () => {
+            const btn = btnRef.current;
+            if (!btn) return;
+            const r = btn.getBoundingClientRect();
+            const width = Math.min(360, window.innerWidth - 16);
+            const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+            setPanelStyle({left: `${left}px`, top: `${r.bottom + 8}px`, width: `${width}px`});
+        };
+        place();
+        window.addEventListener("resize", place);
+        return () => window.removeEventListener("resize", place);
+    }, [open]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -76,6 +99,7 @@ function NotificationsBell() {
             <button
                 type="button"
                 className="notif-bell-btn"
+                ref={btnRef}
                 aria-label={t("notifications.title")}
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
@@ -87,7 +111,7 @@ function NotificationsBell() {
                 {unread > 0 && <span className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
             </button>
             {open && (
-                <div className="notif-panel glass-card" role="menu">
+                <div className="notif-panel glass-card" role="menu" style={panelStyle || undefined}>
                     <div className="notif-panel-head">
                         <strong>{t("notifications.title")}</strong>
                         <button type="button" className="notif-mark-all" onClick={markAllRead}>

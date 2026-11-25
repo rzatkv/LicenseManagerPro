@@ -125,6 +125,9 @@ function TrendChart({points, title, lang}) {
     const y = (v) => padT + (1 - v / max) * (height - padT - padB);
     const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${(mounted ? y(p.count) : y(0)).toFixed(1)}`).join(" ");
     const area = `${line} L${x(n - 1).toFixed(1)},${height - padB} L${x(0).toFixed(1)},${height - padB} Z`;
+    // Unique integer ticks only: [0, max/2, max] rounded duplicates when
+    // max is 1 (Math.round(0.5) === 1), rendering "0, 1, 1".
+    const ticks = [...new Set([0, Math.round(max / 2), max])].sort((a, b) => a - b);
     return (
         <div className="chart-card chart-card-wide">
             <h3>{title}</h3>
@@ -136,10 +139,10 @@ function TrendChart({points, title, lang}) {
                             <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
                         </linearGradient>
                     </defs>
-                    {[0, 0.5, 1].map((f) => (
-                        <g key={f}>
-                            <line x1={padL} x2={width - padR} y1={y(max * f)} y2={y(max * f)} stroke="var(--border)" strokeWidth="1" />
-                            <text x={padL - 4} y={y(max * f) + 3} textAnchor="end" fill="var(--muted)" fontSize="9">{Math.round(max * f)}</text>
+                    {ticks.map((v) => (
+                        <g key={v}>
+                            <line x1={padL} x2={width - padR} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth="1" />
+                            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fill="var(--muted)" fontSize="9">{v}</text>
                         </g>
                     ))}
                     <path d={area} fill="url(#trend-fill)" />
@@ -314,7 +317,7 @@ function Dashboard() {
                     {label: t("dashboard.users"), value: summary.usersCount},
                     {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
                     {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
-                    {label: t("dashboard.estimatedMrr"), value: Number(summary.estimated_mrr || 0).toFixed(2)},
+                    {label: t("dashboard.estimatedMrr"), value: `${Number(summary.estimated_mrr || 0).toFixed(2)} USD`},
                 ].map((box, i) => (
                     <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
                         <h2>{box.label}</h2>

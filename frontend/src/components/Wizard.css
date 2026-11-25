@@ -49,7 +49,15 @@
 .wizard-step.done .wizard-step-dot { background: var(--success); color: var(--on-accent); }
 .wizard-step-label { overflow: hidden; text-overflow: ellipsis; }
 .wizard-body { display: flex; flex-direction: column; gap: 10px; }
+/* Every step child must be allowed to shrink below its content width,
+   or a long unbreakable label/value overflows the wizard card in RTL. */
+.wizard-body > * { min-width: 0; }
 .wizard-body input, .wizard-body select, .wizard-body textarea { width: 100%; }
+/* Visible field labels (not placeholder-only): a stacked label + control. */
+.field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.field-label > span { font-weight: 600; color: var(--text); }
+/* Inline per-step validation message shown when Next is disabled. */
+.wizard-error { color: var(--danger); font-size: 13px; margin: 4px 0 0; }
 .wizard-body .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .wizard-body .form-row > * { flex: 1 1 160px; min-width: 0; }
 .wizard-review { display: flex; flex-direction: column; gap: 6px; }

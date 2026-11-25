@@ -12,6 +12,16 @@ import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import "../styles/Products.css";
 
+// Compact action icons (defect 3): five text buttons made the actions cell
+// wider than a phone viewport; 32px icon buttons keep the cell narrow.
+const ICONS = {
+  view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>,
+  test: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  licenses: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
+
 const ALL_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"];
 const ALL_EVENTS = ["license.created", "license.renewed", "license.revoked", "license.expiring", "license.expired", "license.validated_failed"];
 const PAGE_SIZE = 10;
@@ -21,8 +31,6 @@ const emptyForm = {
   billing_cycles: ["monthly", "annual"], webhook_url: "", webhook_events: [], webhook_secret: "",
   group_id: "", key_prefix: "", key_segments: 4, key_segment_length: 4, max_reissues: 0,
 };
-
-const emptyGroupForm = {name: "", slug: "", description: "", color: "#7B6CFF", sort_order: 0};
 
 function Products() {
   const {t, lang} = useLanguage();
@@ -44,13 +52,6 @@ function Products() {
   const [wizardStep, setWizardStep] = useState(0);
   const [wizardForm, setWizardForm] = useState(emptyForm);
   const [wizardBusy, setWizardBusy] = useState(false);
-  const [showGroups, setShowGroups] = useState(false);
-  const [showGroupWizard, setShowGroupWizard] = useState(false);
-  const [groupStep, setGroupStep] = useState(0);
-  const [groupForm, setGroupForm] = useState(emptyGroupForm);
-  const [groupBusy, setGroupBusy] = useState(false);
-  const [editingGroupId, setEditingGroupId] = useState(null);
-  const [pendingGroupDelete, setPendingGroupDelete] = useState(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -171,48 +172,6 @@ function Products() {
     }
   };
 
-  const handleGroupWizardCreate = async () => {
-    if (!groupForm.name.trim()) { toast.error(t("wizard.nameRequired")); return; }
-    setGroupBusy(true);
-    try {
-      const payload = {
-        name: groupForm.name.trim(),
-        slug: groupForm.slug.trim() || undefined,
-        description: groupForm.description || undefined,
-        color: groupForm.color,
-        sort_order: Number(groupForm.sort_order) || 0,
-      };
-      let saved;
-      if (editingGroupId !== null) {
-        saved = await put(`/product-groups/${editingGroupId}`, payload);
-        setGroups(groups.map((g) => (g.id === editingGroupId ? saved : g)));
-        toast.success(t("groups.updated"));
-      } else {
-        saved = await post("/product-groups", payload);
-        setGroups([...groups, saved]);
-        toast.success(t("groups.created"));
-      }
-      setGroupForm(emptyGroupForm);
-      setGroupStep(0);
-      setEditingGroupId(null);
-      setShowGroupWizard(false);
-    } catch (err) {
-      toast.error(err.message || t("common.error"));
-    } finally {
-      setGroupBusy(false);
-    }
-  };
-
-  const handleGroupDelete = async (id) => {
-    try {
-      await del(`/product-groups/${id}`);
-      setGroups(groups.filter((g) => g.id !== id));
-      toast.success(t("groups.deleted"));
-    } catch (err) {
-      toast.error(err.message || t("common.error"));
-    }
-  };
-
   const handleDelete = async (id) => {
     try {
       await del(`/products/${id}`);
@@ -268,7 +227,7 @@ function Products() {
 
       <div className="toolbar">
         <button onClick={() => { setShowProductWizard(true); setWizardStep(0); }}>{t("products.create")}</button>
-        <button className="btn-ghost" onClick={() => setShowGroups((v) => !v)}>{t("groups.manage")}</button>
+        <Link className="btn-ghost" to="/product-groups">{t("groups.manage")}</Link>
       </div>
 
       {showProductWizard && (
@@ -312,30 +271,30 @@ function Products() {
             </>
           )}
           {wizardStep === 1 && (
-            <fieldset>
-              <legend>{t("products.cycles")}</legend>
+            <div className="check-field">
+              <div className="check-field-title">{t("products.cycles")}</div>
               <div className="check-group">
                 {ALL_CYCLES.map((c) => (
                   <label key={c} className="check-label">
-                    <input type="checkbox" checked={wizardForm.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, wizardForm, setWizardForm)} /> {t(`cycle.${c}`)}
+                    <input type="checkbox" checked={wizardForm.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, wizardForm, setWizardForm)} /><span className="check-label-text">{t(`cycle.${c}`)}</span>
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </div>
           )}
           {wizardStep === 2 && (
             <>
               <input type="url" placeholder={t("products.webhookUrl")} value={wizardForm.webhook_url} onChange={(e) => setWizardForm({...wizardForm, webhook_url: e.target.value})} />
-              <fieldset>
-                <legend>{t("products.webhookEvents")}</legend>
+              <div className="check-field">
+                <div className="check-field-title">{t("products.webhookEvents")}</div>
                 <div className="check-group">
                   {ALL_EVENTS.map((ev) => (
                     <label key={ev} className="check-label">
-                      <input type="checkbox" checked={wizardForm.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, wizardForm, setWizardForm)} /> {ev}
+                      <input type="checkbox" checked={wizardForm.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, wizardForm, setWizardForm)} /><span className="check-label-text">{ev}</span>
                     </label>
                   ))}
                 </div>
-              </fieldset>
+              </div>
               <input type="text" placeholder={t("products.webhookSecret")} value={wizardForm.webhook_secret} onChange={(e) => setWizardForm({...wizardForm, webhook_secret: e.target.value})} />
             </>
           )}
@@ -347,64 +306,6 @@ function Products() {
             </div>
           )}
         </Wizard>
-      )}
-
-      {showGroups && (
-        <div className="groups-card glass-card">
-          <h3>{t("groups.title")}</h3>
-          {groups.length === 0 ? (
-            <p className="dashboard-empty">{t("groups.noGroups")}</p>
-          ) : (
-            <ul className="groups-list">
-              {groups.map((g) => (
-                <li key={g.id}>
-                  <span className="group-color-dot" style={{background: g.color || "#7B6CFF"}} />
-                  <span className="group-name">{g.name}</span>
-                  <span className="group-slug">{g.slug}</span>
-                  <span className="group-count">{products.filter((p) => p.group_id === g.id).length} {t("groups.products")}</span>
-                  <span className="row-actions">
-                    <button className="edit-btn" onClick={() => { setEditingGroupId(g.id); setGroupForm({name: g.name, slug: g.slug || "", description: g.description || "", color: g.color || "#7B6CFF", sort_order: g.sort_order ?? 0}); setGroupStep(0); setShowGroupWizard(true); }}>{t("common.edit")}</button>
-                    <button className="delete-btn" onClick={() => setPendingGroupDelete(g.id)}>{t("common.delete")}</button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button onClick={() => { setEditingGroupId(null); setGroupForm(emptyGroupForm); setGroupStep(0); setShowGroupWizard(true); }}>{t("groups.create")}</button>
-          {showGroupWizard && (
-            <Wizard
-              title={editingGroupId !== null ? t("groups.edit") : t("groups.create")}
-              steps={[t("wizard.basics"), t("wizard.colorPreview")]}
-              step={groupStep}
-              onStepChange={setGroupStep}
-              canNext={groupForm.name.trim().length > 0}
-              onSubmit={handleGroupWizardCreate}
-              submitting={groupBusy}
-              onCancel={() => { setShowGroupWizard(false); setGroupStep(0); setEditingGroupId(null); setGroupForm(emptyGroupForm); }}
-            >
-              {groupStep === 0 && (
-                <>
-                  <div className="form-row">
-                    <input type="text" placeholder={t("groups.group")} value={groupForm.name} onChange={(e) => setGroupForm({...groupForm, name: e.target.value})} required />
-                    <input type="text" placeholder={t("products.slug")} value={groupForm.slug} onChange={(e) => setGroupForm({...groupForm, slug: e.target.value})} />
-                  </div>
-                  <input type="text" placeholder={t("common.description")} value={groupForm.description} onChange={(e) => setGroupForm({...groupForm, description: e.target.value})} />
-                  <input type="number" min="0" placeholder={t("groups.sortOrder")} value={groupForm.sort_order} onChange={(e) => setGroupForm({...groupForm, sort_order: e.target.value})} />
-                </>
-              )}
-              {groupStep === 1 && (
-                <>
-                  <label>{t("groups.color")}
-                    <input type="color" value={groupForm.color} onChange={(e) => setGroupForm({...groupForm, color: e.target.value})} />
-                  </label>
-                  <p>
-                    <span className="badge" style={{background: groupForm.color, color: "#fff", borderColor: groupForm.color}}>{groupForm.name || t("groups.group")}</span>
-                  </p>
-                </>
-              )}
-            </Wizard>
-          )}
-        </div>
       )}
 
       {editingId !== null && (
@@ -433,27 +334,27 @@ function Products() {
             <input type="number" min="2" max="8" placeholder={t("products.keySegmentLength")} value={form.key_segment_length} onChange={(e) => setForm({...form, key_segment_length: e.target.value})} />
             <input type="number" min="0" placeholder={t("products.maxReissues")} value={form.max_reissues} onChange={(e) => setForm({...form, max_reissues: e.target.value})} />
           </div>
-          <fieldset>
-            <legend>{t("products.cycles")}</legend>
+          <div className="check-field">
+            <div className="check-field-title">{t("products.cycles")}</div>
             <div className="check-group">
               {ALL_CYCLES.map((c) => (
                 <label key={c} className="check-label">
-                  <input type="checkbox" checked={form.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, form, setForm)} /> {t(`cycle.${c}`)}
+                  <input type="checkbox" checked={form.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, form, setForm)} /><span className="check-label-text">{t(`cycle.${c}`)}</span>
                 </label>
               ))}
             </div>
-          </fieldset>
+          </div>
           <input type="url" placeholder={t("products.webhookUrl")} value={form.webhook_url} onChange={(e) => setForm({...form, webhook_url: e.target.value})} />
-          <fieldset>
-            <legend>{t("products.webhookEvents")}</legend>
+          <div className="check-field">
+            <div className="check-field-title">{t("products.webhookEvents")}</div>
             <div className="check-group">
               {ALL_EVENTS.map((ev) => (
                 <label key={ev} className="check-label">
-                  <input type="checkbox" checked={form.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, form, setForm)} /> {ev}
+                  <input type="checkbox" checked={form.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, form, setForm)} /><span className="check-label-text">{ev}</span>
                 </label>
               ))}
             </div>
-          </fieldset>
+          </div>
           <input type="text" placeholder={t("products.webhookSecret")} value={form.webhook_secret} onChange={(e) => setForm({...form, webhook_secret: e.target.value})} />
           <div className="form-row">
             <button type="submit">{t("common.save")}</button>
@@ -503,11 +404,11 @@ function Products() {
           <tbody>
             {visible.map((p, i) => (
               <tr key={p.id} className={`${selectedId === p.id ? "selected-row " : ""}stagger-item`} style={{animationDelay: `${i * 40}ms`}}>
-                <td>{p.name}</td>
-                <td>{p.slug}</td>
+                <td className="cell-ellipsis cell-name">{p.name}</td>
+                <td className="cell-ellipsis cell-slug">{p.slug}</td>
                 <td>{groupName(p.group_id)}</td>
                 <td className="nowrap">{p.price} {p.currency}</td>
-                <td>{(p.billing_cycles || []).map((c) => <span key={c} className="badge">{t(`cycle.${c}`)}</span>)}</td>
+                <td><span className="cycle-chips">{(p.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
                 <td>
                   {p.webhook_url ? (<>{t("products.webhookConfigured")} <CopyButton text={p.webhook_url} /></>) : t("products.notConfigured")}
@@ -515,11 +416,11 @@ function Products() {
                 <td>{p.license_count ?? "-"}</td>
                 <td>
                   <div className="row-actions">
-                    <button className="view-btn" onClick={() => setSelectedId(p.id)}>{t("common.view")}</button>
-                    <button className="edit-btn" onClick={() => handleEdit(p)}>{t("common.edit")}</button>
-                    {p.webhook_url && <button onClick={() => handleTestWebhook(p.id)}>{t("products.testWebhook")}</button>}
-                    <Link to={`/licenses?product=${p.id}`}>{t("products.viewLicenses")}</Link>
-                    <button className="delete-btn" onClick={() => setPendingDelete(p.id)}>{t("common.delete")}</button>
+                    <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setSelectedId(p.id)}>{ICONS.view}</button>
+                    <button className="edit-btn icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => handleEdit(p)}>{ICONS.edit}</button>
+                    {p.webhook_url && <button className="icon-btn" title={t("products.testWebhook")} aria-label={t("products.testWebhook")} onClick={() => handleTestWebhook(p.id)}>{ICONS.test}</button>}
+                    <Link className="icon-btn" title={t("products.viewLicenses")} aria-label={t("products.viewLicenses")} to={`/licenses?product=${p.id}`}>{ICONS.licenses}</Link>
+                    <button className="delete-btn icon-btn" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(p.id)}>{ICONS.delete}</button>
                   </div>
                 </td>
               </tr>
@@ -573,13 +474,6 @@ function Products() {
         message={t("common.confirmDelete")}
         onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
         onCancel={() => setPendingDelete(null)}
-      />
-      <ConfirmModal
-        open={pendingGroupDelete !== null}
-        message={t("common.confirmDelete")}
-        confirmLabel={t("common.delete")}
-        onConfirm={() => { const id = pendingGroupDelete; setPendingGroupDelete(null); handleGroupDelete(id); }}
-        onCancel={() => setPendingGroupDelete(null)}
       />
     </div>
   );

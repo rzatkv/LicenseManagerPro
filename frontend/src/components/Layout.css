@@ -14,21 +14,28 @@
 .layout-brand {
   display: flex; align-items: center; gap: 10px;
   font-size: 19px; font-weight: 700; padding: 8px 10px 16px;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
   min-width: 0;
+  overflow: hidden;
 }
 .layout-brand img {
   width: 34px; height: 34px; flex-shrink: 0;
   border-radius: 10px;
-  /* The gradient text trick above would make the img transparent too;
-     keep the logo opaque by taking it out of the clipped text flow. */
-  -webkit-background-clip: border-box;
-  background-clip: border-box;
 }
-.layout-brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Gradient text lives on the span only (not the container): putting
+   background-clip: text on the container made the logo participate in
+   the clipped text flow and overlap the name. The span is a real flex
+   item with min-width: 0, so a long site name ellipsizes instead of
+   overflowing the 248px sidebar (the v2.2.0 bug: the span's default
+   min-width: auto kept its full min-content width). */
+.layout-brand span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 .layout-nav-section { margin-bottom: 8px; }
 .layout-nav-section-label {
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
