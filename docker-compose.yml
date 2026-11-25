@@ -1,0 +1,37 @@
+# License Manager Pro — backend (+ optional MySQL)
+#
+# SQLite (default, no extra services needed):
+#   docker compose up --build
+#
+# MySQL instead of SQLite:
+#   docker compose --profile mysql up --build
+#   (set DATABASE_URL=mysql+pymysql://lmp:lmp_password@db:3306/license_manager
+#    and SECRET_KEY in a .env file next to this compose file first)
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./license_manager.db}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    volumes:
+      - lmp-data:/app
+
+  db:
+    profiles: ["mysql"]
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: license_manager
+      MYSQL_USER: lmp
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lmp_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - lmp-mysql:/var/lib/mysql
+
+volumes:
+  lmp-data:
+  lmp-mysql:
