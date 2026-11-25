@@ -49,7 +49,7 @@
 
 .about-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: 16px;
     max-width: 880px;
     margin: 0 auto;
@@ -66,6 +66,24 @@
 
 .about-card p {
     color: var(--muted);
+    /* The release URL is one unbroken ~60-character word: without a
+       wrap opportunity it overflowed the card's edge after "Check for
+       updates" ran (measured live-DOM at 400px). Long words break only
+       when they would otherwise overflow; normal prose is unaffected. */
+    overflow-wrap: anywhere;
+}
+
+.about-card a {
+    overflow-wrap: anywhere;
+}
+
+.about-card .row-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.about-card .row-actions button {
+    max-width: 100%;
 }
 
 .about-whats-new {
@@ -117,6 +135,11 @@
 
 .about-card pre {
     margin: 8px 0;
+    /* Release notes are preformatted: long lines overflowed the card
+       the same way the release URL did. Wrap them instead. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .about-links {

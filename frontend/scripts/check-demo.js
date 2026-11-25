@@ -45,10 +45,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v2.3 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.3.1
+  // 1. Seed versions bumped to 2.3.2
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.3.1", settings.app_version === "2.3.1", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.3.1", settings.latest_version === "2.3.1", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.3.2", settings.app_version === "2.3.2", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.3.2", settings.latest_version === "2.3.2", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -179,13 +179,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v2.3.1", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.1/licensemanagerpro-whmcs-2.3.1.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v2.3.2", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.2/licensemanagerpro-whmcs-2.3.2.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 2.3.1", versions.whmcs && versions.whmcs.local === "2.3.1" && versions.odoo && versions.odoo.latest === "2.3.1", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 2.3.2", versions.whmcs && versions.whmcs.local === "2.3.2" && versions.odoo && versions.odoo.latest === "2.3.2", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.1", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.2", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
@@ -217,7 +217,7 @@ function check(name, cond, extra) {
   const roles = await mockRequest("GET", "/roles");
   check("roles seed has the 4 built-ins", Array.isArray(roles) && roles.length === 4 && roles.every((r) => r.is_builtin), JSON.stringify(roles && roles.length));
   const perms = await mockRequest("GET", "/roles/permissions");
-  check("permissions list includes roles:write", perms.permissions && perms.permissions.includes("roles:write"), JSON.stringify(perms.permissions));
+  check("permissions list includes roles:write", Array.isArray(perms) && perms.includes("roles:write"), JSON.stringify(perms));
   let builtinDelBlocked = false;
   try { await mockRequest("DELETE", "/roles/1"); } catch (e) { builtinDelBlocked = e.status === 400; }
   check("built-in role cannot be deleted", builtinDelBlocked);

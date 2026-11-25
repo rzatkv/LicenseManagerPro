@@ -4,12 +4,12 @@ import {login as loginRequest} from "../utils/auth";
 import {get} from "../utils/api";
 import {API_BASE_URL, DEMO_MODE} from "../config";
 import {useLanguage} from "../i18n";
-import {useTheme} from "../theme";
+import ThemeToggle from "../components/ThemeToggle";
+import LanguageMenu from "../components/LanguageMenu";
 import "../styles/Login.css";
 
 function Login() {
-    const {t, lang, setLang, available} = useLanguage();
-    const {mode, setMode} = useTheme();
+    const {t} = useLanguage();
     const [email, setEmail] = useState(DEMO_MODE ? "demo@demo.com" : "");
     const [password, setPassword] = useState(DEMO_MODE ? "demo1234" : "");
     const [error, setError] = useState("");
@@ -143,17 +143,13 @@ function Login() {
                 <span className="login-orb login-orb-2" />
                 <span className="login-orb login-orb-3" />
             </div>
+            {/* Same controls as the app header (ThemeToggle + LanguageMenu):
+                the old native <select> pair looked nothing like the header
+                and its wide pills overlapped the hero logo on short phone
+                viewports (v2.3.1 defect). */}
             <div className="login-top-controls">
-                <select aria-label={t("common.theme")} value={mode} onChange={(e) => setMode(e.target.value)}>
-                    <option value="light">{t("theme.light")}</option>
-                    <option value="dark">{t("theme.dark")}</option>
-                    <option value="auto">{t("theme.auto")}</option>
-                </select>
-                <select aria-label={t("common.language")} value={lang} onChange={(e) => setLang(e.target.value)}>
-                    {available.map((l) => (
-                        <option key={l.code} value={l.code}>{l.name}</option>
-                    ))}
-                </select>
+                <ThemeToggle />
+                <LanguageMenu />
             </div>
             <div className="login-layout">
                 <div

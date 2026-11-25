@@ -98,16 +98,32 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
    row — renew, reissue and delete live in the popup (see
    LicenseList.js). The key is flexible, status 88px, actions 56px. */
 @media (max-width: 640px) {
+  .license-list-container { padding: 12px; }
   .license-list-container .col-product { display: none; }
   .license-list-container table th:nth-child(2) { width: auto; }
   .license-list-container table th:nth-child(5) { width: 88px; }
   .license-list-container table th:nth-child(7) { width: 56px; }
+  /* The 56px actions column is narrower than its header label:
+     "Actions" (~50px at 14px) + 10px cell padding overflowed the cell
+     and the .table-wrap clipped the final "s" at the table's right
+     edge (measured live-DOM at 400/360px). A 12px label + 4px inline
+     padding fits with room to spare in both languages. */
+  .license-list-container table th:nth-child(7) { font-size: 12px; padding-inline: 4px; }
   /* The key truncates to the cell width now (not the fixed 200px cap,
      which would overflow a ~110px phone column). */
   .license-list-container table .key-cell-text { max-width: 100%; }
   /* No room for the row copy button in a phone key cell; the full key
      + copy live in the details popup. */
   .license-list-container table .key-cell .copy-btn { display: none; }
+}
+/* Very narrow phones (≤480px — the real phone viewport is ~360px CSS):
+   the 24-character key needs 166px + cell padding and the status pill
+   (88px) + actions (56px) leave too little. Status joins the details
+   popup (the modal already shows the full key + copy + status), so the
+   key gets the whole row and never truncates. */
+@media (max-width: 480px) {
+  .license-list-container table th:nth-child(5),
+  .license-list-container table td:nth-child(5) { display: none; }
 }
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }

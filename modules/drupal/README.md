@@ -1,6 +1,6 @@
 # License Manager Pro — Drupal Module
 
-Version 2.3.1 — for License Manager Pro 2.3.1.
+Version 2.3.2 — for License Manager Pro 2.3.2.
 
 Provisions License Manager Pro licenses from Drupal 10/11: administrators
 mint licenses for users from the admin area, and logged-in users see the
@@ -12,13 +12,13 @@ stores, or sends an admin email or password.
 
 - Drupal 10 or 11.
 - PHP 8.1+.
-- A reachable License Manager Pro 2.3.1 instance.
+- A reachable License Manager Pro 2.3.2 instance.
 - No Commerce dependency and no other contributed modules.
 
 ## Install
 
 1. Download the module ZIP from the License Manager Pro admin panel
-   (**Downloads** page) or from the GitHub release for v2.3.1.
+   (**Downloads** page) or from the GitHub release for v2.3.2.
 2. Unzip it so the folder lands at
    `web/modules/contrib/licensemanagerpro/` (Composer-based sites) or
    `modules/licensemanagerpro/` (classic layout), with

@@ -24,7 +24,7 @@ export default function Pagination({page, total, pageSize = 10, onPageChange}) {
         {t("common.previous")}
       </button>
       {pages.map((p) => (
-        <button key={p} className={p === page ? "active" : ""} onClick={() => onPageChange(p)}>
+        <button key={p} className={`pagination-page${p === page ? " active" : ""}`} onClick={() => onPageChange(p)}>
           {p}
         </button>
       ))}

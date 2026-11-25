@@ -381,6 +381,17 @@ pre {
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }
 .pagination-info { color: var(--muted); font-size: 13px; margin-inline-end: auto; }
+/* Real phones (≤640px): the "Showing 1–8 of 8 results" text plus five
+   page buttons pushed Prev/Next onto a second line and the "1" button
+   to the container edge (measured live-DOM at 400/360px). SPLIT, don't
+   squeeze: the info line and the non-current page numbers hide, so only
+   Prev + current page + Next stay — always on one line, never wrapped
+   or clipped, at any width down to 320px. */
+@media (max-width: 640px) {
+  .pagination { flex-wrap: nowrap; }
+  .pagination-info { display: none; }
+  .pagination .pagination-page:not(.active) { display: none; }
+}
 .pagination button {
     background: var(--surface);
     color: var(--text);

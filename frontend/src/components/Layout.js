@@ -6,6 +6,7 @@ import {get} from "../utils/api";
 import NotificationsBell from "./NotificationsBell";
 import GlobalSearch from "./GlobalSearch";
 import ThemeToggle from "./ThemeToggle";
+import LanguageMenu from "./LanguageMenu";
 import ProfileMenu from "./ProfileMenu";
 import {DEMO_MODE} from "../config";
 import "./Layout.css";
@@ -154,6 +155,7 @@ function Layout() {
             {DEMO_MODE && <span className="layout-demo-badge">{t("common.demo")}</span>}
             <NotificationsBell />
             <ThemeToggle />
+            <LanguageMenu />
             <ProfileMenu />
           </div>
         </header>

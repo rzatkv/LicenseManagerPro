@@ -11,8 +11,8 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v10";
-const APP_VERSION = "2.3.1";
+const STORAGE_KEY = "lmp-demo-db-v11";
+const APP_VERSION = "2.3.2";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
 // One module per platform (v2.3): the Downloads page links DIRECTLY to
 // the GitHub release asset, so the module version always matches the
@@ -1237,7 +1237,11 @@ export async function mockRequest(method, endpoint, body) {
     // ---- Roles (v2.3) -------------------------------------------------------
     if (parts[0] === "roles") {
         if (method === "GET" && parts.length === 2 && parts[1] === "permissions") {
-            return {permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read", "users:write", "roles:write", "downloads:read"]};
+            // Same shape as the real backend (GET /roles/permissions returns
+            // a bare array, response_model=list[str]): the Roles page reads
+            // it with Array.isArray, and a wrapped {permissions: [...]}
+            // object silently produced an empty checklist (v2.3.1 defect).
+            return ["api_keys:create", "api_keys:write", "audit:read", "downloads:read", "languages:write", "licenses:create", "licenses:delete", "licenses:renew", "licenses:write", "products:write", "roles:write", "settings:write", "system:check-expiring", "users:write"];
         }
         if (method === "GET" && parts.length === 1) {
             requireRole(["admin"]);

@@ -113,8 +113,11 @@
     font-size: 14px;
     margin-bottom: 10px;
 }
+/* Same icon buttons as the app header (ThemeToggle + LanguageMenu).
+   The old native <select> pills were ~170px wide together and overlapped
+   the hero logo on short phone viewports (400x800, fa dark); the two
+   36–40px icon buttons leave the logo clear at every size. */
 .login-top-controls { position: absolute; top: 16px; inset-inline-end: 16px; display: flex; gap: 8px; z-index: 2; }
-.login-top-controls select { padding: 6px 8px; border-radius: 999px; }
 .login-subtitle { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
 .demo-notice { color: var(--muted); font-size: 13px; }
 

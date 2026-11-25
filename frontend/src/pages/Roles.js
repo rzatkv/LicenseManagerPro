@@ -73,7 +73,11 @@ function Roles() {
         try {
             const [list, perms] = await Promise.all([get("/roles"), get("/roles/permissions")]);
             setRoles(Array.isArray(list) ? list : []);
-            setAllPermissions((Array.isArray(perms) ? perms : []).filter((p) => p !== "*"));
+            // The backend returns a bare array; tolerate a wrapped
+            // {permissions: [...]} shape too, so a mock/contract drift can
+            // never again silently empty the checklist (v2.3.1 defect).
+            const permList = Array.isArray(perms) ? perms : (perms && perms.permissions) || [];
+            setAllPermissions(permList.filter((p) => p !== "*"));
         } catch (err) {
             if (err && err.status === 403) {
                 setForbidden(true);

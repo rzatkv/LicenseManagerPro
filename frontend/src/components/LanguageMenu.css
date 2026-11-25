@@ -1,0 +1,36 @@
+/* Header language menu (v2.3.2): same component on the login page and in
+   the app header. Icon button + dropdown, modeled on ProfileMenu so the
+   two menus share the same look, spacing and animation. */
+.language-menu { position: relative; flex-shrink: 0; }
+.language-menu-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; padding: 0; margin: 0;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: none; cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.language-menu-button:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.language-menu-button svg { flex-shrink: 0; }
+.language-menu-dropdown {
+  position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
+  min-width: 176px; max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;
+  animation: lm-pop 0.18s ease;
+}
+@keyframes lm-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.language-menu-dropdown button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; border-radius: 12px;
+  padding: 10px 12px; margin: 0; text-align: start;
+  color: var(--text); font-weight: 500; font-size: 14px; box-shadow: none;
+}
+.language-menu-dropdown button:hover { transform: none; box-shadow: none; background: var(--accent-soft); }
+.language-menu-dropdown button.active { color: var(--accent); font-weight: 700; }
+.language-menu-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.language-menu-check { color: var(--accent); font-weight: 800; flex-shrink: 0; }
