@@ -1,0 +1,7 @@
+name: License Manager Pro
+type: module
+description: 'Provisions and displays License Manager Pro licenses. API-key auth only; no Commerce dependency.'
+package: License Manager Pro
+core_version_requirement: ^10 || ^11
+version: 2.3.0
+configure: licensemanagerpro.settings

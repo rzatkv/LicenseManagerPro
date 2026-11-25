@@ -34,6 +34,43 @@ class LMP_Orders
     }
 
     /**
+     * Resolve the billing cycle to send for a line item.
+     *
+     * When the order is a WooCommerce Subscriptions order, the
+     * subscription's own billing period wins (see
+     * LMP_Cycle_Mapper::from_subscription_period): 'month' -> monthly,
+     * 'quarter' -> quarterly, 'year' -> annual. 'day'/'week' (and
+     * anything else) have no License Manager Pro equivalent, so the
+     * mapped cycle is used instead. Without Subscriptions — or when no
+     * subscription is found for the order — the mapped cycle from the
+     * admin product mapping is used as today.
+     *
+     * Defensive by design: every Subscriptions call is guarded by
+     * function_exists()/method_exists() checks, so this never
+     * fatal-errors when WooCommerce Subscriptions is not installed.
+     */
+    private function resolve_billing_cycle($order, $mapping)
+    {
+        $fallback = isset($mapping['cycle']) ? $mapping['cycle'] : null;
+        if (!function_exists('wcs_get_subscriptions_for_order')) {
+            return $fallback;
+        }
+        $subscriptions = wcs_get_subscriptions_for_order(
+            $order->get_id(),
+            array('order_type' => 'any')
+        );
+        if (empty($subscriptions) || !is_array($subscriptions)) {
+            return $fallback;
+        }
+        $subscription = reset($subscriptions);
+        if (!is_object($subscription) || !method_exists($subscription, 'get_billing_period')) {
+            return $fallback;
+        }
+        $mapped = LMP_Cycle_Mapper::from_subscription_period($subscription->get_billing_period());
+        return ($mapped !== null) ? $mapped : $fallback;
+    }
+
+    /**
      * Create licenses for every mapped line item of a completed order.
      */
     public function create_licenses_for_order($order_id)
@@ -59,9 +96,12 @@ class LMP_Orders
                 $order->add_order_note('License Manager Pro: ' . $product->get_error_message());
                 continue;
             }
+            // Subscription billing period wins when present; otherwise
+            // the mapped cycle from the admin product mapping.
+            $cycle = $this->resolve_billing_cycle($order, $mapping);
             $license = $this->api->create_license(
                 (int) $product['id'],
-                $mapping['cycle'],
+                $cycle,
                 $owner_email ? $owner_email : null
             );
             if (is_wp_error($license)) {
@@ -71,10 +111,12 @@ class LMP_Orders
             $item->update_meta_data('_lmp_license_key', isset($license['key']) ? $license['key'] : '');
             $item->update_meta_data('_lmp_license_id', isset($license['id']) ? (int) $license['id'] : 0);
             $item->save();
-            $order->add_order_note(
-                'License Manager Pro: license created for ' . $item->get_name()
-                . ' — key ' . (isset($license['key']) ? $license['key'] : '')
-            );
+            $note = 'License Manager Pro: license created for ' . $item->get_name()
+                . ' — key ' . (isset($license['key']) ? $license['key'] : '');
+            if ($cycle !== null && $cycle !== '') {
+                $note .= ' — billing cycle ' . $cycle;
+            }
+            $order->add_order_note($note);
         }
     }
 
@@ -88,11 +130,15 @@ class LMP_Orders
             return;
         }
         echo '<p><strong>' . esc_html__('License key:', 'licensemanagerpro') . '</strong> '
-            . '<code>' . esc_html($key) . '</code></p>';
+            . '<code style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:#9d174d;background:#fdf2f8;border:1px solid #f9a8d4;border-radius:8px;padding:2px 8px;word-break:break-all;">' . esc_html($key) . '</code></p>';
     }
 
     /**
      * Add the license keys to the order email meta fields.
+     *
+     * Deliberately plain text, no HTML chip: WooCommerce renders these
+     * same fields in BOTH the HTML and the plain-text email templates, so
+     * any markup here would show up literally in plain-text emails.
      */
     public function add_license_to_email($fields, $sent_to_admin, $order)
     {

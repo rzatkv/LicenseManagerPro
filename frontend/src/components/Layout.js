@@ -1,10 +1,12 @@
 import React, {useState, useEffect} from "react";
-import {NavLink, Outlet, useLocation, useNavigate} from "react-router-dom";
+import {NavLink, Outlet, useLocation} from "react-router-dom";
 import {useLanguage} from "../i18n";
-import {useTheme} from "../theme";
-import {getCurrentUser, logout} from "../utils/auth";
+import {getCurrentUser} from "../utils/auth";
 import {get} from "../utils/api";
 import NotificationsBell from "./NotificationsBell";
+import GlobalSearch from "./GlobalSearch";
+import ThemeToggle from "./ThemeToggle";
+import ProfileMenu from "./ProfileMenu";
 import {DEMO_MODE} from "../config";
 import "./Layout.css";
 
@@ -14,6 +16,7 @@ const ICONS = {
   licenses: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
   apikeys: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2M15 6l3 3M18 3l3 3"/></svg>,
   users: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5M16 4.5a3.5 3.5 0 010 7M17.5 15.5c2 .6 3.5 2 4 4.5"/></svg>,
+  roles: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="M9 11.5l2 2 4-4.5"/></svg>,
   languages: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>,
   docs: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 006.5 22H20v-5"/></svg>,
   settings: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34h.01a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55h.01a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87v.01a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>,
@@ -25,14 +28,21 @@ const ICONS = {
   groups: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2v11z"/></svg>,
 };
 
+/** Mobile bottom nav (v2.3, ≤1024px only): the five most-used sections. */
+const BOTTOM_NAV = [
+  {to: "/dashboard", labelKey: "nav.dashboard", icon: ICONS.dashboard},
+  {to: "/products", labelKey: "nav.products", icon: ICONS.products},
+  {to: "/licenses", labelKey: "nav.licenses", icon: ICONS.licenses},
+  {to: "/notifications", labelKey: "nav.notifications", icon: ICONS.notifications},
+  {to: "/settings", labelKey: "nav.settings", icon: ICONS.settings},
+];
+
 function Layout() {
-  const {t, lang, setLang, available, fetchLanguages} = useLanguage();
-  const {mode, setMode} = useTheme();
+  const {t, fetchLanguages} = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [siteName, setSiteName] = useState("License Manager Pro");
   const [logoUrl, setLogoUrl] = useState("./logo.svg");
   const location = useLocation();
-  const navigate = useNavigate();
   const user = getCurrentUser();
   const role = user && user.role ? user.role : "viewer";
 
@@ -60,30 +70,15 @@ function Layout() {
     return () => document.removeEventListener("keydown", onKey);
   }, [sidebarOpen]);
 
+  // Custom languages (if any) are merged into the i18n dictionaries here
+  // so nav labels and page strings use them; the language picker itself
+  // lives in Settings.
   useEffect(() => {
     fetchLanguages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const titles = {
-    "/dashboard": t("nav.dashboard"),
-    "/products": t("nav.products"),
-    "/licenses": t("nav.licenses"),
-    "/api-keys": t("nav.apiKeys"),
-    "/users": t("nav.users"),
-    "/audit-logs": t("nav.auditLogs"),
-    "/languages": t("nav.languages"),
-    "/docs": t("nav.apiDocs"),
-    "/settings": t("nav.settings"),
-    "/about": t("nav.about"),
-    "/blacklist": t("nav.blacklist"),
-    "/downloads": t("nav.downloads"),
-    "/notifications": t("nav.notifications"),
-    "/product-groups": t("nav.productGroups"),
-  };
-  const title = titles[location.pathname] || siteName;
-
-  // Users and Blacklist are admin-only (their APIs are admin-only);
+  // Users, Roles and Blacklist are admin-only (their APIs are admin-only);
   // Languages and Audit Logs are admin/manager (audit-logs API: 403 else).
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
@@ -105,6 +100,7 @@ function Layout() {
       label: t("nav.system"),
       items: [
         {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
+        {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
         {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
         {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
         {to: "/languages", label: t("nav.languages"), icon: ICONS.languages, show: canManage},
@@ -113,11 +109,6 @@ function Layout() {
       ],
     },
   ];
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <div className="layout">
@@ -156,22 +147,14 @@ function Layout() {
           <button className="layout-hamburger" aria-label={t("nav.menu")} onClick={() => setSidebarOpen((v) => !v)}>
             <span /><span /><span />
           </button>
-          <h1 className="layout-title">{title}</h1>
+          <div className="layout-search">
+            <GlobalSearch />
+          </div>
           <div className="layout-topbar-right">
             {DEMO_MODE && <span className="layout-demo-badge">{t("common.demo")}</span>}
             <NotificationsBell />
-            <select className="layout-select" aria-label={t("common.theme")} value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="light">{t("theme.light")}</option>
-              <option value="dark">{t("theme.dark")}</option>
-              <option value="auto">{t("theme.auto")}</option>
-            </select>
-            <select className="layout-select" aria-label={t("common.language")} value={lang} onChange={(e) => setLang(e.target.value)}>
-              {available.map((l) => (
-                <option key={l.code} value={l.code}>{l.name}</option>
-              ))}
-            </select>
-            {user && user.email && <span className="layout-user">{user.email} ({t(`roles.${role}`) === `roles.${role}` ? role : t(`roles.${role}`)})</span>}
-            <button className="layout-logout" onClick={handleLogout}>{t("nav.logout")}</button>
+            <ThemeToggle />
+            <ProfileMenu />
           </div>
         </header>
         <main className="layout-content">
@@ -180,6 +163,14 @@ function Layout() {
           </div>
         </main>
       </div>
+      <nav className="layout-bottomnav" aria-label={t("nav.menu")}>
+        {BOTTOM_NAV.map((item) => (
+          <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-bottomnav-link${isActive ? " active" : ""}`}>
+            <span className="layout-bottomnav-icon">{item.icon}</span>
+            <span className="layout-bottomnav-label">{t(item.labelKey)}</span>
+          </NavLink>
+        ))}
+      </nav>
       {/* Rendered last in the DOM (after .layout-main) and only while open:
           nothing in the normal flow paints above it, and removing it on
           close leaves no invisible layer that could block taps afterwards.

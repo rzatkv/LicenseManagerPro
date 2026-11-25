@@ -15,16 +15,23 @@ import AuditLogs from "./pages/AuditLogs";
 import Blacklist from "./pages/Blacklist";
 import Downloads from "./pages/Downloads";
 import Notifications from "./pages/Notifications";
+import Roles from "./pages/Roles";
+import Profile from "./pages/Profile";
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import {ToastProvider} from "./components/Toast";
 import {LanguageProvider} from "./i18n";
 import {ThemeProvider} from "./theme";
-import {isAuthenticated} from "./utils/auth";
+import {isAuthenticated, getCurrentRole} from "./utils/auth";
 import {DEMO_MODE} from "./config";
 
 function ProtectedRoute({children}) {
     return isAuthenticated() ? children : <Navigate to="/" replace/>;
+}
+
+function AdminRoute({children}) {
+    if (!isAuthenticated()) return <Navigate to="/" replace/>;
+    return getCurrentRole() === "admin" ? children : <Navigate to="/dashboard" replace/>;
 }
 
 const Router = DEMO_MODE ? HashRouter : BrowserRouter;
@@ -44,6 +51,8 @@ function App() {
                             <Route path="/licenses" element={<LicenseList/>}/>
                             <Route path="/api-keys" element={<APIKeyList/>}/>
                             <Route path="/users" element={<UserManagement/>}/>
+                            <Route path="/roles" element={<AdminRoute><Roles/></AdminRoute>}/>
+                            <Route path="/profile" element={<Profile/>}/>
                             <Route path="/audit-logs" element={<AuditLogs/>}/>
                             <Route path="/languages" element={<Languages/>}/>
                             <Route path="/docs" element={<ApiDocs/>}/>

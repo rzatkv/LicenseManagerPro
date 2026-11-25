@@ -1,5 +1,4 @@
 """Blacklist routes (v2.2; admin only)."""
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
@@ -26,10 +25,10 @@ def _serialize(entry: BlacklistEntry) -> dict:
     }
 
 
-@router.get("", response_model=List[BlacklistResponse])
+@router.get("", response_model=list[BlacklistResponse])
 def list_blacklist(
     response: Response,
-    type: Optional[str] = Query(default=None, description="ip or domain"),
+    type: str | None = Query(default=None, description="ip or domain"),
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),

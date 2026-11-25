@@ -20,6 +20,51 @@ def _utcnow():
     return utcnow()
 
 
+class Role(Base):
+    """A user role (v2.3): a named set of permissions.
+
+    Built-in roles (admin/manager/support/viewer) are seeded at startup
+    and protected from deletion/renaming. Custom roles carry any subset
+    of the permission keys listed in utils/permissions.ALL_PERMISSIONS.
+    Users reference a role by role_id; the legacy `User.role` string is
+    kept in sync for backward compatibility.
+    """
+
+    __tablename__ = "roles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON list stored as text, e.g. ["licenses:create", "products:write"].
+    # ["*"] means every permission.
+    permissions: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class UserSetting(Base):
+    """Per-user preferences (v2.3): theme, custom theme, dashboard layout.
+
+    One row per (user_id, key); value is JSON stored as text.
+    """
+
+    __tablename__ = "user_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
 class User(Base):
     """Application user (admin panel login)."""
 
@@ -29,6 +74,28 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)
+    # Custom-role link (v2.3); NULL means "use the legacy role string".
+    role_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True
+    )
+    role_row: Mapped["Role | None"] = relationship(
+        "Role", foreign_keys=[role_id], lazy="joined"
+    )
+    # Profile (v2.3).
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # TOTP two-factor authentication (v2.3): base32 secret (encrypted at
+    # rest is out of scope for this release; it lives only in the DB),
+    # enabled flag, and SHA-256 hashes of one-time backup codes.
+    totp_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    backup_codes: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    # v2.3 TOTP replay protection: the last accepted code + when it was
+    # used. A code equal to this one within its validity window is
+    # rejected (a code may only ever authenticate once).
+    totp_last_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    totp_last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
@@ -64,6 +131,10 @@ class Product(Base):
     key_segment_length: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     # Max times a license of this product may be reissued (v2.2); NULL = unlimited.
     max_reissues: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Per-product license-security overrides (v2.3): JSON object with the
+    # same keys as the global `license_security` setting; any key present
+    # here overrides the global value for this product. NULL = use global.
+    security_overrides: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
@@ -200,12 +271,33 @@ class CustomLanguage(Base):
 
 
 class ApiKey(Base):
-    """API key with access rights and optional restrictions."""
+    """API key with access rights and optional restrictions.
+
+    v2.3 security: the secret itself is NEVER stored. ``key_hash`` holds
+    the SHA-256 hex of the secret (looked up on every use); ``key`` holds
+    only the display prefix (e.g. "lmp_a1b2c3d4") so lists never leak a
+    usable secret. The plaintext secret is returned ONCE, at creation
+    (and rotation), in the ``plain_key`` response field. Pre-v2.3 rows
+    (plaintext in ``key``) are migrated on startup by
+    services.api_keys.migrate_api_key_hashes: hash, then replace ``key``
+    with the prefix.
+    """
 
     __tablename__ = "api_keys"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     key: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    # SHA-256 hex of the secret; NULL only until the startup migration runs.
+    key_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    # v2.3 scopes: JSON list, e.g. ["module"]. Empty = legacy full key
+    # (governed by access_rights only). "module" = module preset.
+    scopes: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    # v2.3: when true, calls with this key must carry X-LMP-Timestamp +
+    # X-LMP-Signature (HMAC-SHA256 over method+path+timestamp+body hash).
+    require_signed_requests: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Last time an expiry warning notification was sent for this key
+    # (dedup: at most one warning per day).
+    expiry_warned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     access_rights: Mapped[str] = mapped_column(Text, nullable=False)  # comma-separated
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     associated_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)

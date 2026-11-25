@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+    <services>
+        <service id="Lmp\LicenseManager\Service\ConfigService" public="true">
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+        </service>
+
+        <service id="Lmp\LicenseManager\Service\ApiClient" public="true">
+            <argument type="service" id="Symfony\Contracts\HttpClient\HttpClientInterface"/>
+            <argument type="service" id="Lmp\LicenseManager\Service\ConfigService"/>
+            <argument type="service" id="logger"/>
+        </service>
+
+        <service id="Lmp\LicenseManager\Service\LicenseService" public="true">
+            <argument type="service" id="Lmp\LicenseManager\Service\ApiClient"/>
+            <argument type="service" id="logger"/>
+        </service>
+
+        <service id="Lmp\LicenseManager\Controller\Storefront\LicensesController" public="true">
+            <argument type="service" id="Lmp\LicenseManager\Service\LicenseService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+
+        <service id="Lmp\LicenseManager\Controller\Api\TestConnectionController" public="true">
+            <argument type="service" id="Lmp\LicenseManager\Service\ApiClient"/>
+            <argument type="service" id="Lmp\LicenseManager\Service\ConfigService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+
+        <service id="Lmp\LicenseManager\Subscriber\OrderPlacedSubscriber">
+            <argument type="service" id="Lmp\LicenseManager\Service\LicenseService"/>
+            <argument type="service" id="Lmp\LicenseManager\Service\ConfigService"/>
+            <argument type="service" id="order.repository"/>
+            <argument type="service" id="product.repository"/>
+            <argument type="service" id="logger"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+    </services>
+</container>

@@ -1,0 +1,23 @@
+/* Animated theme toggle (v2.3) */
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 10px; margin: 0; box-shadow: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.theme-toggle:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.theme-toggle-track { position: relative; width: 18px; height: 18px; display: inline-block; overflow: hidden; }
+.theme-toggle-sun, .theme-toggle-moon {
+  position: absolute; inset: 0;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+.theme-toggle-light .theme-toggle-sun { transform: rotate(0deg) scale(1); opacity: 1; }
+.theme-toggle-light .theme-toggle-moon { transform: rotate(90deg) scale(0.4); opacity: 0; }
+.theme-toggle-dark .theme-toggle-sun { transform: rotate(-90deg) scale(0.4); opacity: 0; }
+.theme-toggle-dark .theme-toggle-moon { transform: rotate(0deg) scale(1); opacity: 1; }
+.theme-toggle-auto {
+  font-size: 11px; font-weight: 800; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px;
+  padding: 1px 5px; line-height: 1.4;
+}

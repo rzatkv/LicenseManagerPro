@@ -1,6 +1,6 @@
 import React, {useEffect, useState, useCallback, useMemo} from "react";
 import {Link, useNavigate} from "react-router-dom";
-import {get, post} from "../utils/api";
+import {get, post, put} from "../utils/api";
 import {formatDate, formatDayShort, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
@@ -165,6 +165,66 @@ function TrendChart({points, title, lang}) {
     );
 }
 
+/** Webhook delivery stats widget (v2.3): overall success rate + a row
+ * per event with a small success bar. */
+function WebhookStatsWidget({stats, title, t}) {
+    if (!stats) return (
+        <div className="chart-card">
+            <h3>{title}</h3>
+            <p className="dashboard-empty">—</p>
+        </div>
+    );
+    const events = Object.entries(stats.by_event || {}).sort((a, b) => b[1].total - a[1].total);
+    return (
+        <div className="chart-card">
+            <h3>{title}</h3>
+            <div className="webhook-rate">
+                <span className="webhook-rate-value">{stats.success_rate}%</span>
+                <span className="webhook-rate-label">{t("dashboard.webhookSuccessRate")}</span>
+            </div>
+            <p className="webhook-totals">{stats.success} ✓ · {stats.failed} ✗ · {stats.total} total</p>
+            <ul className="chart-legend webhook-events">
+                {events.map(([event, e]) => {
+                    const pct = e.total ? Math.round((100 * e.success) / e.total) : 100;
+                    return (
+                        <li key={event}>
+                            <span className="webhook-event-name">{event}</span>
+                            <span className="webhook-event-bar"><span style={{width: `${pct}%`}} /></span>
+                            <span className="webhook-event-pct">{pct}%</span>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+}
+
+// --- Customizable dashboard widgets (v2.3) -------------------------------
+const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks"];
+const DEFAULT_LAYOUT = {
+    order: [...WIDGET_IDS],
+    sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M"},
+    ranges: {trend: 14, activations: 14},
+};
+const LAYOUT_KEY = "lmp-dashboard-layout";
+const RANGE_OPTIONS = [7, 14, 30, 90];
+
+function readLayout() {
+    try {
+        const raw = localStorage.getItem(LAYOUT_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.order)) return null;
+        return {
+            order: [...new Set([...parsed.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
+            sizes: {...DEFAULT_LAYOUT.sizes, ...(parsed.sizes || {})},
+            ranges: {...DEFAULT_LAYOUT.ranges, ...(parsed.ranges || {})},
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
 function Dashboard() {
     const {t, lang} = useLanguage();
     const {toast} = useToast();
@@ -173,11 +233,52 @@ function Dashboard() {
     const [apiKeys, setApiKeys] = useState([]);
     const [users, setUsers] = useState([]);
     const [trend, setTrend] = useState([]);
+    const [activations, setActivations] = useState([]);
+    const [webhookStats, setWebhookStats] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
+    // Customizable widgets (v2.3): order, size (S/M/L) and chart range
+    // persist per user (localStorage first, backend preferences as well).
+    const [layout, setLayout] = useState(() => readLayout() || DEFAULT_LAYOUT);
+    const [customizing, setCustomizing] = useState(false);
     const navigate = useNavigate();
+
+    // Load a saved layout from the backend when nothing is stored
+    // locally (same pattern as the theme provider).
+    useEffect(() => {
+        if (readLayout()) return;
+        get("/users/me/preferences").then((data) => {
+            const saved = data && data.preferences && data.preferences.dashboard;
+            if (saved && Array.isArray(saved.order)) {
+                setLayout({
+                    order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
+                    sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
+                    ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
+                });
+            }
+        }).catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist every layout change (local + backend, fire-and-forget).
+    useEffect(() => {
+        try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+        put("/users/me/preferences", {key: "dashboard", value: layout}).catch(() => {});
+    }, [layout]);
+
+    // Trend + activations charts refetch when their range changes.
+    useEffect(() => {
+        get(`/dashboard/license-trend?days=${layout.ranges.trend}`)
+            .then((d) => setTrend(Array.isArray(d.points) ? d.points : []))
+            .catch(() => setTrend([]));
+    }, [layout.ranges.trend]);
+    useEffect(() => {
+        get(`/dashboard/activations-trend?days=${layout.ranges.activations}`)
+            .then((d) => setActivations(Array.isArray(d.points) ? d.points : []))
+            .catch(() => setActivations([]));
+    }, [layout.ranges.activations]);
 
     const slides = useMemo(() => [
         {title: t("dashboard.slide1Title"), text: t("dashboard.slide1Text")},
@@ -194,18 +295,18 @@ function Dashboard() {
     const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [summaryData, licensesData, keysData, usersData, trendData] = await Promise.all([
+            const [summaryData, licensesData, keysData, usersData, webhookData] = await Promise.all([
                 get("/dashboard/summary"),
                 get("/licenses?filter=all"),
                 get("/api-keys"),
                 get("/users"),
-                get("/dashboard/license-trend?days=14"),
+                get("/dashboard/webhook-stats").catch(() => null),
             ]);
             setSummary(summaryData);
             setLicenses(licensesData);
             setApiKeys(keysData.api_keys || []);
             setUsers(usersData);
-            setTrend(trendData && Array.isArray(trendData.points) ? trendData.points : []);
+            setWebhookStats(webhookData);
             setError("");
         } catch (err) {
             if (err.status === 401) { navigate("/"); return; }
@@ -313,13 +414,14 @@ function Dashboard() {
                 </div>
             </div>
 
+            {/* No financial card: this is not a financial system (v2.3) —
+                the Estimated MRR card was removed entirely. */}
             <div className="dashboard-summary">
                 {[
                     {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
                     {label: t("dashboard.users"), value: summary.usersCount},
                     {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
                     {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
-                    {label: t("dashboard.estimatedMrr"), value: `${Number(summary.estimated_mrr || 0).toFixed(2)} USD`},
                 ].map((box, i) => (
                     <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
                         <h2>{box.label}</h2>
@@ -328,11 +430,93 @@ function Dashboard() {
                 ))}
             </div>
 
+            <div className="dashboard-customize-bar">
+                <button
+                    type="button"
+                    className="btn-ghost"
+                    aria-pressed={customizing}
+                    onClick={() => setCustomizing((v) => !v)}
+                >
+                    {t("dashboard.customize")}
+                </button>
+            </div>
+
             <div className="charts-row">
-                <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />
-                <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />
-                <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />
-                <TrendChart points={trend} title={t("dashboard.trendTitle")} lang={lang} />
+                {layout.order.map((id, index) => {
+                    const size = layout.sizes[id] || "M";
+                    const move = (dir) => {
+                        setLayout((prev) => {
+                            const order = [...prev.order];
+                            const j = order.indexOf(id) + dir;
+                            if (j < 0 || j >= order.length) return prev;
+                            [order[index], order[j]] = [order[j], order[index]];
+                            return {...prev, order};
+                        });
+                    };
+                    return (
+                        <div
+                            key={id}
+                            className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}`}
+                            draggable={customizing}
+                            onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); }}
+                            onDragOver={(e) => { if (customizing) e.preventDefault(); }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                const dragged = e.dataTransfer.getData("text/plain");
+                                if (!dragged || dragged === id) return;
+                                setLayout((prev) => {
+                                    const order = prev.order.filter((x) => x !== dragged);
+                                    order.splice(order.indexOf(id), 0, dragged);
+                                    return {...prev, order};
+                                });
+                            }}
+                        >
+                            {customizing && (
+                                <div className="widget-controls">
+                                    <span className="widget-drag-handle" title={t("dashboard.customize")}>⠿</span>
+                                    <span className="widget-control-group">
+                                        <span className="widget-control-label">{t("dashboard.size")}</span>
+                                        {["S", "M", "L"].map((s) => (
+                                            <button
+                                                key={s}
+                                                type="button"
+                                                className={size === s ? "widget-size-btn active" : "widget-size-btn"}
+                                                aria-pressed={size === s}
+                                                onClick={() => setLayout((prev) => ({...prev, sizes: {...prev.sizes, [id]: s}}))}
+                                            >
+                                                {t(`dashboard.size${s}`)}
+                                            </button>
+                                        ))}
+                                    </span>
+                                    {(id === "trend" || id === "activations") && (
+                                        <span className="widget-control-group">
+                                            <span className="widget-control-label">{t("dashboard.range")}</span>
+                                            <select
+                                                value={layout.ranges[id]}
+                                                onChange={(e) => setLayout((prev) => ({...prev, ranges: {...prev.ranges, [id]: Number(e.target.value)}}))}
+                                                aria-label={t("dashboard.range")}
+                                            >
+                                                {RANGE_OPTIONS.map((d) => (
+                                                    <option key={d} value={d}>{d} {t("common.days")}</option>
+                                                ))}
+                                            </select>
+                                        </span>
+                                    )}
+                                    <span className="widget-control-group">
+                                        <button type="button" className="widget-move-btn" disabled={index === 0} onClick={() => move(-1)} aria-label="↑">↑</button>
+                                        <button type="button" className="widget-move-btn" disabled={index === layout.order.length - 1} onClick={() => move(1)} aria-label="↓">↓</button>
+                                    </span>
+                                </div>
+                            )}
+                            {id === "trend" && <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} />}
+                            {id === "status" && <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />}
+                            {id === "perMonth" && <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />}
+                            {id === "byProduct" && <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />}
+                            {id === "activations" && <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} />}
+                            {id === "webhooks" && <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} />}
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="dashboard-actions">

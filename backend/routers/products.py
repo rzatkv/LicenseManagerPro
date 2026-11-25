@@ -1,5 +1,9 @@
-"""Product routes (v2.0, all require a JWT; writes need products:write)."""
-from typing import List, Optional
+"""Product routes (v2.0, all require a JWT; writes need products:write).
+
+v2.3: the read endpoints also accept a module-scoped API key
+(products:read) so WHMCS/WooCommerce can load the product list for the
+settings dropdown. Writes stay JWT-only.
+"""
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
@@ -15,7 +19,7 @@ from schemas import (
 from services import products as product_service
 from services import webhooks as webhook_service
 from services.audit import log_audit
-from utils.auth import get_current_user
+from utils.module_auth import require_actor
 from utils.pagination import Pagination, paginate_list, pagination_params
 from utils.permissions import require_permission
 
@@ -24,15 +28,15 @@ router = APIRouter()
 _write = require_permission("products:write")
 
 
-@router.get("", response_model=List[ProductResponse])
+@router.get("", response_model=list[ProductResponse])
 def list_products(
     response: Response,
-    status: Optional[str] = Query(default=None),
-    group_id: Optional[int] = Query(default=None),
-    slug: Optional[str] = Query(default=None, description="Exact product slug lookup"),
+    status: str | None = Query(default=None),
+    group_id: int | None = Query(default=None),
+    slug: str | None = Query(default=None, description="Exact product slug lookup"),
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _actor=Depends(require_actor(jwt_perm=None, module_scope="products:read")),
 ):
     products = product_service.list_products(
         db, status=status, group_id=group_id, slug=slug
@@ -64,7 +68,7 @@ def create_product(
 def get_product(
     product_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _actor=Depends(require_actor(jwt_perm=None, module_scope="products:read")),
 ):
     product = product_service.get_product(product_id, db)
     return product_service.serialize_product(product)

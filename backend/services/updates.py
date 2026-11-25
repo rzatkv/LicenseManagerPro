@@ -11,12 +11,11 @@
 `create_github_client` is a module-level factory so tests can monkeypatch
 it with a MockTransport client instead of hitting the real GitHub API.
 """
-import gzip
 import logging
 import re
 import subprocess
+import tarfile
 from pathlib import Path
-from typing import Optional
 
 import httpx
 from sqlalchemy.orm import Session
@@ -75,7 +74,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO) -> dict:
             "published_at": data.get("published_at"),
             "tarball_url": data.get("tarball_url"),
         }
-    except Exception as exc:  # noqa: BLE001 - update check must never raise
+    except Exception as exc:
         logger.warning("GitHub update check failed: %s", exc)
         return {"error": str(exc)}
 
@@ -118,7 +117,7 @@ def fetch_modules_manifest(repo: str = GITHUB_REPO) -> dict:
             return {}
         data = response.json()
         return data if isinstance(data, dict) else {}
-    except Exception as exc:  # noqa: BLE001 - manifest failure is non-fatal
+    except Exception as exc:
         logger.warning("Could not fetch modules.json: %s", exc)
         return {}
 
@@ -136,6 +135,11 @@ def stage_update(repo: str = GITHUB_REPO) -> dict:
     latest = release["latest_version"]
     if parse_version(latest) <= parse_version(APP_VERSION):
         raise ValueError(f"Already up to date (running {APP_VERSION})")
+    # The version string comes from GitHub (repo-owner controlled) but is
+    # used in a filename: allow only safe characters so a crafted tag
+    # can never escape the updates directory.
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", latest or ""):
+        raise ValueError(f"Refusing to stage a release with an unsafe version: {latest!r}")
     tarball_url = release.get("tarball_url")
     if not tarball_url:
         raise ValueError("The latest GitHub release has no tarball to download")
@@ -154,14 +158,25 @@ def stage_update(repo: str = GITHUB_REPO) -> dict:
                         fh.write(chunk)
     except ValueError:
         raise
-    except Exception as exc:  # noqa: BLE001 - report download failures plainly
-        raise ValueError(f"Tarball download failed: {exc}")
+    except Exception as exc:
+        raise ValueError(f"Tarball download failed: {exc}") from exc
 
     # Verify it is really a gzip tarball before calling it "staged".
+    # (GitHub's auto-generated tarballs carry no published checksum, so
+    # there is no hash to compare against — gzip + tar validity over
+    # HTTPS from the releases API is the verification available here.)
     try:
         with open(target, "rb") as fh:
             if fh.read(2) != b"\x1f\x8b":
                 raise ValueError("Downloaded file is not a gzip tarball")
+        with tarfile.open(target, "r:gz") as tf:
+            for member in tf.getmembers():
+                # A crafted archive must not escape the extract directory
+                # (absolute paths or ".." members) or contain device files.
+                if member.name.startswith(("/", "\\")) or ".." in Path(member.name).parts:
+                    raise ValueError(f"Tarball contains an unsafe member: {member.name!r}")
+                if member.isdev() or member.issym() or member.islnk():
+                    raise ValueError(f"Tarball contains a non-regular member: {member.name!r}")
     except ValueError:
         target.unlink(missing_ok=True)
         raise
@@ -178,7 +193,7 @@ def stage_update(repo: str = GITHUB_REPO) -> dict:
             )
             auto_applied = True
             next_step = "Update is being applied in the background; the service restarts itself."
-        except Exception as exc:  # noqa: BLE001 - fall back to manual apply
+        except Exception as exc:
             logger.warning("Could not auto-apply update: %s", exc)
     elif not UPDATE_SCRIPT.exists():
         next_step = (

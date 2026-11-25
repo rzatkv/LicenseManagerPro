@@ -122,6 +122,28 @@ const WEBHOOK_PAYLOAD = `{
   "sent_at": "2026-11-24T00:00:00Z"
 }`;
 
+const MODULE_AUTH_CURL = `# Module key — every module request sends X-API-Key (not a JWT):
+curl http://127.0.0.1:8000/api/products \\
+  -H "X-API-Key: lmp_..."
+
+# Test connection:
+curl http://127.0.0.1:8000/api/system/info \\
+  -H "X-API-Key: lmp_..."
+# => {"version": "2.3.0", "lastUpdated": "2026-11-25"}
+
+# Failures: 401 unknown/expired/revoked key or bad signature,
+# 403 key lacks the scope for this endpoint.`;
+
+const MODULE_AUTH_SIGN = `<?php
+// Signed requests: HMAC-SHA256 over
+// METHOD + "\\n" + PATH (URL path only, no query) + "\\n"
+//   + TIMESTAMP + "\\n" + SHA256(raw request body).hexdigest()
+$timestamp = (string) time();
+$body = json_encode($data); // '' for GET requests
+$message = "POST\\n/api/licenses\\n" . $timestamp . "\\n" . hash('sha256', $body);
+$signature = hash_hmac('sha256', $message, hash('sha256', $api_key, true));
+// Headers: X-API-Key, X-LMP-Timestamp: $timestamp, X-LMP-Signature: $signature`;
+
 const SIG_PHP = `<?php
 // Verify the webhook signature (HMAC-SHA256 over the raw request body,
 // using the product's webhook_secret; header: X-LMP-Signature).
@@ -165,6 +187,7 @@ const ENDPOINTS = [
   ["PUT", "/api/licenses/{id}", "docs.ep.licensesUpdate"],
   ["DELETE", "/api/licenses/{id}", "docs.ep.licensesDelete"],
   ["POST", "/api/licenses/{id}/renew", "docs.ep.licensesRenew"],
+  ["POST", "/api/licenses/{id}/renew?billing_cycle=", "docs.ep.licenseRenewCycle"],
   ["POST", "/api/licenses/{id}/reissue", "docs.ep.licenseReissue"],
   ["GET", "/api/licenses/{id}/activations", "docs.ep.licenseActivations"],
   ["POST", "/api/licenses/validate", "docs.ep.licensesValidate"],
@@ -239,6 +262,18 @@ api-key: lmp_...
         <p>{t("docs.apiKeysText2")}</p>
       </Section>
 
+      <Section id="module-auth" title={t("docs.moduleAuth")}>
+        <p>{t("docs.moduleAuthText1")}</p>
+        <p>{t("docs.moduleAuthText2")}</p>
+        <p>{t("docs.moduleAuthText3")}</p>
+        <pre>{MODULE_AUTH_CURL}</pre>
+        <h3>{t("docs.moduleAuthSigningTitle")}</h3>
+        <pre>{MODULE_AUTH_SIGN}</pre>
+        <p>{t("docs.moduleAuthRotation")}</p>
+        <p>{t("docs.moduleAuthDropdown")}</p>
+        <p>{t("docs.moduleAuthTest")}</p>
+      </Section>
+
       <Section id="endpoints" title={t("docs.endpoints")}>
         <div className="table-wrap">
         <table>
@@ -256,6 +291,14 @@ api-key: lmp_...
           </tbody>
         </table>
         </div>
+      </Section>
+
+      <Section id="billing-sync" title={t("docs.billingSyncTitle")}>
+        <p>{t("docs.billingSyncText")}</p>
+        <pre>{`POST /api/licenses/1/renew?billing_cycle=annual
+# Switches the license to a new cycle and extends expiry by it.
+# A valid cycle missing from the product is added automatically.
+# Unknown cycles are rejected with 422; lifetime renewals return 400.`}</pre>
       </Section>
 
       <Section id="curl" title={t("docs.curl")}>

@@ -1,19 +1,31 @@
 import React, {useState, useEffect} from "react";
-import {get, post} from "../utils/api";
+import {Link} from "react-router-dom";
+import {get} from "../utils/api";
 import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {API_BASE_URL, DEMO_MODE} from "../config";
 import "../styles/About.css";
 
+const GITHUB_URL = "https://github.com/rzatkv/LicenseManagerPro";
+
+// What's-new highlights (v2.3.0). Every bullet is an existing i18n key —
+// no new keys, no hard-coded user-visible strings.
+const WHATS_NEW_KEYS = [
+    "login.twoFactorTitle",
+    "roles.title",
+    "theme.presets",
+    "search.placeholder",
+    "security.title",
+];
+
 /**
- * About + Updates (v2.2).
- *
- * The Updates card checks GitHub live (GET /api/system/update-check) and
- * shows current vs latest version plus release notes. "Update now" stages
- * the latest release tarball (POST /api/system/update) — nothing live is
- * touched. The apply step is scripts/update.sh: the backend runs it
- * automatically only when LMP_ALLOW_SELF_UPDATE=1, otherwise the admin
- * runs the printed one-liner by hand.
+ * About (v2.3 redesign, linear-style): a hero card plus split cards —
+ * what's new, system information, update check, links, credits — instead
+ * of one cramped page. The update check only *checks* (GET
+ * /api/system/update-check); an available update links to /settings,
+ * where the admin stages it (POST /api/system/update, ConfirmModal +
+ * admin role). No update is ever triggered from this page.
  */
 function About() {
     const {t, lang} = useLanguage();
@@ -22,8 +34,6 @@ function About() {
     const [lastUpdated, setLastUpdated] = useState("");
     const [check, setCheck] = useState(null);
     const [checking, setChecking] = useState(false);
-    const [staged, setStaged] = useState(null);
-    const [staging, setStaging] = useState(false);
 
     useEffect(() => {
         const fetchAppInfo = async () => {
@@ -51,66 +61,96 @@ function About() {
         }
     };
 
-    const handleUpdate = async () => {
-        setStaging(true);
-        try {
-            const data = await post("/system/update", {});
-            setStaged(data);
-            toast.success(t("updates.stagedDone"));
-        } catch (err) {
-            toast.error(err.message || t("about.updateFailed"));
-        } finally {
-            setStaging(false);
-        }
-    };
-
     return (
         <div className="about-container page-enter">
-            <h1 className="gradient-text">{t("about.title")}</h1>
-            <div className="about-info">
-                <p><strong>{t("about.version")}:</strong> {version}</p>
-                <p><strong>{t("about.lastUpdated")}:</strong> {lastUpdated ? formatDate(lastUpdated, lang) : ""}</p>
-            </div>
-
-            <div className="updates-card glass-card">
-                <h2>{t("updates.title")}</h2>
-                <p><strong>{t("updates.current")}:</strong> {version || "-"}</p>
-                {check && (
-                    <>
-                        <p><strong>{t("updates.latest")}:</strong> {check.latest_version || "-"}</p>
-                        {check.update_available ? (
-                            <p>{t("updates.available")}</p>
-                        ) : (
-                            <p>{t("updates.upToDate")}</p>
-                        )}
-                        {check.release_notes && (
-                            <details>
-                                <summary>{t("updates.releaseNotes")}</summary>
-                                <pre>{check.release_notes}</pre>
-                            </details>
-                        )}
-                        {check.release_url && (
-                            <p><a href={check.release_url} target="_blank" rel="noopener noreferrer">{check.release_url}</a></p>
-                        )}
-                    </>
-                )}
-                <div className="row-actions">
-                    <button onClick={handleCheck} disabled={checking}>
-                        {checking ? t("updates.checking") : t("updates.check")}
-                    </button>
-                    {check && check.update_available && (
-                        <button onClick={handleUpdate} disabled={staging}>
-                            {staging ? t("updates.staging") : t("updates.updateNow")}
-                        </button>
-                    )}
+            <section className="about-hero glass-card">
+                <img src="./logo.svg" alt={t("common.appName")} className="about-logo" />
+                <div className="about-hero-text">
+                    <h1 className="gradient-text">{t("common.appName")}</h1>
+                    <p className="about-version">
+                        {t("about.version")} {version || "-"}
+                        {DEMO_MODE && <span className="badge badge-accent">{t("common.demo")}</span>}
+                    </p>
+                    <p className="about-tagline">{t("about.builtWith")}</p>
                 </div>
-                {staged && staged.staged && (
-                    <div className="staged-note">
-                        <p>{t("updates.staged")}</p>
-                        <pre>{staged.next_step}</pre>
+            </section>
+
+            <div className="about-grid">
+                <section className="about-card glass-card">
+                    <h2>{t("about.whatsNew")}</h2>
+                    <ul className="about-whats-new">
+                        {WHATS_NEW_KEYS.map((key) => (
+                            <li key={key}>{t(key)}</li>
+                        ))}
+                    </ul>
+                </section>
+
+                <section className="about-card glass-card">
+                    <h2>{t("about.systemInfo")}</h2>
+                    <dl className="about-info-list">
+                        <div>
+                            <dt>{t("about.version")}</dt>
+                            <dd>{version || "-"}</dd>
+                        </div>
+                        <div>
+                            <dt>API</dt>
+                            <dd className="about-api-url">{API_BASE_URL}</dd>
+                        </div>
+                        <div>
+                            <dt>{t("about.lastUpdated")}</dt>
+                            <dd>{lastUpdated ? formatDate(lastUpdated, lang) : "-"}</dd>
+                        </div>
+                    </dl>
+                </section>
+
+                <section className="about-card glass-card">
+                    <h2>{t("about.updateCheck")}</h2>
+                    <p><strong>{t("updates.current")}:</strong> {version || "-"}</p>
+                    {check && (
+                        <>
+                            <p><strong>{t("updates.latest")}:</strong> {check.latest_version || "-"}</p>
+                            {check.update_available ? (
+                                <p>{t("updates.available")}</p>
+                            ) : (
+                                <p>{t("updates.upToDate")}</p>
+                            )}
+                            {check.release_notes && (
+                                <details>
+                                    <summary>{t("updates.releaseNotes")}</summary>
+                                    <pre>{check.release_notes}</pre>
+                                </details>
+                            )}
+                            {check.release_url && (
+                                <p><a href={check.release_url} target="_blank" rel="noopener noreferrer">{check.release_url}</a></p>
+                            )}
+                        </>
+                    )}
+                    <div className="row-actions">
+                        <button onClick={handleCheck} disabled={checking}>
+                            {checking ? t("updates.checking") : t("updates.check")}
+                        </button>
+                        {check && check.update_available && (
+                            <Link className="btn-ghost" to="/settings">{t("nav.settings")}</Link>
+                        )}
                     </div>
-                )}
-                <p className="hint">{t("updates.autoDisabled")}</p>
+                </section>
+
+                <section className="about-card glass-card">
+                    <h2>{t("about.links")}</h2>
+                    <ul className="about-links">
+                        <li><Link to="/docs">{t("nav.apiDocs")}</Link></li>
+                        <li><Link to="/downloads">{t("nav.downloads")}</Link></li>
+                        <li><Link to="/settings">{t("nav.settings")}</Link></li>
+                        <li><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a></li>
+                        <li><a href={`${GITHUB_URL}/releases`} target="_blank" rel="noopener noreferrer">{t("about.changelog")}</a></li>
+                    </ul>
+                </section>
+
+                <section className="about-card glass-card">
+                    <h2>{t("about.credits")}</h2>
+                    <p>{t("about.builtWith")}</p>
+                    <p>{t("about.versionNotes")}</p>
+                </section>
             </div>
         </div>
     );

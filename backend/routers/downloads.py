@@ -1,11 +1,11 @@
-"""Module download routes (v2.2; JWT).
+"""Module download routes (v2.3; JWT).
 
-GET /api/downloads lists the WHMCS module and the WooCommerce plugin;
+GET /api/downloads lists all 10 modules with direct GitHub release-asset
+links built from the installed app version (version parity);
 GET /api/downloads/{id} streams a ZIP of the module directory built on
-the fly. GET /api/downloads/versions compares the local module versions
-with the versions in the repo's modules.json on GitHub.
+the fly (fallback). GET /api/downloads/versions compares the local module
+versions with the versions in the repo's modules.json on GitHub.
 """
-from typing import List
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
@@ -20,7 +20,7 @@ from utils.auth import get_current_user
 router = APIRouter()
 
 
-@router.get("", response_model=List[DownloadItemResponse])
+@router.get("", response_model=list[DownloadItemResponse])
 def list_downloads(
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
@@ -37,7 +37,7 @@ def module_versions(
     local = {item["id"]: item["version"] for item in download_service.list_downloads()}
     manifest = update_service.fetch_modules_manifest()
     out = {}
-    for module_id in ("whmcs", "woocommerce"):
+    for module_id in download_service.MODULE_ORDER:
         latest_entry = manifest.get(module_id, {}) if isinstance(manifest, dict) else {}
         latest = latest_entry.get("version") if isinstance(latest_entry, dict) else None
         out[module_id] = {

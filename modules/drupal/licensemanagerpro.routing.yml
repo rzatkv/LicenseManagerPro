@@ -1,0 +1,41 @@
+licensemanagerpro.settings:
+  path: '/admin/config/services/licensemanagerpro'
+  defaults:
+    _form: '\Drupal\licensemanagerpro\Form\SettingsForm'
+    _title: 'License Manager Pro'
+  requirements:
+    _permission: 'administer licensemanagerpro'
+
+licensemanagerpro.admin_licenses:
+  path: '/admin/config/services/licensemanagerpro/licenses'
+  defaults:
+    _controller: '\Drupal\licensemanagerpro\Controller\AdminController::list'
+    _title: 'Licenses'
+  requirements:
+    _permission: 'administer licensemanagerpro'
+
+licensemanagerpro.mint:
+  path: '/admin/config/services/licensemanagerpro/licenses/mint'
+  defaults:
+    _form: '\Drupal\licensemanagerpro\Form\MintLicenseForm'
+    _title: 'Mint license'
+  requirements:
+    _permission: 'administer licensemanagerpro'
+
+licensemanagerpro.test_connection:
+  path: '/admin/config/services/licensemanagerpro/test-connection'
+  defaults:
+    _controller: '\Drupal\licensemanagerpro\Controller\AdminController::testConnection'
+    _title: 'Test connection'
+  requirements:
+    _permission: 'administer licensemanagerpro'
+    _format: 'json'
+
+licensemanagerpro.user_licenses:
+  path: '/user/licenses'
+  defaults:
+    _controller: '\Drupal\licensemanagerpro\Controller\LicensesController::list'
+    _title: 'My licenses'
+  requirements:
+    _permission: 'view own licenses'
+    _user_is_logged_in: 'TRUE'

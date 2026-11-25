@@ -1,0 +1,153 @@
+<?php
+/**
+ * License Manager Pro — customer "My Licenses" page.
+ *
+ * @var \Lmp\LicenseManager\Block\Customer\Licenses $block
+ */
+$licenses = $block->getLicenses();
+$error = $block->getErrorMessage();
+?>
+<style>
+    .lmp-header {
+        background: linear-gradient(135deg, #c1165e 0%, #6d5df6 100%);
+        border-radius: 16px;
+        color: #ffffff;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .lmp-header h1 { color: #ffffff; margin: 0; font-size: 24px; }
+    .lmp-header p { margin: 4px 0 0; opacity: 0.9; }
+    .lmp-key-mark { flex: 0 0 auto; width: 48px; height: 48px; }
+    .lmp-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+        background: #ffffff;
+        box-shadow: 0 2px 12px rgba(109, 93, 246, 0.08);
+    }
+    .lmp-card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lmp-card-head h2 { margin: 0; font-size: 18px; }
+    .lmp-pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        background: #eef2ff;
+        color: #4338ca;
+    }
+    .lmp-pill-active { background: #dcfce7; color: #166534; }
+    .lmp-pill-expired, .lmp-pill-revoked { background: #fee2e2; color: #991b1b; }
+    .lmp-pill-suspended { background: #fef3c7; color: #92400e; }
+    .lmp-meta { color: #6b7280; font-size: 14px; margin: 8px 0 0; }
+    .lmp-key-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .lmp-key-chip {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px 12px;
+        word-break: break-all;
+    }
+    .lmp-copy-btn {
+        border: 1px solid #c1165e;
+        color: #c1165e;
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .lmp-copy-btn:hover { background: #fdf2f8; }
+    .lmp-empty, .lmp-error {
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        color: #6b7280;
+        background: #ffffff;
+    }
+    .lmp-error { border-color: #fecaca; color: #991b1b; background: #fef2f2; }
+</style>
+
+<div class="lmp-header">
+    <svg class="lmp-key-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <circle cx="24" cy="24" r="22" fill="rgba(255,255,255,0.18)"/>
+        <path d="M30 14a8 8 0 1 0 .9 15.95L32 31h2v3h3v3h4v-4h-3v-3h-3v-2.05A8 8 0 0 0 30 14Zm0 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"
+              fill="#ffffff"/>
+    </svg>
+    <div>
+        <h1><?= $block->escapeHtml(__('My Licenses')) ?></h1>
+        <p><?= $block->escapeHtml(__('Your License Manager Pro licenses, in one place.')) ?></p>
+    </div>
+</div>
+
+<?php if ($error): ?>
+    <div class="lmp-error"><?= $block->escapeHtml($error) ?></div>
+<?php elseif (empty($licenses)): ?>
+    <div class="lmp-empty"><?= $block->escapeHtml(__('You do not have any licenses yet.')) ?></div>
+<?php else: ?>
+    <?php foreach ($licenses as $license): ?>
+        <?php
+        $status = strtolower((string) ($license['status'] ?? ''));
+        $pillClass = 'lmp-pill';
+        if ($status === 'active') {
+            $pillClass .= ' lmp-pill-active';
+        } elseif (in_array($status, ['expired', 'revoked'], true)) {
+            $pillClass .= ' lmp-pill-' . $status;
+        } elseif ($status === 'suspended') {
+            $pillClass .= ' lmp-pill-suspended';
+        }
+        $key = (string) ($license['license_key'] ?? '');
+        $productName = (string) ($license['product_name'] ?? $license['product_slug'] ?? $license['product_id'] ?? '');
+        $expires = (string) ($license['expires_at'] ?? $license['expiry'] ?? '');
+        $cycle = (string) ($license['billing_cycle'] ?? '');
+        ?>
+        <div class="lmp-card">
+            <div class="lmp-card-head">
+                <h2><?= $block->escapeHtml($productName) ?></h2>
+                <span class="<?= $block->escapeHtmlAttr($pillClass) ?>">
+                    <?= $block->escapeHtml(ucfirst($status)) ?>
+                </span>
+            </div>
+            <?php if ($cycle !== ''): ?>
+                <p class="lmp-meta"><?= $block->escapeHtml(__('Billing cycle: %1', $cycle)) ?></p>
+            <?php endif; ?>
+            <?php if ($expires !== ''): ?>
+                <p class="lmp-meta"><?= $block->escapeHtml(__('Expires: %1', $expires)) ?></p>
+            <?php endif; ?>
+            <?php if ($key !== ''): ?>
+                <div class="lmp-key-row">
+                    <code class="lmp-key-chip"><?= $block->escapeHtml($key) ?></code>
+                    <button type="button" class="lmp-copy-btn"
+                            data-lmp-key="<?= $block->escapeHtmlAttr($key) ?>"
+                            onclick="lmpCopyKey(this)">
+                        <?= $block->escapeHtml(__('Copy')) ?>
+                    </button>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
+
+<script>
+    function lmpCopyKey(button) {
+        var key = button.getAttribute('data-lmp-key') || '';
+        var done = function () { button.textContent = '<?= $block->escapeJs(__('Copied')) ?>'; };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(key).then(done);
+        } else {
+            var input = document.createElement('input');
+            input.value = key;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            done();
+        }
+    }
+</script>

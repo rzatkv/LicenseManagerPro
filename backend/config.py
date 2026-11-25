@@ -33,7 +33,7 @@ CORS_ORIGINS = [
 ]
 
 # Current application version, shown by GET /api/system/info.
-APP_VERSION = os.getenv("APP_VERSION", "2.2.2")
+APP_VERSION = os.getenv("APP_VERSION", "2.3.0")
 
 # GitHub repo used by the self-update check (GET /api/system/update-check)
 # and the module version manifest (GET /api/downloads/versions).
@@ -53,6 +53,7 @@ LMP_ALLOW_SELF_UPDATE = os.getenv("LMP_ALLOW_SELF_UPDATE", "0") == "1"
 # sliding-window limiter in utils/rate_limit.py.
 RATE_LIMIT_AUTH_PER_MINUTE = int(os.getenv("RATE_LIMIT_AUTH_PER_MINUTE", "10"))
 RATE_LIMIT_VALIDATE_PER_MINUTE = int(os.getenv("RATE_LIMIT_VALIDATE_PER_MINUTE", "60"))
+RATE_LIMIT_2FA_PER_MINUTE = int(os.getenv("RATE_LIMIT_2FA_PER_MINUTE", "5"))
 
 # --- Optional SMTP settings for utils.email.send_email -------------------
 SMTP_HOST = os.getenv("SMTP_HOST", "")

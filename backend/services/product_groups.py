@@ -1,6 +1,5 @@
 """Product group business logic (v2.2)."""
 import re
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session

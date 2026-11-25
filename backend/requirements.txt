@@ -1,14 +1,21 @@
 # Backend requirements (FastAPI + SQLAlchemy 2.x + Pydantic v2)
-fastapi==0.115.6
+# Pinned versions are the pip-audit-clean set for v2.3.0 (2026-11-25):
+# PyJWT 2.15.0, python-dotenv 1.2.2, FastAPI 0.165.0 (starlette 1.10.0)
+# fix the CVEs found in 2.10.1 / 1.0.1 / 0.115.6+starlette 0.41.3.
+fastapi==0.165.0
 uvicorn==0.34.0
 sqlalchemy==2.0.36
 pymysql==1.1.1
-PyJWT==2.10.1
+PyJWT==2.15.0
 passlib==1.7.4
 bcrypt==4.0.1
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 email-validator==2.2.0
 
 # Tests
-pytest==8.3.4
+pytest==9.0.3
 httpx==0.28.1
+
+# Two-factor authentication (v2.3): TOTP secrets + QR codes for setup.
+pyotp==2.9.0
+qrcode[pil]==7.4.2

@@ -9,6 +9,8 @@ import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
+import ChipSelect from "../components/ChipSelect";
+import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/APIKeyList.css";
 
 const PAGE_SIZE = 10;
@@ -32,6 +34,8 @@ function APIKeyList() {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [sort, setSort] = useState("newest");
     const [loading, setLoading] = useState(true);
     const [newKey, setNewKey] = useState("");
     const [newRights, setNewRights] = useState(["get_license_info"]);
@@ -40,8 +44,13 @@ function APIKeyList() {
     const [newDomain, setNewDomain] = useState("");
     const [newDirectory, setNewDirectory] = useState("");
     const [newSingleUse, setNewSingleUse] = useState(false);
+    const [newIsModule, setNewIsModule] = useState(false);
+    const [newSigned, setNewSigned] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
+    const [pendingRotate, setPendingRotate] = useState(null);
+    // Secret shown exactly once after create/rotate; cleared on dismiss.
+    const [revealedSecret, setRevealedSecret] = useState(null);
     // Wizard state (create only; edit stays inline).
     const [showWizard, setShowWizard] = useState(false);
     const [wizardStep, setWizardStep] = useState(0);
@@ -92,6 +101,8 @@ function APIKeyList() {
         setNewDomain("");
         setNewDirectory("");
         setNewSingleUse(false);
+        setNewIsModule(false);
+        setNewSigned(false);
         setEditingId(null);
     };
 
@@ -103,8 +114,23 @@ function APIKeyList() {
         setNewDomain("");
         setNewDirectory("");
         setNewSingleUse(false);
+        setNewIsModule(false);
+        setNewSigned(false);
         setWizardStep(0);
         setCreatedKey(null);
+    };
+
+    // Rotate a key: the old secret stops working immediately and the new
+    // secret is shown exactly once (in the reveal card below).
+    const handleRotate = async (id) => {
+        try {
+            const rotated = await post(`/api-keys/${id}/rotate`, {});
+            setApiKeys(apiKeys.map((key) => (key.id === id ? {...key, key: rotated.key, scopes: rotated.scopes || key.scopes} : key)));
+            setRevealedSecret(rotated.plain_key || null);
+            toast.success(t("apikeys.rotated"));
+        } catch (err) {
+            toast.error(err.message || t("common.error"));
+        }
     };
 
     const handleEdit = (key) => {
@@ -117,6 +143,8 @@ function APIKeyList() {
         setNewDomain(key.associated_domain || "");
         setNewDirectory(key.associated_directory || "");
         setNewSingleUse(!!key.single_use);
+        setNewIsModule((key.scopes || []).includes("module"));
+        setNewSigned(!!key.require_signed_requests);
     };
 
     const handleUpdate = async (e) => {
@@ -124,6 +152,8 @@ function APIKeyList() {
         try {
             const updated = await put(`/api-keys/${editingId}`, {
                 access_rights: newRights,
+                scopes: newIsModule ? ["module"] : [],
+                require_signed_requests: newSigned,
                 expires_in_days: newExpiresInDays ? Number(newExpiresInDays) : undefined,
                 associated_ip: newIp || undefined,
                 associated_domain: newDomain || undefined,
@@ -144,6 +174,8 @@ function APIKeyList() {
             const created = await post("/api-keys", {
                 key: newKey || undefined,
                 access_rights: newRights,
+                scopes: newIsModule ? ["module"] : [],
+                require_signed_requests: newSigned,
                 expires_in_days: newExpiresInDays ? Number(newExpiresInDays) : undefined,
                 associated_ip: newIp || undefined,
                 associated_domain: newDomain || undefined,
@@ -152,7 +184,8 @@ function APIKeyList() {
             });
             if (page === 1) setApiKeys([created, ...apiKeys].slice(0, PAGE_SIZE));
             setTotal((prev) => prev + 1);
-            setCreatedKey(created.key);
+            // The secret is returned once, at creation — show it, not the prefix.
+            setCreatedKey(created.plain_key || created.key);
             toast.success(t("apikeys.created"));
         } catch (err) {
             toast.error(err.message || t("common.error"));
@@ -161,18 +194,46 @@ function APIKeyList() {
         }
     };
 
-    // Client-side search over the loaded page (key value / access rights).
-    const visible = apiKeys.filter((key) => {
-        if (!search.trim()) return true;
-        const q = search.trim().toLowerCase();
-        return (key.key || "").toLowerCase().includes(q)
-            || (key.access_rights || []).join(" ").toLowerCase().includes(q);
-    });
+    // Key status, derived from the record itself: a consumed single-use key
+    // is "consumed", a past expiry is "expired", anything else is "active".
+    const keyStatus = (key) => {
+        if (key.consumed) return "consumed";
+        if (key.expires_at && new Date(key.expires_at) < new Date()) return "expired";
+        return "active";
+    };
+
+    // Client-side search + status filter + sort over the loaded page
+    // (key value / access rights). The demo mock has no server-side
+    // filter for API keys, so filtering here works in demo mode as-is.
+    const filtersActive = search.trim() !== "" || statusFilter !== "all" || sort !== "newest";
+    const visible = apiKeys
+        .filter((key) => {
+            if (search.trim()) {
+                const q = search.trim().toLowerCase();
+                if (!(key.key || "").toLowerCase().includes(q)
+                    && !(key.access_rights || []).join(" ").toLowerCase().includes(q)) return false;
+            }
+            if (statusFilter !== "all" && keyStatus(key) !== statusFilter) return false;
+            return true;
+        })
+        .sort((a, b) => {
+            const ta = new Date(a.created_at || 0).getTime();
+            const tb = new Date(b.created_at || 0).getTime();
+            return sort === "oldest" ? ta - tb : tb - ta;
+        });
+
+    const clearFilters = () => {
+        setSearch("");
+        setStatusFilter("all");
+        setSort("newest");
+    };
 
     const wizardCanNext = wizardStep === 0 ? newRights.length > 0 : true;
     const reviewRows = [
         [t("apikeys.accessRights"), newRights.join(", ") || "-"],
         [t("apikeys.key"), newKey || t("apikeys.keyPlaceholder")],
+        [t("apikeys.scopes"), newIsModule ? t("apikeys.moduleKey") : "-"],
+        [t("apikeys.signedRequests"), newSigned ? t("common.yes") : t("common.no")],
         [t("apikeys.expires"), newExpiresInDays ? `${newExpiresInDays} ${t("common.days")}` : t("common.never")],
         [t("apikeys.restrictIp"), newIp || "-"],
         [t("apikeys.restrictDomain"), newDomain || "-"],
@@ -201,6 +262,7 @@ function APIKeyList() {
                         <>
                             <p>{t("wizard.yourKey")}</p>
                             <p className="key-cell">{createdKey} <CopyButton text={createdKey} /></p>
+                            <p className="hint">{t("apikeys.secretShownOnce")}</p>
                             <button onClick={() => { setShowWizard(false); resetWizard(); }}>{t("common.close")}</button>
                         </>
                     ) : null}
@@ -208,25 +270,35 @@ function APIKeyList() {
                     {wizardStep === 0 && (
                         <div className="check-field">
                             <div className="check-field-title">{t("apikeys.accessRights")}</div>
-                            <div className="check-group">
-                                {ALL_ACCESS_RIGHTS.map((right) => (
-                                    <label key={right} className="check-label">
-                                        <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /><span className="check-label-text">{right}</span>
-                                    </label>
-                                ))}
-                            </div>
+                            <ChipSelect
+                              ariaLabel={t("apikeys.accessRights")}
+                              options={ALL_ACCESS_RIGHTS}
+                              selected={newRights}
+                              onToggle={toggleRight}
+                            />
                         </div>
                     )}
                     {wizardStep === 1 && (
                         <>
+                            <ToggleSwitch checked={newIsModule} onChange={(v) => { setNewIsModule(v); if (v && !newExpiresInDays) setNewExpiresInDays("90"); }} label={t("apikeys.moduleKey")} hint={t("apikeys.moduleKeyHint")} />
+                            {newIsModule && (
+                                <>
+                                    <select value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} aria-label={t("apikeys.expires")}>
+                                        {[30, 90, 180, 365].map((d) => (
+                                            <option key={d} value={String(d)}>{d} {t("common.days")}</option>
+                                        ))}
+                                    </select>
+                                    <ToggleSwitch checked={newSigned} onChange={setNewSigned} label={t("apikeys.signedRequests")} />
+                                </>
+                            )}
                             <input type="text" placeholder={t("apikeys.keyPlaceholder")} value={newKey} onChange={(e) => setNewKey(e.target.value)} />
-                            <input type="number" min="1" placeholder={t("apikeys.expiresPlaceholder")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
+                            {!newIsModule && (
+                                <input type="number" min="1" placeholder={t("apikeys.expiresPlaceholder")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
+                            )}
                             <input type="text" placeholder={t("apikeys.restrictIp")} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
                             <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
                             <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
-                            <label className="check-label">
-                                <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /><span className="check-label-text">{t("apikeys.singleUseLabel")}</span>
-                            </label>
+                            <ToggleSwitch checked={newSingleUse} onChange={setNewSingleUse} label={t("apikeys.singleUseLabel")} />
                         </>
                     )}
                     {wizardStep === 2 && (
@@ -239,27 +311,37 @@ function APIKeyList() {
                 </Wizard>
             )}
 
+            {revealedSecret && (
+                <div className="glass-card reveal-secret" style={{margin: "16px 0"}}>
+                    <strong>{t("wizard.yourKey")}</strong>
+                    <p className="key-cell">{revealedSecret} <CopyButton text={revealedSecret} /></p>
+                    <p className="hint">{t("apikeys.secretShownOnce")}</p>
+                    <button type="button" className="btn-ghost" onClick={() => setRevealedSecret(null)}>{t("common.close")}</button>
+                </div>
+            )}
+
             {editingId !== null && (
                 <form className="add-api-key-form glass-card" onSubmit={handleUpdate} style={{margin: "16px 0"}}>
                     <h3>{`${t("apikeys.edit")} #${editingId}`}</h3>
                     <input type="text" placeholder={t("apikeys.keyLocked")} value={newKey} disabled />
+                    <ToggleSwitch checked={newIsModule} onChange={setNewIsModule} label={t("apikeys.moduleKey")} hint={t("apikeys.moduleKeyHint")} />
+                    {newIsModule && (
+                        <ToggleSwitch checked={newSigned} onChange={setNewSigned} label={t("apikeys.signedRequests")} />
+                    )}
                     <div className="check-field">
                         <div className="check-field-title">{t("apikeys.accessRights")}</div>
-                        <div className="check-group">
-                            {ALL_ACCESS_RIGHTS.map((right) => (
-                                <label key={right} className="check-label">
-                                    <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /><span className="check-label-text">{right}</span>
-                                </label>
-                            ))}
-                        </div>
+                        <ChipSelect
+                          ariaLabel={t("apikeys.accessRights")}
+                          options={ALL_ACCESS_RIGHTS}
+                          selected={newRights}
+                          onToggle={toggleRight}
+                        />
                     </div>
                     <input type="number" min="1" placeholder={t("apikeys.expiresEdit")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictIp")} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
                     <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
-                    <label className="check-label">
-                        <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /><span className="check-label-text">{t("apikeys.singleUseLabel")}</span>
-                    </label>
+                    <ToggleSwitch checked={newSingleUse} onChange={setNewSingleUse} label={t("apikeys.singleUseLabel")} />
                     <div className="form-row">
                         <button type="submit">{t("apikeys.saveChanges")}</button>
                         <button type="button" className="btn-ghost" onClick={resetForm}>{t("common.cancel")}</button>
@@ -274,11 +356,32 @@ function APIKeyList() {
                     </span>
                     <input type="text" className="search-input" placeholder={t("apikeys.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
+                <div className="filter-container">
+                    <label htmlFor="apikey-status-filter">{t("common.status")}:</label>
+                    <select id="apikey-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <option value="all">{t("common.all")}</option>
+                        <option value="active">{t("common.active")}</option>
+                        <option value="expired">{t("common.expired")}</option>
+                        {/* No i18n key exists for "consumed": raw status value, same
+                            convention as the raw action badges on AuditLogs. */}
+                        <option value="consumed">consumed</option>
+                    </select>
+                </div>
+                <div className="filter-container">
+                    <label htmlFor="apikey-sort">{t("common.createdAt")}:</label>
+                    <select id="apikey-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+                        <option value="newest">↓</option>
+                        <option value="oldest">↑</option>
+                    </select>
+                </div>
+                {filtersActive && (
+                    <button type="button" className="btn-ghost" onClick={clearFilters}>{t("filters.clearAll")}</button>
+                )}
             </div>
             {loading ? (
                 <TableSkeleton rows={4} />
             ) : visible.length === 0 ? (
-                <EmptyState title={t("dashboard.noApiKeys")} text={search ? t("common.noResults") : undefined} />
+                <EmptyState title={t("dashboard.noApiKeys")} text={filtersActive ? t("common.noResults") : undefined} />
             ) : (
                 <>
                 <div className="table-wrap">
@@ -297,14 +400,17 @@ function APIKeyList() {
                     {visible.map((key, i) => (
                         <tr key={key.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
                             <td>{key.id}</td>
-                            <td className="key-cell">{key.key} <CopyButton text={key.key} /></td>
+                            <td className="key-cell">{key.key} <CopyButton text={key.key} />{(key.scopes || []).includes("module") && <span className="pill pill-module">{t("apikeys.moduleKey")}</span>}</td>
                             <td>{key.access_rights.join(", ")}</td>
-                            <td className="nowrap">{key.expires_at ? formatDate(key.expires_at, lang) : t("common.never")}</td>
+                            <td className="nowrap">{key.expires_at ? formatDate(key.expires_at, lang) : t("common.never")}{key.expires_at && new Date(key.expires_at) - new Date() > 0 && new Date(key.expires_at) - new Date() < 7 * 24 * 60 * 60 * 1000 && <span className="pill pill-warn">{t("apikeys.expiringSoon")}</span>}</td>
                             <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
                             <td>
                                 <div className="row-actions">
                                     <button className="edit-btn" onClick={() => handleEdit(key)}>
                                         {t("common.edit")}
+                                    </button>
+                                    <button className="edit-btn" onClick={() => setPendingRotate(key.id)} title={t("apikeys.rotateConfirm")}>
+                                        {t("apikeys.rotate")}
                                     </button>
                                     <button className="delete-btn" onClick={() => setPendingDelete(key.id)}>
                                         {t("common.delete")}
@@ -324,6 +430,12 @@ function APIKeyList() {
                 message={t("common.confirmDelete")}
                 onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
                 onCancel={() => setPendingDelete(null)}
+            />
+            <ConfirmModal
+                open={pendingRotate !== null}
+                message={t("apikeys.rotateConfirm")}
+                onConfirm={() => { const id = pendingRotate; setPendingRotate(null); handleRotate(id); }}
+                onCancel={() => setPendingRotate(null)}
             />
         </div>
     );

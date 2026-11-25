@@ -1,0 +1,114 @@
+.roles-container {
+    padding: 20px;
+}
+
+.roles-container h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.roles-container .toolbar {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 16px;
+}
+
+.role-name {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.role-slug {
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.role-description {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
+    max-width: 260px;
+}
+
+.role-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.role-badge-builtin {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.role-badge-custom {
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+}
+
+/* Small read-only permission pills (labels, not controls). */
+.perm-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.perm-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+/* Create / edit form inside the modal. */
+.roles-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.roles-form .field-label {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.roles-form .hint {
+    margin: 0;
+}
+
+.roles-form textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+.roles-form .form-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+    .roles-container {
+        padding: 12px;
+    }
+
+    .role-description {
+        max-width: 180px;
+    }
+}

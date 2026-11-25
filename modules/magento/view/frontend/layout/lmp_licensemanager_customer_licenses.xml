@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      layout="2columns-left"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <title>My Licenses</title>
+    </head>
+    <body>
+        <referenceContainer name="content">
+            <block class="Lmp\LicenseManager\Block\Customer\Licenses"
+                   name="lmp.customer.licenses"
+                   template="Lmp_LicenseManager::customer/licenses.phtml"/>
+        </referenceContainer>
+    </body>
+</page>

@@ -18,6 +18,7 @@ function Blacklist() {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [typeFilter, setTypeFilter] = useState("");
+    const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [type, setType] = useState("ip");
     const [value, setValue] = useState("");
@@ -68,6 +69,24 @@ function Blacklist() {
         }
     };
 
+    // Client-side search over the loaded page (value / reason / type).
+    // The type filter above stays server-side (?type=, supported by the
+    // backend and the demo mock); search here works in demo mode as-is.
+    const filtersActive = search.trim() !== "" || typeFilter !== "";
+    const visible = entries.filter((en) => {
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (en.value || "").toLowerCase().includes(q)
+            || (en.reason || "").toLowerCase().includes(q)
+            || (en.type || "").toLowerCase().includes(q);
+    });
+
+    const clearFilters = () => {
+        setSearch("");
+        setTypeFilter("");
+        setPage(1);
+    };
+
     return (
         <div className="blacklist-container page-enter">
             <h1 className="gradient-text">{t("blacklist.title")}</h1>
@@ -98,6 +117,12 @@ function Blacklist() {
             </form>
 
             <div className="toolbar">
+                <div className="search-wrap">
+                    <span className="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    </span>
+                    <input type="text" className="search-input" placeholder={t("blacklist.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
                 <div className="filter-container">
                     <label htmlFor="blacklist-type-filter">{t("blacklist.type")}:</label>
                     <select id="blacklist-type-filter" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
@@ -106,12 +131,15 @@ function Blacklist() {
                         <option value="domain">{t("blacklist.domain")}</option>
                     </select>
                 </div>
+                {filtersActive && (
+                    <button type="button" className="btn-ghost" onClick={clearFilters}>{t("filters.clearAll")}</button>
+                )}
             </div>
 
             {loading ? (
                 <TableSkeleton rows={4} />
-            ) : entries.length === 0 ? (
-                <EmptyState title={t("blacklist.noEntries")} />
+            ) : visible.length === 0 ? (
+                <EmptyState title={t("blacklist.noEntries")} text={filtersActive ? t("common.noResults") : undefined} />
             ) : (
                 <>
                 <div className="table-wrap">
@@ -126,7 +154,7 @@ function Blacklist() {
                         </tr>
                     </thead>
                     <tbody>
-                        {entries.map((en) => (
+                        {visible.map((en) => (
                             <tr key={en.id}>
                                 <td><span className="badge badge-danger">{t(`blacklist.${en.type}`)}</span></td>
                                 <td className="key-cell">{en.value}</td>

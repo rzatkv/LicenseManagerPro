@@ -6,9 +6,11 @@ the database and the caller continues.
 """
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
-from typing import Optional
+import socket
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.orm import Session
@@ -33,9 +35,9 @@ EVENT_TEST = "license.test"
 
 def license_payload(
     license_: License,
-    product: Optional[Product],
+    product: Product | None,
     event: str,
-    reason: Optional[str] = None,
+    reason: str | None = None,
 ) -> dict:
     """Standard webhook payload for a license event."""
     payload = {
@@ -50,22 +52,100 @@ def license_payload(
     return payload
 
 
-def _sign_body(secret: Optional[str], raw_body: bytes) -> Optional[str]:
+def validate_webhook_url(url: str) -> tuple[bool, str]:
+    """SSRF guard for a webhook URL (v2.3).
+
+    Returns (allowed, reason). Only http/https URLs whose host resolves
+    to public addresses are allowed: localhost, private, loopback,
+    link-local, multicast and reserved ranges are blocked, so a webhook
+    cannot be pointed at the host itself, the internal network, or a
+    cloud metadata endpoint (e.g. 169.254.169.254).
+
+    Honest limitation: the DNS lookup and the request are not atomic —
+    a DNS-rebinding attack (a host whose records change between the
+    check and the POST) is not prevented by this guard. The check runs
+    immediately before the request, which keeps the window tiny.
+    """
+    try:
+        parsed = urlparse(url or "")
+    except ValueError:
+        return False, "not a valid URL"
+    if parsed.scheme not in ("http", "https"):
+        return False, "webhook URL must use http or https"
+    if not parsed.hostname:
+        return False, "webhook URL has no host"
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        return False, "webhook host does not resolve"
+    for _family, _type, _proto, _canon, sockaddr in infos:
+        try:
+            addr = ipaddress.ip_address(sockaddr[0])
+        except ValueError:
+            return False, "webhook host resolves to an invalid address"
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+        ):
+            return False, f"webhook host resolves to a non-public address ({addr})"
+    return True, ""
+
+
+def _sign_body(secret: str | None, raw_body: bytes) -> str | None:
     if not secret:
         return None
     return hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
 
 
 def dispatch_webhook(
-    db: Session, product: Optional[Product], event: str, payload: dict
-) -> Optional[WebhookDelivery]:
+    db: Session, product: Product | None, event: str, payload: dict
+) -> WebhookDelivery | None:
     """POST the payload to the product's webhook_url (if configured).
 
     Returns the WebhookDelivery row, or None when the product has no
-    webhook_url. Never raises.
+    webhook_url. Never raises. A URL that fails the SSRF guard is NOT
+    requested: the delivery is recorded as failed with the reason.
     """
     if product is None or not product.webhook_url:
         return None
+
+    allowed, reason = validate_webhook_url(product.webhook_url)
+    if not allowed:
+        logger.warning(
+            "Webhook delivery blocked for %s (%s): %s",
+            product.webhook_url,
+            event,
+            reason,
+        )
+        delivery = WebhookDelivery(
+            product_id=product.id,
+            event=event,
+            url=product.webhook_url,
+            status_code=None,
+            success=False,
+            response_body=f"blocked: {reason}",
+        )
+        db.add(delivery)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            return None
+        db.refresh(delivery)
+        from services import notifications as notification_service
+
+        notification_service.notify_admins(
+            db,
+            "Webhook delivery blocked",
+            f"{event} to {product.webhook_url} was blocked ({reason}).",
+            type_="error",
+            link="/products",
+        )
+        return delivery
 
     raw_body = json.dumps(payload).encode("utf-8")
     headers = {
@@ -76,9 +156,9 @@ def dispatch_webhook(
     if signature is not None:
         headers["X-LMP-Signature"] = signature
 
-    status_code: Optional[int] = None
+    status_code: int | None = None
     success = False
-    response_body: Optional[str] = None
+    response_body: str | None = None
     try:
         # trust_env=False: webhook calls go direct to the configured URL and
         # must not pick up the host's HTTP(S)_PROXY env vars. httpx parses
@@ -90,7 +170,7 @@ def dispatch_webhook(
         status_code = response.status_code
         success = 200 <= response.status_code < 300
         response_body = (response.text or "")[:MAX_RESPONSE_BODY_CHARS]
-    except Exception as exc:  # noqa: BLE001 - delivery must never raise
+    except Exception as exc:
         logger.warning("Webhook delivery failed for %s (%s): %s", product.webhook_url, event, exc)
         response_body = str(exc)[:MAX_RESPONSE_BODY_CHARS]
 
@@ -105,7 +185,7 @@ def dispatch_webhook(
     db.add(delivery)
     try:
         db.commit()
-    except Exception:  # noqa: BLE001 - delivery logging must never break the caller
+    except Exception:
         db.rollback()
         logger.warning("Could not record webhook delivery for event %s", event)
         return None
@@ -130,8 +210,8 @@ def notify_license_event(
     db: Session,
     license_: License,
     event: str,
-    reason: Optional[str] = None,
-) -> Optional[WebhookDelivery]:
+    reason: str | None = None,
+) -> WebhookDelivery | None:
     """Fire a license event for the license's linked product (if any).
 
     The caller may pass a detached/expired license object; the product is

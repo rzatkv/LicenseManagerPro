@@ -2,18 +2,44 @@
 /**
  * License Manager Pro — WHMCS server module.
  *
+ * Controller layer: WHMCS lifecycle handlers (CreateAccount,
+ * SuspendAccount, UnsuspendAccount, TerminateAccount, Renew,
+ * ChangePackage, TestConnection), the module settings definition
+ * (ConfigOptions) and the product-dropdown Loader function. It
+ * orchestrates the Model layer and hands rendering to the View layer.
+ * It makes no raw HTTP calls and contains no license business logic —
+ * both live in lib/.
+ *
+ * Layers:
+ *   Model      lib/ApiClient.php        (HTTP + X-API-Key + HMAC signing)
+ *              lib/ProductRepository.php (product lookups + cached list)
+ *              lib/LicenseService.php   (create/suspend/renew/...)
+ *              lib/BillingCycle.php     (WHMCS cycle -> LMP cycle)
+ *   View       lib/AdminTabView.php     (admin services-tab license card)
+ *   Controller this file                (WHMCS entry points only)
+ *
+ * Authentication is API-key-only: ONE module-scoped API key, stored
+ * in the product's module settings together with the API URL and an
+ * optional "signed requests" toggle. There is no login call and no
+ * admin credential anywhere in this module. The key is created in the
+ * License Manager Pro panel (API Keys page, module-key toggle,
+ * 30/90/180/365-day expiry) and pasted once; the WHMCS product then
+ * picks its License Manager Pro product from a live dropdown (see the
+ * Loader function below) instead of a typed slug.
+ *
  * Provisions License Manager Pro licenses from WHMCS: when a customer
- * orders (and pays for) a product that uses this module, WHMCS creates a
- * license in License Manager Pro and stores the license key in the
- * service's password field. Suspension, unsuspension, termination, renewal
- * and package changes are all mapped to the License Manager Pro API.
+ * orders (and pays for) a product that uses this module, WHMCS creates
+ * a license in License Manager Pro and stores the license key in the
+ * service's password field. Suspension, unsuspension, termination,
+ * renewal and package changes are all mapped to the License Manager
+ * Pro API.
  *
  * Install: copy the modules/ folder from this package into your WHMCS
  * installation root, so this file ends up at
- * modules/servers/licensemanagerpro/licensemanagerpro.php, then create a
- * product in WHMCS and select "LicenseManagerPro" as its module.
+ * modules/servers/licensemanagerpro/licensemanagerpro.php, then create
+ * a product in WHMCS and select "LicenseManagerPro" as its module.
  * No server entry is needed (RequiresServer = false): the API URL and
- * credentials are configured per product below.
+ * API key are configured per product below.
  *
  * Requires PHP with the cURL extension.
  */
@@ -23,17 +49,33 @@ if (!defined('WHMCS')) {
 }
 
 require_once __DIR__ . '/lib/ApiClient.php';
+require_once __DIR__ . '/lib/BillingCycle.php';
+require_once __DIR__ . '/lib/ProductRepository.php';
+require_once __DIR__ . '/lib/LicenseService.php';
+require_once __DIR__ . '/lib/AdminTabView.php';
 
 /**
  * Build an API client from the product's config options.
+ * Config option order (see licensemanagerpro_ConfigOptions):
+ *   1 = api_url, 2 = api_key, 3 = signed_requests.
  */
 function licensemanagerpro_client($params)
 {
+    $signed = licensemanagerpro_option($params, 'signed_requests', 3);
     return new LMP_ApiClient(
-        licensemanagerpro_option($params, 'api_url', 1),      // API URL
-        licensemanagerpro_option($params, 'api_user', 2),     // Admin email
-        licensemanagerpro_option($params, 'api_password', 3)  // Admin password
+        licensemanagerpro_option($params, 'api_url', 1),
+        licensemanagerpro_option($params, 'api_key', 2),
+        ($signed === 'on' || $signed === '1' || $signed === true || $signed === 'true')
     );
+}
+
+/**
+ * Build the license service (Model) for this product's settings.
+ */
+function licensemanagerpro_service($params)
+{
+    $client = licensemanagerpro_client($params);
+    return new LMP_LicenseService($client, new LMP_ProductRepository($client));
 }
 
 /**
@@ -51,46 +93,21 @@ function licensemanagerpro_option($params, $name, $index)
 }
 
 /**
- * Resolve a product slug to its License Manager Pro product id.
+ * Resolve the billing cycle to send to License Manager Pro for a
+ * service: the mapped WHMCS service cycle wins; when the service cycle
+ * is unmapped/missing, fall back to the product config option
+ * 'billing_cycle'. Returns null only when neither yields a cycle.
+ * (Triennially maps to 'biennial' — see LMP_BillingCycle.)
  */
-function licensemanagerpro_findProduct($client, $slug)
+function licensemanagerpro_resolveBillingCycle($params)
 {
-    if (!$slug) {
-        return null;
+    $mapped = LMP_BillingCycle::map(
+        isset($params['billingcycle']) ? $params['billingcycle'] : null
+    );
+    if ($mapped !== null) {
+        return $mapped;
     }
-    $list = $client->get('/products?slug=' . rawurlencode($slug));
-    if (is_array($list) && count($list) === 1) {
-        return $list[0];
-    }
-    if (is_array($list)) {
-        foreach ($list as $candidate) {
-            if (isset($candidate['slug']) && $candidate['slug'] === $slug) {
-                return $candidate;
-            }
-        }
-    }
-    return null;
-}
-
-/**
- * Find a license by its key (the key is stored in the service password).
- * Returns the license array, or null when not found.
- */
-function licensemanagerpro_findLicense($client, $key)
-{
-    if (!$key) {
-        return null;
-    }
-    $list = $client->get('/licenses?search=' . rawurlencode($key));
-    if (!is_array($list)) {
-        return null;
-    }
-    foreach ($list as $license) {
-        if (isset($license['key']) && $license['key'] === $key) {
-            return $license;
-        }
-    }
-    return null;
+    return licensemanagerpro_option($params, 'billing_cycle', 5);
 }
 
 /**
@@ -118,7 +135,7 @@ function licensemanagerpro_MetaData()
     );
 }
 
-function licensemanagerpro_ConfigOptions()
+function licensemanagerpro_ConfigOptions($params = array())
 {
     return array(
         'api_url' => array(
@@ -128,50 +145,101 @@ function licensemanagerpro_ConfigOptions()
             'Default' => 'https://license.example.com/api',
             'Description' => 'Base URL of your License Manager Pro API, without a trailing slash.',
         ),
-        'api_user' => array(
-            'FriendlyName' => 'Admin email',
-            'Type' => 'text',
-            'Size' => '40',
-            'Description' => 'Email of an admin user in License Manager Pro (used for the JWT login).',
-        ),
-        'api_password' => array(
-            'FriendlyName' => 'Admin password',
+        'api_key' => array(
+            'FriendlyName' => 'API key',
             'Type' => 'password',
             'Size' => '40',
-            'Description' => 'Password of the admin user above.',
+            'Description' => 'Module-scoped API key from the License Manager Pro panel (API Keys page, module-key toggle). The key is shown once when created — copy it here. No admin login is used.',
+        ),
+        'signed_requests' => array(
+            'FriendlyName' => 'Sign requests (HMAC)',
+            'Type' => 'yesno',
+            'Description' => 'Send X-LMP-Timestamp + X-LMP-Signature with every request (HMAC-SHA256). Only enable this when the API key was created with "require signed requests".',
         ),
         'product_slug' => array(
-            'FriendlyName' => 'Product slug',
+            'FriendlyName' => 'LicenseManagerPro Product',
             'Type' => 'text',
             'Size' => '40',
-            'Description' => 'Slug of the product in License Manager Pro (Products page).',
+            'Loader' => 'licensemanagerpro_ProductLoader',
+            'SimpleMode' => true,
+            'Description' => 'Pick the License Manager Pro product from the list (loaded live from the API with the key above). If the list cannot be loaded, the error is shown here and you can type the product slug manually instead.',
         ),
         'billing_cycle' => array(
             'FriendlyName' => 'Billing cycle',
             'Type' => 'dropdown',
             'Options' => 'monthly,quarterly,semiannual,annual,biennial,lifetime',
             'Default' => 'annual',
-            'Description' => 'Billing cycle used when creating the license. It must be one of the product\'s cycles.',
+            'Description' => 'Fallback billing cycle, used only when the service\'s own WHMCS billing cycle has no equivalent in License Manager Pro (e.g. Free Account). When the service cycle maps (Monthly, Quarterly, Semi-Annually, Annually, Biennially, Triennially -> biennial, One Time), that cycle is used instead — and it is added to the product automatically when missing.',
         ),
+    );
+}
+
+/**
+ * Loader function for the "LicenseManagerPro Product" field (see
+ * ConfigOptions). WHMCS calls this with $params — including the
+ * product's saved api_url / api_key — when the Module Settings page
+ * is rendered, and shows the returned [slug => label] pairs as the
+ * dropdown. The list is cached for 5 minutes by the repository, so
+ * every admin page load does not hammer the API.
+ *
+ * Failure handling (graceful, never breaks the settings page):
+ *  - API unreachable / key rejected: when a product slug is already
+ *    saved for this WHMCS product, that slug is returned as the only
+ *    option, labelled so the admin knows the list could not be
+ *    refreshed — the saved value is preserved. When nothing is saved
+ *    yet, an Exception is thrown with a clear message, which WHMCS
+ *    displays inline on the settings page; the field stays a plain
+ *    text input, so the admin can still type the product slug
+ *    manually, fix the API URL / key, save, and reopen the page.
+ *  - The API key is only ever sent server-side (cURL, TLS verified);
+ *    it is never exposed to the browser.
+ */
+function licensemanagerpro_ProductLoader($params)
+{
+    $client = licensemanagerpro_client($params);
+    if (!$client->isConfigured()) {
+        throw new Exception(
+            'Set the API URL and API key above, save the product, then reopen Module Settings to load the product list.'
+        );
+    }
+    $repository = new LMP_ProductRepository($client);
+    $result = $repository->dropdownOptions();
+    if (!empty($result['options'])) {
+        return $result['options'];
+    }
+    $savedSlug = licensemanagerpro_option($params, 'product_slug', 4);
+    if ($savedSlug !== null && $savedSlug !== '') {
+        return array(
+            $savedSlug => $savedSlug . ' (product list unavailable — saved value kept)',
+        );
+    }
+    throw new Exception(
+        'Could not load products from License Manager Pro: '
+        . ($result['error'] !== '' ? $result['error'] : 'no products found.')
+        . ' Type the product slug manually, or fix the API URL / API key and try again.'
     );
 }
 
 function licensemanagerpro_CreateAccount($params)
 {
-    $client = licensemanagerpro_client($params);
+    $service = licensemanagerpro_service($params);
     $slug = licensemanagerpro_option($params, 'product_slug', 4);
-    $cycle = licensemanagerpro_option($params, 'billing_cycle', 5);
-    $product = licensemanagerpro_findProduct($client, $slug);
-    if ($product === null) {
-        return 'License Manager Pro product "' . $slug . '" was not found';
+    // The service's own WHMCS billing cycle wins when it maps; the
+    // configured billing_cycle is only the fallback (see
+    // licensemanagerpro_resolveBillingCycle).
+    $cycle = licensemanagerpro_resolveBillingCycle($params);
+    if ($slug === null || $slug === '') {
+        return 'No License Manager Pro product selected: pick one in the product\'s module settings.';
     }
-    $license = $client->post('/licenses', array(
-        'product_id' => (int) $product['id'],
-        'billing_cycle' => $cycle,
-        'owner_email' => isset($params['clientsdetails']['email']) ? $params['clientsdetails']['email'] : null,
-    ));
-    if ($license === null || !isset($license['key'])) {
-        return $client->lastError ? $client->lastError : 'License creation failed';
+    $license = $service->createLicense(
+        $slug,
+        $cycle,
+        isset($params['clientsdetails']['email']) ? $params['clientsdetails']['email'] : null
+    );
+    if ($license === null) {
+        // Fail closed: no license minted, the service is not marked
+        // as licensed, and the error is shown to the admin.
+        return $service->lastError ? $service->lastError : 'License creation failed';
     }
     licensemanagerpro_storeKey($params['serviceid'], $license['key']);
     return 'success';
@@ -179,57 +247,73 @@ function licensemanagerpro_CreateAccount($params)
 
 function licensemanagerpro_SuspendAccount($params)
 {
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
     if ($license === null) {
-        return 'License for this service was not found in License Manager Pro';
+        return $service->lastError
+            ? $service->lastError
+            : 'License for this service was not found in License Manager Pro';
     }
-    $updated = $client->put('/licenses/' . (int) $license['id'], array('status' => 'inactive'));
+    $updated = $service->setStatus($license['id'], 'inactive');
     if ($updated === null) {
-        return $client->lastError ? $client->lastError : 'Suspend failed';
+        return $service->lastError ? $service->lastError : 'Suspend failed';
     }
     return 'success';
 }
 
 function licensemanagerpro_UnsuspendAccount($params)
 {
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
     if ($license === null) {
-        return 'License for this service was not found in License Manager Pro';
+        return $service->lastError
+            ? $service->lastError
+            : 'License for this service was not found in License Manager Pro';
     }
-    $updated = $client->put('/licenses/' . (int) $license['id'], array('status' => 'active'));
+    $updated = $service->setStatus($license['id'], 'active');
     if ($updated === null) {
-        return $client->lastError ? $client->lastError : 'Unsuspend failed';
+        return $service->lastError ? $service->lastError : 'Unsuspend failed';
     }
     return 'success';
 }
 
 function licensemanagerpro_TerminateAccount($params)
 {
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
     if ($license === null) {
-        // Nothing to revoke: the license is already gone.
+        // Fail closed on an API error (do not pretend the license is
+        // gone while the backend could not even be reached); return
+        // success only when the lookup genuinely found nothing, i.e.
+        // the license is already gone.
+        if ($service->lastError !== '') {
+            return $service->lastError;
+        }
         return 'success';
     }
-    $deleted = $client->delete('/licenses/' . (int) $license['id']);
-    if ($deleted === null) {
-        return $client->lastError ? $client->lastError : 'Terminate failed';
+    if (!$service->revokeLicense($license['id'])) {
+        return $service->lastError ? $service->lastError : 'Terminate failed';
     }
     return 'success';
 }
 
 function licensemanagerpro_Renew($params)
 {
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
     if ($license === null) {
-        return 'License for this service was not found in License Manager Pro';
+        return $service->lastError
+            ? $service->lastError
+            : 'License for this service was not found in License Manager Pro';
     }
-    $renewed = $client->post('/licenses/' . (int) $license['id'] . '/renew', array());
+    // Renew with the service's resolved billing cycle: the license
+    // switches to that cycle (synced onto the product when missing) and
+    // expiry is extended by it. Without a cycle the license simply
+    // renews by its own stored cycle.
+    $cycle = licensemanagerpro_resolveBillingCycle($params);
+    $renewed = $service->renewLicense($license['id'], $cycle);
     if ($renewed === null) {
-        return $client->lastError ? $client->lastError : 'Renew failed';
+        return $service->lastError ? $service->lastError : 'Renew failed';
     }
     return 'success';
 }
@@ -240,29 +324,25 @@ function licensemanagerpro_ChangePackage($params)
     // When the new package maps to a different License Manager Pro product
     // slug, the license is moved to that product; the billing cycle follows
     // the new package's setting.
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
     if ($license === null) {
-        return 'License for this service was not found in License Manager Pro';
+        return $service->lastError
+            ? $service->lastError
+            : 'License for this service was not found in License Manager Pro';
     }
     $oldSlug = licensemanagerpro_option($params, 'product_slug', 4);
     $newSlug = isset($params['configoptions']['product_slug'])
         ? $params['configoptions']['product_slug']
         : $oldSlug;
-    $newCycle = isset($params['configoptions']['billing_cycle'])
-        ? $params['configoptions']['billing_cycle']
-        : licensemanagerpro_option($params, 'billing_cycle', 5);
-    $update = array('billing_cycle' => $newCycle);
-    if ($newSlug && $newSlug !== $oldSlug) {
-        $product = licensemanagerpro_findProduct($client, $newSlug);
-        if ($product === null) {
-            return 'License Manager Pro product "' . $newSlug . '" was not found';
-        }
-        $update['product_id'] = (int) $product['id'];
-    }
-    $updated = $client->put('/licenses/' . (int) $license['id'], $update);
+    // Resolve the cycle from the new package's params the same way as
+    // CreateAccount: the new package's WHMCS billing cycle wins when it
+    // maps, otherwise the new package's configured billing_cycle.
+    $newCycle = licensemanagerpro_resolveBillingCycle($params);
+    $newSlugForMove = ($newSlug && $newSlug !== $oldSlug) ? $newSlug : null;
+    $updated = $service->moveLicense($license['id'], $newSlugForMove, $newCycle);
     if ($updated === null) {
-        return $client->lastError ? $client->lastError : 'Change package failed';
+        return $service->lastError ? $service->lastError : 'Change package failed';
     }
     return 'success';
 }
@@ -270,15 +350,12 @@ function licensemanagerpro_ChangePackage($params)
 function licensemanagerpro_TestConnection($params)
 {
     $client = licensemanagerpro_client($params);
-    if (!$client->login()) {
+    $info = $client->getSystemInfo();
+    if ($info === null) {
         return array(
             'success' => false,
-            'error' => $client->lastError ? $client->lastError : 'Login failed',
+            'error' => $client->lastError ? $client->lastError : 'Connection failed',
         );
-    }
-    $info = $client->get('/system/info');
-    if ($info === null) {
-        return array('success' => false, 'error' => $client->lastError);
     }
     return array(
         'success' => true,
@@ -289,23 +366,10 @@ function licensemanagerpro_TestConnection($params)
 
 function licensemanagerpro_AdminServicesTabFields($params)
 {
-    $client = licensemanagerpro_client($params);
-    $license = licensemanagerpro_findLicense($client, $params['password']);
-    if ($license === null) {
-        return array(
-            'License' => 'No license found in License Manager Pro for this service.',
-        );
-    }
-    return array(
-        'License Key' => isset($license['key']) ? $license['key'] : '-',
-        'Status' => isset($license['status']) ? $license['status'] : '-',
-        'Product' => isset($license['product']) ? $license['product'] : '-',
-        'Billing Cycle' => isset($license['billing_cycle']) ? $license['billing_cycle'] : '-',
-        'Owner Email' => isset($license['owner_email']) ? $license['owner_email'] : '-',
-        'Expires At' => isset($license['expires_at']) && $license['expires_at']
-            ? $license['expires_at']
-            : 'Never (lifetime)',
-        'Activations' => (isset($license['activations']) ? $license['activations'] : 0)
-            . ' / ' . (isset($license['max_activations']) ? $license['max_activations'] : 1),
-    );
+    $service = licensemanagerpro_service($params);
+    $license = $service->findByKey($params['password']);
+    $resolvedCycle = licensemanagerpro_resolveBillingCycle($params);
+    $apiUrl = licensemanagerpro_option($params, 'api_url', 1);
+    $card = LMP_AdminTabView::render($license, $resolvedCycle, $apiUrl);
+    return array('LicenseManagerPro' => $card);
 }

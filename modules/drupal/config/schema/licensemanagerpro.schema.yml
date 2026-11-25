@@ -1,0 +1,19 @@
+licensemanagerpro.settings:
+  type: config_object
+  label: 'License Manager Pro settings'
+  mapping:
+    api_url:
+      type: uri
+      label: 'API base URL'
+    api_key:
+      type: string
+      label: 'Module API key'
+    signed_requests:
+      type: boolean
+      label: 'Sign requests with HMAC'
+    default_billing_cycle:
+      type: string
+      label: 'Default billing cycle'
+    product_mapping:
+      type: mapping
+      label: 'Node type to product slug mapping'

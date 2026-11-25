@@ -101,7 +101,7 @@ def test_check_access_blocked_domain(client, auth_headers):
     response = client.post(
         "/api/api-keys", json={"access_rights": ["get_license_info"]}, headers=auth_headers
     )
-    key = response.json()["key"]
+    key = response.json()["plain_key"]
     _add(client, auth_headers, "domain", "bad.example.com")
     # check-access with a blacklisted domain is rejected...
     response = client.get(

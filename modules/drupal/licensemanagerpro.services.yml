@@ -1,0 +1,12 @@
+services:
+  licensemanagerpro.config:
+    class: Drupal\licensemanagerpro\Service\ConfigService
+    arguments: ['@config.factory']
+
+  licensemanagerpro.api_client:
+    class: Drupal\licensemanagerpro\Service\ApiClient
+    arguments: ['@http_client', '@licensemanagerpro.config', '@logger.factory']
+
+  licensemanagerpro.license_service:
+    class: Drupal\licensemanagerpro\Service\LicenseService
+    arguments: ['@licensemanagerpro.api_client', '@licensemanagerpro.config', '@logger.factory']

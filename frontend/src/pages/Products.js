@@ -11,6 +11,7 @@ import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
+import ChipSelect from "../components/ChipSelect";
 import "../styles/Products.css";
 
 // Compact action icons (defect 3): five text buttons made the actions cell
@@ -276,13 +277,12 @@ function Products() {
           {wizardStep === 1 && (
             <div className="check-field">
               <div className="check-field-title">{t("products.cycles")}</div>
-              <div className="check-group">
-                {ALL_CYCLES.map((c) => (
-                  <label key={c} className="check-label">
-                    <input type="checkbox" checked={wizardForm.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, wizardForm, setWizardForm)} /><span className="check-label-text">{t(`cycle.${c}`)}</span>
-                  </label>
-                ))}
-              </div>
+              <ChipSelect
+                ariaLabel={t("products.cycles")}
+                options={ALL_CYCLES.map((c) => ({value: c, label: t(`cycle.${c}`)}))}
+                selected={wizardForm.billing_cycles}
+                onToggle={(c) => toggleIn("billing_cycles", c, wizardForm, setWizardForm)}
+              />
             </div>
           )}
           {wizardStep === 2 && (
@@ -290,13 +290,12 @@ function Products() {
               <input type="url" placeholder={t("products.webhookUrl")} value={wizardForm.webhook_url} onChange={(e) => setWizardForm({...wizardForm, webhook_url: e.target.value})} />
               <div className="check-field">
                 <div className="check-field-title">{t("products.webhookEvents")}</div>
-                <div className="check-group">
-                  {ALL_EVENTS.map((ev) => (
-                    <label key={ev} className="check-label">
-                      <input type="checkbox" checked={wizardForm.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, wizardForm, setWizardForm)} /><span className="check-label-text">{ev}</span>
-                    </label>
-                  ))}
-                </div>
+                <ChipSelect
+                  ariaLabel={t("products.webhookEvents")}
+                  options={ALL_EVENTS}
+                  selected={wizardForm.webhook_events}
+                  onToggle={(ev) => toggleIn("webhook_events", ev, wizardForm, setWizardForm)}
+                />
               </div>
               <input type="text" placeholder={t("products.webhookSecret")} value={wizardForm.webhook_secret} onChange={(e) => setWizardForm({...wizardForm, webhook_secret: e.target.value})} />
             </>
@@ -339,24 +338,22 @@ function Products() {
           </div>
           <div className="check-field">
             <div className="check-field-title">{t("products.cycles")}</div>
-            <div className="check-group">
-              {ALL_CYCLES.map((c) => (
-                <label key={c} className="check-label">
-                  <input type="checkbox" checked={form.billing_cycles.includes(c)} onChange={() => toggleIn("billing_cycles", c, form, setForm)} /><span className="check-label-text">{t(`cycle.${c}`)}</span>
-                </label>
-              ))}
-            </div>
+            <ChipSelect
+              ariaLabel={t("products.cycles")}
+              options={ALL_CYCLES.map((c) => ({value: c, label: t(`cycle.${c}`)}))}
+              selected={form.billing_cycles}
+              onToggle={(c) => toggleIn("billing_cycles", c, form, setForm)}
+            />
           </div>
           <input type="url" placeholder={t("products.webhookUrl")} value={form.webhook_url} onChange={(e) => setForm({...form, webhook_url: e.target.value})} />
           <div className="check-field">
             <div className="check-field-title">{t("products.webhookEvents")}</div>
-            <div className="check-group">
-              {ALL_EVENTS.map((ev) => (
-                <label key={ev} className="check-label">
-                  <input type="checkbox" checked={form.webhook_events.includes(ev)} onChange={() => toggleIn("webhook_events", ev, form, setForm)} /><span className="check-label-text">{ev}</span>
-                </label>
-              ))}
-            </div>
+            <ChipSelect
+              ariaLabel={t("products.webhookEvents")}
+              options={ALL_EVENTS}
+              selected={form.webhook_events}
+              onToggle={(ev) => toggleIn("webhook_events", ev, form, setForm)}
+            />
           </div>
           <input type="text" placeholder={t("products.webhookSecret")} value={form.webhook_secret} onChange={(e) => setForm({...form, webhook_secret: e.target.value})} />
           <div className="form-row">

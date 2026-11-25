@@ -1,0 +1,8 @@
+administer licensemanagerpro:
+  title: 'Administer License Manager Pro'
+  description: 'Configure the License Manager Pro connection, mint licenses and view all licenses.'
+  restrict access: true
+
+view own licenses:
+  title: 'View own licenses'
+  description: 'View the licenses owned by the current user on the My licenses page.'

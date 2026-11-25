@@ -12,6 +12,50 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.3.0
+
+The biggest release yet — a redesign of the header, themes, roles, security and the module system, built on v2.2.2:
+
+- **Two stubborn defects finally fixed (live-DOM measured, not guessed):** the RTL checkbox stacking was a `Wizard.css` rule (`.wizard-body input {width: 100%}`) stretching the checkbox to the full label width and squeezing the label text to 0px — and the tables were overflowing because a stale service-worker cache served old CSS. Both are gone by construction: checkbox groups are now **chip/pill multi-selects** (tappable rounded pills, gradient + ✓ when selected, `white-space: nowrap`, whole-unit wrapping — a label can never stack character by character), single booleans are styled toggle switches, and the frontend **unregisters any service worker on every load** so a stale bundle can never shadow a fix again.
+- **Header redesign:** no page title in the topbar; **global search** (licenses by key/customer, products, users — keyboard navigable, ↑/↓/Enter/Esc); an **animated theme toggle** (light/dark/auto with a sun/moon cross-fade); a **profile menu** (avatar with photo-or-initials, Profile / Settings / Logout). The language selector moved into Settings.
+- **Themes:** Gmail-style theme picker — presets Default (magenta/violet), Ocean, Forest, Sunset, Graphite, plus a **custom theme builder** (accent, accent 2, background, surface). Theme + mode persist per user (localStorage and the backend) and animate smoothly on change.
+- **Customizable dashboard:** widgets resize (S/M/L), chart time-range switcher (7/14/30/90 days), drag-to-reorder; layout persists per user. New widgets: activations trend and webhook delivery success rate. The **Estimated MRR card is removed** — this is not a financial system.
+- **Roles page:** full CRUD for custom roles (permission checklist, built-ins protected, cannot delete a role assigned to users); the Users page assigns roles from the role list; permission checks use the role's permission list server-side.
+- **TOTP 2FA:** enable from the Profile page (QR code + manual key, verify a code to enable, backup codes hashed + single-use, disable with password + code); login asks for the TOTP step when 2FA is enabled. Demo mode accepts code `123456` with an honest note.
+- **License security modes:** global settings + per-product overrides — strict/lenient validation, domain/IP/install-path/activation-limit toggles, missing-lock behavior — enforced in license validate and API-key check-access, with tests.
+- **Profiles:** display name, avatar upload (raster PNG/JPEG/WebP only, ≤2 MB, magic-byte checked), role display, 2FA status, last login; header avatar shows the photo or initials.
+- **About page redesigned:** version, what's-new, system info, update-check card, links, credits — polished in both languages and both themes.
+- **Filters on every list:** Licenses, Products, API keys, Users, Audit logs, Notifications, Blacklist — search + status/type filters + sorting, in the split-not-squeeze style.
+- **Stunning login:** animated gradient-mesh / floating-orbs background, glass card, rotating feature slides with smooth crossfades, staggered entrance — in both languages, both themes, phone + desktop. Animations everywhere are GPU-friendly (transform/opacity) and respect `prefers-reduced-motion`.
+- **Billing-cycle sync:** license create/renew accept an explicit `billing_cycle`; expiry follows that cycle, and a cycle the product doesn't list is **added to the product server-side** (the sync). Unknown cycles are rejected with 422. WHMCS passes the service's cycle; WooCommerce passes the order's billing period.
+- **Module auth — API key only:** WHMCS/WooCommerce connect with a scoped module key, never an admin email/password. Module keys are time-limited (30/90/180/365 days, default 90), support an optional IP allowlist and optional HMAC-signed requests (5-minute timestamp replay protection), rotate from the API Keys page (secret shown once), and are **stored hashed** (SHA-256) with a startup migration. Every module call is audit-logged; module keys can never call admin endpoints.
+- **WHMCS product dropdown:** the module's per-product settings show a live dropdown of the backend's products (cached a few minutes, manual fallback if the API is unreachable) instead of typed IDs.
+- **All 10 platform modules, in MVC:** WHMCS, WooCommerce, WordPress (no WooCommerce), Joomla, PrestaShop, Magento, OpenCart, Shopware, Drupal, Odoo — each with `version.json` == app version, a README, and a branded admin UI. Each gets its own ZIP in the GitHub release (`scripts/build-module-zips.sh`), and the Downloads page links **directly to the GitHub release asset** built from the installed app version (version parity).
+- **One-time install script:** `install.sh` — `curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/install.sh | bash` — an interactive wizard (separate backend/frontend domains, MySQL 8, admin account, optional Let's Encrypt HTTPS) that does the whole install. See "Install on your own server" below.
+- **Security audit (top priority):** API keys hashed, failed-login lockout (5 in 15 min → 15-min lock), login no longer reveals whether an email exists, TOTP replay protection + constant-time compares, LIKE-wildcard injection fixed on every search, privilege-escalation guards on user management, secret settings hidden from non-privileged users, webhook SSRF guard (private/loopback/link-local hosts blocked), avatar/logo raster-only validation, self-update tarball member checks, audit logs for failed logins / 2FA / key rotation / module calls / self-update. Adversarial tests in `backend/tests/test_security_adversarial.py` + `test_module_keys.py` — every attack in them must fail closed. `pip audit` findings fixed by upgrading PyJWT → 2.15.0, python-dotenv → 1.2.2, FastAPI → 0.165.0 (starlette 1.10.0); `npm audit` could not run in the build VM (registry policy blocks the audit endpoint) — run it before publishing if your network allows. Known limits are listed in the Security section of the release notes (see below).
+- **Version bump process (for 2.3.1 → 2.3.10 / 3.0.0):** one version constant per side — `APP_VERSION` in `backend/config.py`, `version` in `frontend/package.json`, `modules.json` + every `modules/<platform>/version.json`, and the demo storage key `lmp-demo-db-v9` in `frontend/src/utils/demoData.js` (increment the suffix each release).
+
+### Install on your own server
+
+One command, one interactive wizard, one install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/install.sh | bash
+```
+
+The wizard asks for, in order: backend domain and frontend domain **separately**, MySQL 8 host/port/database/user/password, the first admin email/password, and whether to enable HTTPS via Let's Encrypt (certbot) when domains are given. It then installs system deps (Python 3.11+, Node, Nginx, MySQL client), creates the backend venv + systemd service, builds the frontend, writes Nginx vhosts for both domains (backend as API reverse proxy, frontend as static site), generates `backend/.env` (random `SECRET_KEY`, mode 600, never printed), creates the database and runs migrations, and prints a final summary with the URLs + login.
+
+- **Idempotent-safe:** re-run with `--repair` to refresh code/deps/build/vhosts/migrations — it never drops the database, never regenerates `backend/.env` secrets, never recreates the admin account. A fresh run refuses if the install marker already exists (use `--repair` instead).
+- **MySQL only:** SQLite/PostgreSQL are refused, same rule as `deploy.sh`.
+- **Dry run:** `bash install.sh --dry-run` prints every step (including the exact Nginx/systemd configs) and changes nothing; `--help` lists all options (every prompt also has a `--flag` form for unattended runs).
+- A full run on a real server was not possible in the build VM (no public domains); everything testable here was tested (`bash -n`, `--dry-run` end to end).
+
+### Security — what was checked, fixed, and what remains
+
+Checked and fixed in v2.3.0 (tests in `test_security_adversarial.py` / `test_module_keys.py`): API-key plaintext storage → SHA-256 hashed + prefix display + migration; login user enumeration → dummy bcrypt verify + identical 401s + lockout; TOTP replay → last-code window; LIKE injection → `escape_like` on all 6 sites; user-management privilege escalation → admin-only delete + admin-equivalence guards; settings secret leak → secret-looking keys hidden; avatar/logo SVG → raster-only magic-byte validation; webhook SSRF → public-hosts-only guard; self-update tarball → member checks (no absolute/`..`/symlink/device entries); audit-log gaps → failed logins, 2FA, rotation, module calls, update staging.
+
+Known limitations (honest): logout is client-side token deletion (stateless JWT, 60-min TTL — no server-side revocation list); the webhook SSRF guard checks DNS immediately before the request but cannot close the DNS-rebinding TOCTOU window; GitHub auto-generated release tarballs carry no published checksum, so the update check is gzip+tar validity over HTTPS from the releases API, not a hash comparison; module-key HMAC replay cache is per-process (in-memory); `npm audit` could not run in the build VM (see above).
+
 ## What's new in v2.2.1
 
 UI polish round for v2.2.0, from a phone-browser visual check (886×1920) of the live demo:
@@ -104,38 +148,68 @@ On startup the backend creates any missing tables/columns for v2.0 automatically
 LicenseManagerPro/
 ├── backend/                 # FastAPI backend
 │   ├── main.py              # App entrypoint, routers mounted under /api
-│   ├── config.py            # Environment-based configuration
-│   ├── database.py          # SQLAlchemy 2.x engine/session
-│   ├── models.py            # User, ApiKey, ApiUsageLog, License, SystemSetting, Product, ProductGroup, BlacklistEntry, Notification, LicenseActivation, AuditLog
+│   ├── config.py            # Environment-based configuration (APP_VERSION = single version constant)
+│   ├── database.py          # SQLAlchemy 2.x engine/session, seed_roles/seed_settings, escape_like
+│   ├── models.py            # User, ApiKey (hashed), License, SystemSetting, Product, ProductGroup, BlacklistEntry, Notification, LicenseActivation, AuditLog, Role, UserSetting
 │   ├── schemas.py           # Pydantic v2 schemas
 │   ├── requirements.txt
+│   ├── pyproject.toml       # ruff config (B008 ignored: FastAPI Depends idiom)
 │   ├── Dockerfile
 │   ├── .env.example
-│   ├── routers/             # auth, api_keys, licenses, users, dashboard, settings, system, products, product_groups, blacklist, notifications, downloads
-│   ├── services/            # api_keys, licenses, users, settings, products, product_groups, blacklist, notifications, updates, downloads, webhooks
-│   ├── utils/               # auth (JWT + hashing), email (SMTP, optional)
-│   └── tests/               # pytest suite (temporary SQLite DB)
+│   ├── routers/             # auth (+2FA), api_keys (+rotate), licenses, users, dashboard, settings, system, products, product_groups, blacklist, notifications, downloads, roles, search, audit_logs, languages, webhooks
+│   ├── services/            # api_keys (hashing/scopes/signing), licenses (validate + billing sync), users, settings, products, product_groups, blacklist, notifications, updates, downloads (direct GitHub URLs), webhooks (SSRF guard), license_security, roles, twofa, search
+│   ├── utils/               # auth (JWT + hashing), permissions (role permission lists), rate_limit (login lockout + 2FA bucket), module_auth (require_actor: JWT or module key)
+│   └── tests/               # pytest suite (temporary SQLite DB; run one at a time — shared test.db)
 ├── frontend/                # React 18 frontend (react-scripts)
-│   ├── package.json
-│   ├── public/index.html    # SVG favicon (logo.svg)
+│   ├── package.json         # version = single frontend version constant
+│   ├── public/index.html    # SVG favicon (logo.svg) + CSP meta tag
 │   └── src/
-│       ├── App.js           # Routes + ProtectedRoute
+│       ├── App.js           # Routes + ProtectedRoute (/roles, /profile)
 │       ├── config.js        # API_BASE_URL (REACT_APP_API_URL or http://127.0.0.1:8000/api)
-│       ├── index.js         # React 18 createRoot entrypoint
-│       ├── pages/           # Login, Dashboard, Products, Settings, LicenseList, APIKeyList, UserManagement, Languages, ApiDocs, About, Blacklist, Downloads, Notifications
-│       ├── components/      # Layout (sidebar + topbar CRM shell), Wizard, NotificationsBell
-│       ├── i18n/            # translations.js (en/fa) + LanguageContext
-│       ├── theme.js         # ThemeContext (light/dark/auto)
+│       ├── index.js         # React 18 createRoot entrypoint; unregisters any service worker on load
+│       ├── theme.js         # ThemeProvider (mode light/dark/auto + preset + custom, per-user persist)
+│       ├── pages/           # Login (animated hero + 2FA step), Dashboard (customizable widgets), Products, Settings (tabs: General/Language/Theme/License Security/Advanced), LicenseList, APIKeyList (rotate + show-once), UserManagement, Roles, Profile (2FA setup), Languages, ApiDocs, About, Blacklist, Downloads (direct GitHub links), Notifications, ProductGroups
+│       ├── components/      # Layout (sidebar + topbar: GlobalSearch, ThemeToggle, ProfileMenu), Wizard, NotificationsBell, ChipSelect, ToggleSwitch, Modal, Toast, ConfirmModal
+│       ├── i18n/            # translations.js (en/fa, 660+ keys) + LanguageContext
 │       ├── styles/
-│       └── utils/           # api.js (get/post/put/del), auth.js, updateChecker.js
-├── modules/                 # Downloadable integrations (see Modules)
-│   ├── whmcs/               # WHMCS server module (PHP) + version.json
-│   └── woocommerce/         # WordPress/WooCommerce plugin (PHP) + version.json
-├── scripts/update.sh        # Applies a staged release tarball
-├── modules.json             # Module versions manifest (repo root)
+│       └── utils/           # api.js (get/post/put/del), auth.js, demoData.js (in-browser mock, storage key lmp-demo-db-v9), format.js
+├── modules/                 # Downloadable integrations, one per platform, each with version.json == app version
+│   ├── whmcs/               # WHMCS server module (PHP, MVC) + version.json
+│   ├── woocommerce/         # WordPress/WooCommerce plugin (PHP, MVC) + version.json
+│   ├── wordpress/           # WordPress plugin, no WooCommerce (PHP, MVC) + version.json
+│   ├── joomla/              # Joomla component (MVC) + version.json
+│   ├── prestashop/          # PrestaShop module (MVC) + version.json
+│   ├── magento/             # Magento 2 module (MVC) + version.json
+│   ├── opencart/            # OpenCart extension (MVC) + version.json
+│   ├── shopware/            # Shopware 6 plugin (MVC) + version.json
+│   ├── drupal/              # Drupal module (MVC) + version.json
+│   └── odoo/                # Odoo module (Python, MVC) + version.json
+├── install.sh               # One-time interactive install wizard (see "Install on your own server")
+├── scripts/
+│   ├── update.sh            # Applies a staged release tarball (with member checks)
+│   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
+├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
 └── README.md
 ```
+
+---
+
+## Architecture
+
+Layers and patterns (v2.3.0), so a new developer can follow the structure:
+
+- **Backend — thin routers, fat services.** Route handlers only parse/authorize and delegate; all business logic lives in `services/` (one service per domain: licenses, api_keys, users, products, webhooks, …). Services depend on abstractions where it matters: `require_actor` (in `utils/module_auth.py`) is the single dual-auth dependency for module-facing routes — JWT path and API-key path converge there, and every route declares exactly which permission or module scope it needs (`jwt_perm` / `module_scope`).
+- **Repository-ish data access:** queries live in the service that owns the entity (SQLAlchemy 2.x style, parameterized only — no raw SQL string building anywhere; `escape_like()` for every LIKE pattern). `ensure_schema()` auto-migrates existing databases on startup.
+- **Strategy for license security:** `services/license_security.py` resolves the effective config (global → per-product override) and `validate_license` applies the strict/lenient strategy; modes are data (a settings JSON document), not branches scattered through handlers.
+- **Observer / event dispatch:** `notify()` fans out notifications; webhook dispatch signs (HMAC-SHA256, constant-time compare on the receiving side) and records a `WebhookDelivery` row per attempt. Nothing in a request handler knows about delivery mechanics.
+- **Factory for key generation:** per-product key generators (prefix/segments/length) build keys with `secrets`; API-key secrets are generated with `secrets.token_urlsafe` and stored only as SHA-256 hashes.
+- **Dependency injection:** FastAPI `Depends()` everywhere (DB session, current user, rate limiters, `require_actor`); services take a `Session` and never construct their own.
+- **Frontend — presentational components + hooks/utils.** Pages own layout and data fetching; shared behavior lives in `components/` (ChipSelect, ToggleSwitch, Wizard, Modal) and `utils/` (api, auth, format, theme). State that must persist per user (theme, dashboard layout) goes through `PUT /users/me/preferences` with a localStorage fallback so demo mode works identically. No class components; no `var`; no `dangerouslySetInnerHTML` with user data anywhere.
+- **Modules — one shared spec, native MVC per platform.** Every module implements the same contract (API-key auth, billing-cycle sync, optional HMAC signing, fail-closed on 401/403, TLS verified) in the platform's own MVC shape: Model = API client + data layer, Controller = admin/front handlers & hooks, View = templates. Shared behavior is specified once (see `backend/services/api_keys.py` for the signing algorithm and `modules.json` for versions); no module invents its own auth.
+- **Clean-code rules enforced in review:** SOLID (single responsibility per file), DRY (shared helpers, no duplicated validation), no magic numbers/strings (constants in `config.py` / service modules), no dead code, no commented-out blocks, no TODOs in shipped code, full type hints on new Python, linted with ruff (`backend/pyproject.toml`; `ruff check` clean) and formatted with `ruff format` on all new files. The legacy backend was not reformatted wholesale (65 files predate the formatter) — new code follows the formatter; a full-repo format pass is a future cleanup, not a release blocker.
+- **Versioning:** one version constant per side (see the v2.3.0 notes above); the demo storage key increments with the version so a new demo never reads a stale schema.
+
 
 ---
 
@@ -299,33 +373,47 @@ bash scripts/update.sh
 
 ## Modules
 
-The real WHMCS server module and WooCommerce plugin live in `modules/` and are downloadable from the admin panel (**Downloads** page) as ZIPs, or from the GitHub releases. Versions are tracked in `modules.json` at the repo root.
+Ten platform modules live in `modules/`, one per platform, each with `version.json` == the app version. They are downloadable from the admin panel (**Downloads** page), which links **directly to the GitHub release asset** for the installed app version (version parity) — or from the GitHub release itself. Each module's ZIP is built by `bash scripts/build-module-zips.sh` (into `dist/`, never committed). Versions are tracked in `modules.json` at the repo root.
 
-### WHMCS module (`modules/whmcs/`, version 1.0.0)
+**All modules connect with an API key only — never an admin email/password.** Create a module-scoped key in the panel (API Keys → module-key toggle, 30/90/180/365-day expiry), copy the secret once, paste it into the module settings with the backend URL, and optionally enable signed requests (HMAC) and an IP allowlist. See the in-app API Docs → "Module authentication" section. Each module's README documents its own install + mapping flow.
 
-1. Copy the `modules/` folder from the ZIP into your WHMCS installation root, so the module lands at `modules/servers/licensemanagerpro/licensemanagerpro.php`.
-2. In WHMCS, create or edit a product and select **LicenseManagerPro** as the module (Setup → Products/Services → Products/Services → Module Settings). No server entry is needed (`RequiresServer = false`).
-3. Fill in the module settings: **API URL** (base URL of the License Manager Pro API, no trailing slash), **Admin email / Admin password** (an admin user — the module logs in to get a JWT), **Product slug** (the product in License Manager Pro), **Billing cycle** (one of the product's cycles).
-4. Use **Test Connection** to verify the login. On order payment WHMCS creates the license and stores the key in the service's password field; suspension, unsuspension, termination, renewal and package changes map to the API; the admin Services tab shows key, status, expiry and activations.
+| Platform | Directory | What it does |
+|---|---|---|
+| WHMCS | `modules/whmcs/` | Server module: full lifecycle (Create/Suspend/Unsuspend/Terminate/Renew/ChangePackage), product picked from a live dropdown of the backend's products, Test connection |
+| WooCommerce | `modules/woocommerce/` | Mints one license per mapped line item on order completion; My Account → Licenses tab |
+| WordPress (no WooCommerce) | `modules/wordpress/` | License minting on demand, `[lmp_licenses]` shortcode, My Licenses page |
+| Joomla | `modules/joomla/` | Component with MVC + admin config; license actions via the API |
+| PrestaShop | `modules/prestashop/` | Mints a license when an order reaches a paid status |
+| Magento | `modules/magento/` | Magento 2 module: mints on order paid, admin config |
+| OpenCart | `modules/opencart/` | Extension: admin settings, minting on order completion |
+| Shopware | `modules/shopware/` | Shopware 6 plugin: mints on order placed/paid |
+| Drupal | `modules/drupal/` | Settings form + `/user/licenses` page |
+| Odoo | `modules/odoo/` | License model, portal page, minting on sale order confirmation |
 
-### WooCommerce plugin (`modules/woocommerce/`, version 1.0.0)
-
-1. In WordPress admin: **Plugins → Add New → Upload Plugin**, upload the ZIP and activate it (WooCommerce must already be active).
-2. Go to **WooCommerce → License Manager Pro** and fill in the **API URL**, **Admin email / Admin password**, and the **product mapping** (each WooCommerce product → License Manager Pro product slug + billing cycle).
-3. Click **Test connection**. When an order completes, one license is created per mapped line item (never before completion, never twice for the same item); the key is stored in order item meta and shown in the order details, the order email and **My Account → Licenses** (with live status, expiry, activations and a deactivate button per installation).
-
-> **Note:** the PHP modules are not linted in this repo's CI (no PHP in the development VM) — they were reviewed by hand. Test them against a real WHMCS / WordPress install before going live.
+> **Note:** the PHP modules are not linted in this repo's CI (no PHP in the development VM) — they were reviewed by hand and balance-checked. The modules were NOT tested against live WHMCS/Joomla/PrestaShop/Magento/OpenCart/Shopware/Drupal/Odoo installs in this VM — test them against a real install before going live. Shared behavior (signing, cycle mapping, fail-closed on 401/403) is logic-tested where possible; see each module's README for its honest test status.
 
 ---
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed):
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it.
 
 ```bash
 cd backend
 ../.venv/bin/python -m pytest tests/ -q
 ```
+
+Frontend checks (all must pass before a release):
+
+```bash
+cd frontend
+npm run check-i18n   # every key exists in en and fa
+npm run check-demo   # the in-browser demo mock (search, roles, 2FA, license security, billing sync, API-key rotation, downloads)
+npm run build        # normal build
+REACT_APP_DEMO_MODE=true npm run build   # demo build; the bundle must contain the current lmp-demo-db-vN key
+```
+
+Lint (backend): `ruff check backend/` and `ruff format --check` on the new files — see `backend/pyproject.toml`. Module ZIPs: `bash scripts/build-module-zips.sh` (verifies `version.json` == app version in every ZIP). Install script: `bash -n install.sh` + `bash install.sh --dry-run`.
 
 ---
 

@@ -1,0 +1,5 @@
+api_url: ''
+api_key: ''
+signed_requests: false
+default_billing_cycle: annual
+product_mapping: {}

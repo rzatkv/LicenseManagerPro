@@ -1,5 +1,4 @@
 """Product group routes (v2.2; JWT; writes need products:write)."""
-from typing import List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -21,7 +20,7 @@ router = APIRouter()
 _write = require_permission("products:write")
 
 
-@router.get("", response_model=List[ProductGroupResponse])
+@router.get("", response_model=list[ProductGroupResponse])
 def list_groups(
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),

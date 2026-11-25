@@ -6,7 +6,6 @@ a failure to write the audit row is logged and swallowed.
 """
 import json
 import logging
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -20,9 +19,9 @@ def log_audit(
     actor_email: str,
     action: str,
     entity: str,
-    entity_id: Optional[str],
-    details: Optional[dict] = None,
-) -> Optional[AuditLog]:
+    entity_id: str | None,
+    details: dict | None = None,
+) -> AuditLog | None:
     """Record one audit row. ``details`` is stored as a JSON string."""
     row = AuditLog(
         actor_email=actor_email,
@@ -34,7 +33,7 @@ def log_audit(
     try:
         db.add(row)
         db.commit()
-    except Exception as exc:  # noqa: BLE001 - audit must never break the caller
+    except Exception as exc:
         db.rollback()
         logger.warning("Could not write audit log %s %s: %s", action, entity, exc)
         return None

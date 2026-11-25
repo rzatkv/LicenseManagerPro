@@ -20,14 +20,21 @@
    rows keep their comfortable height and the actions stay 32px. */
 @media (max-width: 1024px) {
   .products-container .col-slug, .products-container .col-group, .products-container .col-cycles, .products-container .col-webhook, .products-container .col-count { display: none; }
+  /* Fixed layout with explicit widths: with table-layout auto the actions
+     column absorbed all leftover width (~348px). Fixed widths keep
+     name/price/status/actions inside 886px with no horizontal scroll. */
+  .products-container table { table-layout: fixed; }
+  .products-container table th:nth-child(4) { width: 112px; }
+  .products-container table th:nth-child(6) { width: 104px; }
+  /* 5 icon buttons × 32px + 4 × 6px gap + cell padding = 204px; 172px
+     clipped the leftmost (delete) button in RTL. */
+  .products-container table th:nth-child(9) { width: 204px; }
 }
 /* Icon buttons inside the table must keep their 32px size: the table
    .view-btn/.delete-btn rules below set text-button padding, and their
    higher specificity would otherwise override .row-actions .icon-btn. */
 .products-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
 .products-container table .row-actions .icon-btn svg { display: block; }
-/* .check-label lives in index.css (shared): inline-flex, checkbox at the
-   inline-start of its label in both LTR and RTL. */
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
 .update-message { color: var(--success); text-align: center; }
 .validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }

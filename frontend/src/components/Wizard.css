@@ -52,6 +52,11 @@
 /* Every step child must be allowed to shrink below its content width,
    or a long unbreakable label/value overflows the wizard card in RTL. */
 .wizard-body > * { min-width: 0; }
+/* v2.3: multi-selects inside wizards are ChipSelect pill buttons, not
+   checkbox inputs — the old `.wizard-body input {width: 100%}` rule used
+   to match checkboxes too and squeeze their labels to 0px (the RTL
+   character-stacking defect of v2.2.1/v2.2.2). No checkbox inputs remain
+   in any wizard, so text controls simply stretch. */
 .wizard-body input, .wizard-body select, .wizard-body textarea { width: 100%; }
 /* Visible field labels (not placeholder-only): a stacked label + control. */
 .field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }

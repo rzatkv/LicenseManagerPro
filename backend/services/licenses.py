@@ -3,12 +3,11 @@ import calendar
 import json
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from database import utcnow
+from database import escape_like, utcnow
 from models import License, Product
 from schemas import LicenseCreateRequest, LicenseUpdateRequest
 
@@ -24,13 +23,13 @@ def add_months(moment: datetime, months: int) -> datetime:
     return moment.replace(year=year, month=month, day=day)
 
 
-def _split_csv(value: Optional[str]) -> list[str]:
+def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [part.strip() for part in value.split(",") if part.strip()]
 
 
-def _join_csv(values) -> Optional[str]:
+def _join_csv(values) -> str | None:
     if values is None:
         return None
     if isinstance(values, str):
@@ -39,7 +38,34 @@ def _join_csv(values) -> Optional[str]:
     return ",".join(cleaned) if cleaned else None
 
 
-def generate_license_key(product: Optional[Product] = None) -> str:
+def _sync_billing_cycle(db: Session, product: Product, cycle: str) -> None:
+    """Billing-cycle sync (v2.3): a module may send a cycle the product
+    does not list yet (e.g. a WHMCS service cycle or a WooCommerce
+    subscription period). An unknown cycle is rejected (422); a valid but
+    missing cycle is appended to the product's billing_cycles (existing
+    order preserved, de-duplicated) and persisted with the caller's
+    commit. Shared by create/renew/update so the rule lives in one place.
+    """
+    from services import products as product_service
+
+    if cycle not in product_service.BILLING_CYCLES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid billing_cycle: '{cycle}' (expected one of {', '.join(product_service.BILLING_CYCLES)})",
+        )
+    try:
+        cycles = json.loads(product.billing_cycles or "[]")
+    except (TypeError, ValueError):
+        cycles = []
+    if not isinstance(cycles, list):
+        cycles = []
+    if cycle not in cycles:
+        cycles.append(cycle)
+        product.billing_cycles = json.dumps(cycles)
+        db.add(product)
+
+
+def generate_license_key(product: Product | None = None) -> str:
     """Generate a random license key.
 
     Default form is XXXX-XXXX-XXXX-XXXX. When the product defines a key
@@ -114,17 +140,10 @@ def create_license(request: LicenseCreateRequest, db: Session) -> License:
                 status_code=400,
                 detail="billing_cycle is required when product_id is given",
             )
-        try:
-            cycles = product_service.validate_billing_cycles(
-                json.loads(product.billing_cycles or "[]")
-            )
-        except HTTPException:
-            cycles = []
-        if billing_cycle not in cycles:
-            raise HTTPException(
-                status_code=400,
-                detail=f"billing_cycle '{billing_cycle}' is not offered by product '{product.slug}'",
-            )
+        # Billing-cycle sync (v2.3): a valid cycle the product does not
+        # list yet is added to the product automatically; an unknown
+        # cycle is rejected with 422.
+        _sync_billing_cycle(db, product, billing_cycle)
         if billing_cycle == "lifetime":
             expires_at = None
         else:
@@ -173,8 +192,8 @@ def get_license(license_id: int, db: Session) -> License:
 def list_licenses(
     db: Session,
     filter_: str = "all",
-    status: Optional[str] = None,
-    search: Optional[str] = None,
+    status: str | None = None,
+    search: str | None = None,
 ):
     """List licenses, applying the frontend's filter values.
 
@@ -184,11 +203,13 @@ def list_licenses(
     query = db.query(License)
 
     if search:
-        like = f"%{search}%"
+        # Escape LIKE wildcards: the term is a literal string, never a
+        # pattern (a search for "%" must not match every row).
+        like = f"%{escape_like(search)}%"
         query = query.filter(
-            (License.key.like(like))
-            | (License.product.like(like))
-            | (License.owner_email.like(like))
+            (License.key.like(like, escape="\\"))
+            | (License.product.like(like, escape="\\"))
+            | (License.owner_email.like(like, escape="\\"))
         )
 
     now = utcnow()
@@ -244,16 +265,13 @@ def update_license(license_id: int, request: LicenseUpdateRequest, db: Session) 
         )
         if product_id is not None:
             product = product_service.get_product(product_id, db)
-            cycles = json.loads(product.billing_cycles or "[]")
-            if request.billing_cycle not in cycles:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"billing_cycle '{request.billing_cycle}' is not offered by product '{product.slug}'",
-                )
+            # Billing-cycle sync (v2.3): a valid cycle missing from the
+            # product is added to it; an unknown cycle is rejected (422).
+            _sync_billing_cycle(db, product, request.billing_cycle)
         elif request.billing_cycle not in product_service.BILLING_CYCLES:
             raise HTTPException(
-                status_code=400,
-                detail=f"Invalid billing_cycle: {request.billing_cycle}",
+                status_code=422,
+                detail=f"Invalid billing_cycle: '{request.billing_cycle}' (expected one of {', '.join(product_service.BILLING_CYCLES)})",
             )
         license_.billing_cycle = request.billing_cycle
     if request.product is not None:
@@ -299,10 +317,18 @@ def delete_license(license_id: int, db: Session) -> None:
 
 
 def renew_license(
-    license_id: int, db: Session, extend_days: Optional[int] = None
+    license_id: int,
+    db: Session,
+    extend_days: int | None = None,
+    billing_cycle: str | None = None,
 ) -> License:
     """Renew a license.
 
+    - When billing_cycle is explicitly passed (v2.3, billing-cycle sync):
+      it is validated (422 on unknown), synced onto the linked product
+      when missing, stored on the license, and expiry is extended by
+      that cycle's calendar months. This also lets a lifetime license
+      switch to a paid cycle; switching *to* lifetime is rejected (400).
     - When extend_days is explicitly passed it wins (legacy behaviour).
     - Otherwise the license's own billing_cycle decides: monthly/quarterly/
       semiannual/annual/biennial extend by that many calendar months.
@@ -314,14 +340,31 @@ def renew_license(
     from services import webhooks as webhook_service
 
     license_ = get_license(license_id, db)
-    if license_.billing_cycle == "lifetime":
+    if billing_cycle is not None:
+        if billing_cycle == "lifetime":
+            raise HTTPException(
+                status_code=400, detail="cannot renew a lifetime license"
+            )
+        if license_.product_id is not None:
+            product = product_service.get_product(license_.product_id, db)
+            _sync_billing_cycle(db, product, billing_cycle)
+        elif billing_cycle not in product_service.BILLING_CYCLES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid billing_cycle: '{billing_cycle}' (expected one of {', '.join(product_service.BILLING_CYCLES)})",
+            )
+        license_.billing_cycle = billing_cycle
+    elif license_.billing_cycle == "lifetime":
         raise HTTPException(
             status_code=400, detail="cannot renew a lifetime license"
         )
     base = license_.expires_at or utcnow()
-    if base < utcnow():
-        base = utcnow()
-    if extend_days is not None:
+    base = max(base, utcnow())
+    if billing_cycle is not None:
+        license_.expires_at = add_months(
+            base, product_service.CYCLE_MONTHS[billing_cycle]
+        )
+    elif extend_days is not None:
         license_.expires_at = base + timedelta(days=extend_days)
     elif license_.billing_cycle in product_service.CYCLE_MONTHS:
         license_.expires_at = add_months(
@@ -383,7 +426,7 @@ def list_activations(license_id: int, db: Session) -> list:
 
 
 def activate_license(
-    license_id: int, db: Session, fingerprint: str, label: Optional[str] = None
+    license_id: int, db: Session, fingerprint: str, label: str | None = None
 ):
     """Register one activation instance (v2.2, Keygen-style).
 
@@ -412,7 +455,14 @@ def activate_license(
     )
     if existing:
         return existing
-    if license_.activations >= license_.max_activations:
+    # v2.3: the license-security config can switch the activation limit off.
+    from services import license_security as security
+
+    product = None
+    if license_.product_id is not None:
+        product = db.query(Product).filter(Product.id == license_.product_id).first()
+    cfg = security.effective_license_security(db, product)
+    if cfg["enforce_activation_limit"] and license_.activations >= license_.max_activations:
         raise HTTPException(status_code=400, detail="Activation limit reached")
     record = LicenseActivation(
         license_id=license_id, fingerprint=fingerprint, label=label
@@ -454,38 +504,96 @@ def _domain_matches(requested: str, allowed: str) -> bool:
 def validate_license(
     key: str,
     db: Session,
-    domain: Optional[str] = None,
-    ip: Optional[str] = None,
-    install_path: Optional[str] = None,
-) -> tuple[bool, str, Optional[License]]:
+    domain: str | None = None,
+    ip: str | None = None,
+    install_path: str | None = None,
+) -> dict:
     """Check a license key: exists, active, not expired, activations left,
     and (when set) domain/IP/install-path locks. A blacklisted IP or
-    domain (v2.2) is rejected before anything else is looked at."""
+    domain (v2.2) is rejected before anything else is looked at.
+
+    Enforcement follows the effective license-security config (v2.3):
+    global `license_security` setting merged with the linked product's
+    overrides. Returns a dict: valid / detail / license / grace /
+    warnings. In lenient mode a lock mismatch still validates but the
+    response is marked grace=true with a warning.
+    """
     from services import blacklist as blacklist_service
+    from services import license_security as security
+
+    def fail(detail: str, license_=None):
+        return {"valid": False, "detail": detail, "license": license_, "grace": False, "warnings": []}
 
     blocked = blacklist_service.is_blacklisted(db, ip=ip, domain=domain)
     if blocked:
-        return False, "blocked: blacklisted", None
+        return fail("blocked: blacklisted")
     license_ = db.query(License).filter(License.key == key).first()
     if not license_:
-        return False, "License key not found", None
+        return fail("License key not found")
     if license_.effective_status == "expired":
-        return False, "License has expired", license_
+        return fail("License has expired", license_)
     if license_.effective_status != "active":
-        return False, f"License is {license_.effective_status}", license_
-    if license_.activations >= license_.max_activations:
-        return False, "Activation limit reached", license_
+        return fail(f"License is {license_.effective_status}", license_)
+
+    product = None
+    if license_.product_id is not None:
+        product = db.query(Product).filter(Product.id == license_.product_id).first()
+    cfg = security.effective_license_security(db, product)
+    strict = cfg["strictness"] == "strict"
+    missing_denies = cfg["missing_lock_behavior"] == "deny"
+    warnings: list[str] = []
+
+    def check_lock(enabled: bool, configured: bool, matches: bool, missing: bool, label: str):
+        """One lock check. Returns True when validation must stop (deny)."""
+        if not enabled or not configured:
+            return False
+        if missing:
+            if missing_denies:
+                return True
+            warnings.append(f"{label} not provided")
+            return False
+        if not matches:
+            if strict:
+                return True
+            warnings.append(f"{label} mismatch (grace)")
+            return False
+        return False
+
+    if cfg["enforce_activation_limit"] and license_.activations >= license_.max_activations:
+        return fail("Activation limit reached", license_)
+
     allowed_domains = _split_csv(license_.allowed_domains)
-    if allowed_domains:
-        if not domain or not any(
-            _domain_matches(domain, allowed) for allowed in allowed_domains
-        ):
-            return False, "domain not allowed", license_
+    if check_lock(
+        cfg["enforce_domain_lock"],
+        bool(allowed_domains),
+        bool(domain) and any(_domain_matches(domain, a) for a in allowed_domains),
+        not domain,
+        "domain",
+    ):
+        return fail("domain not allowed", license_)
     allowed_ips = _split_csv(license_.allowed_ips)
-    if allowed_ips:
-        if not ip or ip.strip() not in [a.strip() for a in allowed_ips]:
-            return False, "ip not allowed", license_
-    if license_.install_path:
-        if not install_path or install_path != license_.install_path:
-            return False, "install path not allowed", license_
-    return True, "License is valid", license_
+    if check_lock(
+        cfg["enforce_ip_lock"],
+        bool(allowed_ips),
+        bool(ip) and ip.strip() in [a.strip() for a in allowed_ips],
+        not ip,
+        "ip",
+    ):
+        return fail("ip not allowed", license_)
+    if check_lock(
+        cfg["enforce_install_path_lock"],
+        bool(license_.install_path),
+        bool(install_path) and install_path == license_.install_path,
+        not install_path,
+        "install path",
+    ):
+        return fail("install path not allowed", license_)
+
+    grace = bool(warnings)
+    return {
+        "valid": True,
+        "detail": "License is valid" + (" (grace)" if grace else ""),
+        "license": license_,
+        "grace": grace,
+        "warnings": warnings,
+    }

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    License Manager Pro — component configuration.
+    Mirrors the <config> section of licensemanagerpro.xml (the
+    manifest is authoritative at install time; this file is what
+    Joomla's Options screen (com_config) reads afterwards).
+    Authentication is API-key only: one scoped module key, no admin
+    email/password anywhere. TLS verification is never disabled.
+-->
+<config>
+    <fields name="params">
+        <fieldset name="basic" label="COM_LICENSMANAGERPRO">
+            <field
+                name="api_url"
+                type="url"
+                label="COM_LICENSMANAGERPRO_API_URL"
+                description="COM_LICENSMANAGERPRO_API_URL_DESC"
+                default=""
+                required="true"
+                placeholder="https://license.example.com/api"
+            />
+            <field
+                name="api_key"
+                type="password"
+                label="COM_LICENSMANAGERPRO_API_KEY"
+                description="COM_LICENSMANAGERPRO_API_KEY_DESC"
+                default=""
+                autocomplete="off"
+            />
+            <field
+                name="signed_requests"
+                type="radio"
+                label="COM_LICENSMANAGERPRO_SIGNED_REQUESTS"
+                description="COM_LICENSMANAGERPRO_SIGNED_REQUESTS_DESC"
+                default="0"
+                layout="joomla.form.field.radio.switcher"
+            >
+                <option value="0">JNO</option>
+                <option value="1">JYES</option>
+            </field>
+            <field
+                name="default_product_slug"
+                type="text"
+                label="COM_LICENSMANAGERPRO_DEFAULT_PRODUCT_SLUG"
+                description="COM_LICENSMANAGERPRO_DEFAULT_PRODUCT_SLUG_DESC"
+                default=""
+            />
+            <field
+                name="default_billing_cycle"
+                type="list"
+                label="COM_LICENSMANAGERPRO_DEFAULT_BILLING_CYCLE"
+                description="COM_LICENSMANAGERPRO_DEFAULT_BILLING_CYCLE_DESC"
+                default=""
+            >
+                <option value="">COM_LICENSMANAGERPRO_CYCLE_NONE</option>
+                <option value="monthly">monthly</option>
+                <option value="quarterly">quarterly</option>
+                <option value="semiannual">semiannual</option>
+                <option value="annual">annual</option>
+                <option value="biennial">biennial</option>
+                <option value="lifetime">lifetime</option>
+            </field>
+        </fieldset>
+    </fields>
+</config>

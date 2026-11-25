@@ -1,0 +1,195 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-module" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+
+    <style>
+      .lmp-brand{background:linear-gradient(135deg,#C1165E 0%,#6D5DF6 100%);border-radius:12px;padding:20px 24px;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 24px rgba(193,22,94,.25)}
+      .lmp-brand svg{flex:0 0 auto}
+      .lmp-brand h2{margin:0;font-size:22px;font-weight:700;color:#fff}
+      .lmp-brand p{margin:4px 0 0;opacity:.9;font-size:13px}
+      .lmp-card{border-radius:12px}
+      .lmp-card .panel-heading{border-radius:12px 12px 0 0;font-weight:600}
+      .lmp-test-result{margin-top:10px;font-weight:600}
+      .lmp-test-result.ok{color:#1e7e34}
+      .lmp-test-result.bad{color:#c0392b}
+      .lmp-mapping-table td{vertical-align:middle}
+      .lmp-mapping-table select,.lmp-mapping-table input{max-width:260px}
+    </style>
+
+    <div class="lmp-brand">
+      <svg width="44" height="44" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <circle cx="24" cy="24" r="22" fill="rgba(255,255,255,0.18)"/>
+        <circle cx="18" cy="18" r="7" fill="none" stroke="#fff" stroke-width="3"/>
+        <line x1="23.5" y1="23.5" x2="36" y2="36" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="18" cy="18" r="2.5" fill="#fff"/>
+      </svg>
+      <div>
+        <h2>LicenseManagerPro</h2>
+        <p>License automation for your store &mdash; version 2.3.0</p>
+      </div>
+    </div>
+
+    <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-module" class="form-horizontal">
+      <div class="panel panel-default lmp-card">
+        <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-plug"></i> Connection</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-api-url">{{ entry_api_url }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="module_licensemanagerpro_api_url" value="{{ module_licensemanagerpro_api_url }}" placeholder="https://license.example.com/api" id="input-api-url" class="form-control" />
+              <span class="help-block">{{ help_api_url }}</span>
+              {% if error_api_url %}
+              <div class="text-danger">{{ error_api_url }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-api-key">{{ entry_api_key }}</label>
+            <div class="col-sm-10">
+              <input type="password" name="module_licensemanagerpro_api_key" value="{{ module_licensemanagerpro_api_key }}" placeholder="lmp_…" id="input-api-key" class="form-control" autocomplete="off" />
+              <span class="help-block">{{ help_api_key }}</span>
+              {% if error_api_key %}
+              <div class="text-danger">{{ error_api_key }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-signed">{{ entry_signed }}</label>
+            <div class="col-sm-10">
+              <select name="module_licensemanagerpro_signed" id="input-signed" class="form-control">
+                <option value="1" {% if module_licensemanagerpro_signed %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                <option value="0" {% if not module_licensemanagerpro_signed %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+              </select>
+              <span class="help-block">{{ help_signed }}</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label">{{ button_test_connection }}</label>
+            <div class="col-sm-10">
+              <button type="button" id="button-test-connection" class="btn btn-default"><i class="fa fa-refresh"></i> {{ button_test_connection }}</button>
+              <div id="test-connection-result" class="lmp-test-result"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-default lmp-card">
+        <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-shopping-cart"></i> {{ entry_complete_status }}</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-complete-status">{{ entry_complete_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_licensemanagerpro_complete_status_id" id="input-complete-status" class="form-control">
+                {% for status in order_statuses %}
+                <option value="{{ status.order_status_id }}" {% if status.order_status_id == module_licensemanagerpro_complete_status_id %}selected="selected"{% endif %}>{{ status.name }}</option>
+                {% endfor %}
+              </select>
+              <span class="help-block">{{ help_complete_status }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-default lmp-card">
+        <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-key"></i> {{ entry_mapping }}</h3></div>
+        <div class="panel-body">
+          <p class="help-block">{{ help_mapping }}</p>
+          {% if lmp_products_error %}
+          <div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> {{ text_no_lmp_products }}<br /><small>{{ lmp_products_error }}</small></div>
+          {% endif %}
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover lmp-mapping-table">
+              <thead>
+                <tr>
+                  <th>OpenCart Product</th>
+                  <th>License Manager Pro Product</th>
+                  <th>Billing Cycle</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in mapping_rows %}
+                <tr>
+                  <td>{{ row.name }} <small class="text-muted">({{ row.model }})</small></td>
+                  <td>
+                    {% if lmp_products %}
+                    <select name="module_licensemanagerpro_mapping[{{ row.product_id }}][slug]" class="form-control">
+                      <option value="">&mdash; No license &mdash;</option>
+                      {% for lmp in lmp_products %}
+                      <option value="{{ lmp.slug }}" {% if lmp.slug == row.slug %}selected="selected"{% endif %}>{{ lmp.name }} ({{ lmp.slug }})</option>
+                      {% endfor %}
+                    </select>
+                    {% else %}
+                    <input type="text" name="module_licensemanagerpro_mapping[{{ row.product_id }}][slug]" value="{{ row.slug }}" placeholder="e.g. cloudpanel-pro" class="form-control" />
+                    {% endif %}
+                  </td>
+                  <td>
+                    <select name="module_licensemanagerpro_mapping[{{ row.product_id }}][cycle]" class="form-control">
+                      {% for cycle in billing_cycles %}
+                      <option value="{{ cycle }}" {% if cycle == row.cycle %}selected="selected"{% endif %}>{{ cycle }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center text-muted">No products in the catalog yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+document.getElementById('button-test-connection').addEventListener('click', function () {
+  var result = document.getElementById('test-connection-result');
+  var button = this;
+  button.disabled = true;
+  result.className = 'lmp-test-result';
+  result.textContent = '{{ text_testing }}';
+  fetch('{{ test_connection_url }}', { credentials: 'same-origin' })
+    .then(function (response) { return response.json(); })
+    .then(function (data) {
+      button.disabled = false;
+      if (data.success) {
+        result.className = 'lmp-test-result ok';
+        result.textContent = '{{ text_connection_ok }}' + (data.version ? ' — v' + data.version : '');
+      } else {
+        result.className = 'lmp-test-result bad';
+        result.textContent = '{{ text_connection_failed }}: ' + (data.error || '');
+      }
+    })
+    .catch(function (err) {
+      button.disabled = false;
+      result.className = 'lmp-test-result bad';
+      result.textContent = '{{ text_connection_failed }}: ' + err.message;
+    });
+});
+</script>
+{{ footer }}

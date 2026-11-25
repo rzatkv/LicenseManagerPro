@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ======================= Licenses ======================= -->
+
+    <record id="view_lmp_license_tree" model="ir.ui.view">
+        <field name="name">lmp.license.tree</field>
+        <field name="model">lmp.license</field>
+        <field name="arch" type="xml">
+            <tree string="Licenses" decoration-danger="status == 'revoked'" decoration-muted="status == 'expired'">
+                <field name="key"/>
+                <field name="product_name"/>
+                <field name="billing_cycle"/>
+                <field name="owner_email"/>
+                <field name="status" widget="badge" decoration-success="status == 'active'" decoration-warning="status == 'inactive'" decoration-danger="status in ('revoked', 'expired')"/>
+                <field name="expires_at"/>
+                <field name="activations"/>
+                <field name="max_activations"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_lmp_license_form" model="ir.ui.view">
+        <field name="name">lmp.license.form</field>
+        <field name="model">lmp.license</field>
+        <field name="arch" type="xml">
+            <form string="License">
+                <header>
+                    <button name="action_sync" type="object" string="Sync from LicenseManagerPro" class="oe_highlight"/>
+                    <button name="action_renew" type="object" string="Renew" class="oe_highlight"/>
+                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" confirm="Revoke this license on LicenseManagerPro? The customer will no longer be able to use it."/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="key" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="License">
+                            <field name="lmp_id"/>
+                            <field name="status" widget="badge"/>
+                            <field name="billing_cycle"/>
+                            <field name="expires_at"/>
+                        </group>
+                        <group string="Product &amp; Owner">
+                            <field name="product_name"/>
+                            <field name="product_id_lmp"/>
+                            <field name="owner_email"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group string="Activations">
+                            <field name="activations"/>
+                            <field name="max_activations"/>
+                        </group>
+                        <group string="Origin">
+                            <field name="order_id"/>
+                            <field name="order_line_id"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        This is a cached mirror of the LicenseManagerPro record.
+                        The backend is the source of truth — use Sync to refresh it.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_lmp_license" model="ir.actions.act_window">
+        <field name="name">Licenses</field>
+        <field name="res_model">lmp.license</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No licenses yet.
+            </p>
+            <p>
+                Licenses are minted automatically when a sale order with a
+                mapped product is confirmed, or synced here from the
+                LicenseManagerPro backend.
+            </p>
+        </field>
+    </record>
+
+    <!-- =================== Product mappings =================== -->
+
+    <record id="view_lmp_product_mapping_tree" model="ir.ui.view">
+        <field name="name">lmp.product.mapping.tree</field>
+        <field name="model">lmp.product.mapping</field>
+        <field name="arch" type="xml">
+            <tree string="Product Mappings">
+                <field name="product_id"/>
+                <field name="lmp_slug"/>
+                <field name="billing_cycle"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_lmp_product_mapping_form" model="ir.ui.view">
+        <field name="name">lmp.product.mapping.form</field>
+        <field name="model">lmp.product.mapping</field>
+        <field name="arch" type="xml">
+            <form string="Product Mapping">
+                <sheet>
+                    <group>
+                        <field name="product_id"/>
+                        <field name="lmp_slug" placeholder="e.g. pro-plan"/>
+                        <field name="billing_cycle"/>
+                        <field name="active"/>
+                    </group>
+                    <p class="text-muted">
+                        The slug is the product slug shown in the LicenseManagerPro
+                        panel (Products page). The billing cycle is sent with
+                        every license create/renew for this product; the backend
+                        adds it to the product automatically when it is missing.
+                        Leave the cycle empty to omit it from the request.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_lmp_product_mapping" model="ir.actions.act_window">
+        <field name="name">Product Mappings</field>
+        <field name="res_model">lmp.product.mapping</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No product mappings yet.
+            </p>
+            <p>
+                Map each Odoo product you sell to its LicenseManagerPro
+                product slug and billing cycle. Confirming a sale order
+                with a mapped product mints a license automatically.
+            </p>
+        </field>
+    </record>
+
+    <!-- ======================= Menus ========================== -->
+
+    <menuitem id="menu_lmp_root" name="LicenseManagerPro" parent="sale.menu_sale" sequence="40"/>
+    <menuitem id="menu_lmp_license" name="Licenses" parent="menu_lmp_root" action="action_lmp_license" sequence="10"/>
+    <menuitem id="menu_lmp_product_mapping" name="Product Mappings" parent="menu_lmp_root" action="action_lmp_product_mapping" sequence="20"/>
+</odoo>

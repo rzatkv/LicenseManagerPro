@@ -7,7 +7,6 @@ monkeypatch them. The store is resettable from tests via
 """
 import time
 from collections import deque
-from typing import Deque
 
 from fastapi import HTTPException, Request
 
@@ -15,12 +14,39 @@ import config
 
 WINDOW_SECONDS = 60.0
 
-_hits: dict[str, Deque[float]] = {}
+# Failed-login tracking (brute-force protection): per (lowercased) email,
+# 5 failures inside 15 minutes lock the account for 15 minutes. The
+# lockout applies to unknown emails too, so it reveals nothing about
+# whether an account exists.
+LOGIN_LOCKOUT_WINDOW_SECONDS = 900.0
+LOGIN_LOCKOUT_MAX_FAILURES = 5
+
+_hits: dict[str, deque[float]] = {}
+_failed_logins: dict[str, deque[float]] = {}
 
 
 def reset_rate_limits() -> None:
     """Clear all recorded hits (used by tests to isolate cases)."""
     _hits.clear()
+    _failed_logins.clear()
+
+
+def is_login_locked(email: str) -> bool:
+    """True when this email has too many recent failed logins."""
+    key = (email or "").strip().lower()
+    failures = _failed_logins.get(key)
+    if not failures:
+        return False
+    now = time.monotonic()
+    while failures and failures[0] <= now - LOGIN_LOCKOUT_WINDOW_SECONDS:
+        failures.popleft()
+    return len(failures) >= LOGIN_LOCKOUT_MAX_FAILURES
+
+
+def record_failed_login(email: str) -> None:
+    """Record one failed login attempt for the lockout tracker."""
+    key = (email or "").strip().lower()
+    _failed_logins.setdefault(key, deque()).append(time.monotonic())
 
 
 # Alias: both names are used in the codebase/tests.
@@ -53,3 +79,9 @@ def rate_limit_auth(request: Request) -> None:
 def rate_limit_validate(request: Request) -> None:
     """FastAPI dependency: limit license/key validation calls."""
     _check(_key(request, "validate"), config.RATE_LIMIT_VALIDATE_PER_MINUTE)
+
+
+def rate_limit_2fa(request: Request) -> None:
+    """FastAPI dependency: stricter limit for the 2FA code exchange
+    (5/min per IP) — TOTP codes must not be brute-forceable."""
+    _check(_key(request, "2fa"), config.RATE_LIMIT_2FA_PER_MINUTE)

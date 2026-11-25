@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="lmp" translate="label" sortOrder="900">
+            <label>License Manager Pro</label>
+        </tab>
+        <section id="lmp_licensemanager" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+            <label>License Manager Pro</label>
+            <tab>lmp</tab>
+            <resource>Lmp_LicenseManager::config</resource>
+            <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Connection</label>
+                <field id="api_url" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>API URL</label>
+                    <comment>Base URL of the License Manager Pro API, e.g. https://license.example.com/api (no trailing slash). HTTPS is required; TLS verification is never disabled.</comment>
+                    <validate>required-entry validate-url</validate>
+                </field>
+                <field id="api_key" translate="label comment" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Module API Key</label>
+                    <comment>Create a module-scoped key in the License Manager Pro panel (API Keys), copy it once, and paste it here. It is stored encrypted. No admin email or password is used anywhere in this module.</comment>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="signed_requests" translate="label comment" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Sign requests (HMAC)</label>
+                    <comment>When enabled, every request also carries X-LMP-Timestamp and X-LMP-Signature (HMAC-SHA256). The server rejects timestamps older than 5 minutes.</comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="test_connection" translate="label" type="button" sortOrder="40" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Test Connection</label>
+                    <frontend_model>Lmp\LicenseManager\Block\Adminhtml\System\Config\Test</frontend_model>
+                </field>
+            </group>
+            <group id="mapping" translate="label" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Product Mapping</label>
+                <field id="product_mapping" translate="label comment" type="textarea" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Product Mapping (JSON)</label>
+                    <comment>One JSON object per line. Each entry maps a Magento product SKU to a License Manager Pro product slug and a billing cycle. Example: {"sku": "CLOUDPANEL-PRO", "slug": "cloudpanel-pro", "billing_cycle": "annual"}. Billing cycles: monthly, quarterly, semiannual, annual, biennial, lifetime. Only mapped SKUs get a license when an invoice is paid. If a product also carries the custom attribute lmp_billing_cycle, that value wins over the mapped cycle.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

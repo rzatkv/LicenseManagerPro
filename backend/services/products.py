@@ -1,7 +1,6 @@
 """Product business logic (v2.0)."""
 import json
 import re
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -65,6 +64,10 @@ def serialize_product(product: Product) -> dict:
         events = json.loads(product.webhook_events or "[]")
     except (TypeError, ValueError):
         events = []
+    try:
+        security_overrides = json.loads(product.security_overrides or "null")
+    except (TypeError, ValueError):
+        security_overrides = None
     return {
         "id": product.id,
         "name": product.name,
@@ -82,6 +85,7 @@ def serialize_product(product: Product) -> dict:
         "key_segments": product.key_segments,
         "key_segment_length": product.key_segment_length,
         "max_reissues": product.max_reissues,
+        "security_overrides": security_overrides,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
     }
@@ -96,9 +100,9 @@ def get_product(product_id: int, db: Session) -> Product:
 
 def list_products(
     db: Session,
-    status: Optional[str] = None,
-    group_id: Optional[int] = None,
-    slug: Optional[str] = None,
+    status: str | None = None,
+    group_id: int | None = None,
+    slug: str | None = None,
 ):
     query = db.query(Product)
     if status is not None:
@@ -116,8 +120,26 @@ def list_products(
     return query.order_by(Product.id).all()
 
 
+def validate_webhook_url_scheme(url: str | None) -> None:
+    """Reject non-http(s) webhook URLs at write time (400). The full
+    SSRF check (private/internal hosts) runs at dispatch time in
+    services.webhooks.validate_webhook_url — a local dev webhook
+    (http://localhost:...) is storable but never dispatched."""
+    if not url:
+        return
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(
+            status_code=400,
+            detail="webhook_url must be an http(s) URL with a host",
+        )
+
+
 def create_product(request: ProductCreateRequest, db: Session) -> Product:
     cycles = validate_billing_cycles(request.billing_cycles)
+    validate_webhook_url_scheme(request.webhook_url)
     if request.status not in PRODUCT_STATUSES:
         raise HTTPException(
             status_code=400,
@@ -149,6 +171,11 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
         key_segments=request.key_segments,
         key_segment_length=request.key_segment_length,
         max_reissues=request.max_reissues,
+        security_overrides=(
+            json.dumps(request.security_overrides)
+            if request.security_overrides is not None
+            else None
+        ),
     )
     db.add(product)
     db.commit()
@@ -184,6 +211,7 @@ def update_product(product_id: int, request: ProductUpdateRequest, db: Session) 
             )
         product.status = request.status
     if request.webhook_url is not None:
+        validate_webhook_url_scheme(request.webhook_url)
         product.webhook_url = request.webhook_url
     if request.webhook_events is not None:
         product.webhook_events = json.dumps(request.webhook_events)
@@ -212,6 +240,13 @@ def update_product(product_id: int, request: ProductUpdateRequest, db: Session) 
         product.key_segment_length = request.key_segment_length
     if "max_reissues" in fields_set:
         product.max_reissues = request.max_reissues
+    if "security_overrides" in fields_set:
+        # v2.3: per-product license-security overrides; null clears them.
+        product.security_overrides = (
+            json.dumps(request.security_overrides)
+            if request.security_overrides is not None
+            else None
+        )
     db.commit()
     db.refresh(product)
     return product

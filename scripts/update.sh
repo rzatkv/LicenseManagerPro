@@ -34,6 +34,17 @@ if ! gzip -t "$TARBALL" 2>/dev/null; then
     exit 1
 fi
 
+# Safety: no member may escape the extract directory (absolute paths,
+# ".." components) and no symlinks/hardlinks/device files are allowed.
+if tar -tzf "$TARBALL" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    echo "Refusing to apply $TARBALL: archive contains unsafe paths." >&2
+    exit 1
+fi
+if tar -tvzf "$TARBALL" | grep -Eq '^[bcdlps]'; then
+    echo "Refusing to apply $TARBALL: archive contains non-regular members." >&2
+    exit 1
+fi
+
 echo "Applying $TARBALL to $INSTALL_DIR ..."
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT

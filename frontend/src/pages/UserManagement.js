@@ -1,11 +1,12 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {getList, post, put, del} from "../utils/api";
+import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
+import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/UserManagement.css";
 
 const PAGE_SIZE = 10;
@@ -17,6 +18,9 @@ function UserManagement() {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
+    const [roleFilter, setRoleFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [customRoles, setCustomRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newUserEmail, setNewUserEmail] = useState("");
     const [newUserPassword, setNewUserPassword] = useState("");
@@ -41,6 +45,17 @@ function UserManagement() {
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
+
+    useEffect(() => {
+        // Custom roles for the role filter (GET /api/roles, admin only).
+        // The endpoint is not mocked in demo mode and may 403 for
+        // non-admins: any failure silently falls back to the four
+        // built-in roles.
+        get("/roles").then((data) => {
+            const list = Array.isArray(data) ? data : (data.roles || []);
+            setCustomRoles(list.filter((r) => !r.is_builtin));
+        }).catch(() => setCustomRoles([]));
+    }, []);
 
     const handleAddUser = async () => {
         try {
@@ -81,11 +96,31 @@ function UserManagement() {
         }
     };
 
-    // Client-side search over the loaded page (email).
+    const BUILTIN_ROLES = ["admin", "manager", "support", "viewer"];
+
+    // Client-side search + role + status filters over the loaded page
+    // only: the list is paginated server-side, so rows on other pages
+    // are not filtered. The demo mock has no server-side user filter,
+    // so filtering here works in demo mode as-is.
+    const filtersActive = search.trim() !== "" || roleFilter !== "" || statusFilter !== "all";
     const visible = users.filter((user) => {
-        if (!search.trim()) return true;
-        return (user.email || "").toLowerCase().includes(search.trim().toLowerCase());
+        if (search.trim() && !(user.email || "").toLowerCase().includes(search.trim().toLowerCase())) return false;
+        if (roleFilter) {
+            const custom = customRoles.find((r) => r.slug === roleFilter || r.name === roleFilter);
+            const matches = user.role === roleFilter
+                || (custom && (user.role === custom.slug || user.role === custom.name));
+            if (!matches) return false;
+        }
+        if (statusFilter === "active" && !user.is_active) return false;
+        if (statusFilter === "inactive" && user.is_active) return false;
+        return true;
     });
+
+    const clearFilters = () => {
+        setSearch("");
+        setRoleFilter("");
+        setStatusFilter("all");
+    };
 
     return (
         <div className="user-management-container page-enter">
@@ -122,11 +157,34 @@ function UserManagement() {
                     </span>
                     <input type="text" className="search-input" placeholder={t("users.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
+                <div className="filter-container">
+                    <label htmlFor="user-role-filter">{t("common.role")}:</label>
+                    <select id="user-role-filter" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                        <option value="">{t("common.all")}</option>
+                        {BUILTIN_ROLES.map((r) => (
+                            <option key={r} value={r}>{t(`roles.${r}`)}</option>
+                        ))}
+                        {customRoles.map((r) => (
+                            <option key={r.slug || r.id} value={r.slug || r.name}>{r.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="filter-container">
+                    <label htmlFor="user-status-filter">{t("common.status")}:</label>
+                    <select id="user-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <option value="all">{t("common.all")}</option>
+                        <option value="active">{t("common.active")}</option>
+                        <option value="inactive">{t("common.inactive")}</option>
+                    </select>
+                </div>
+                {filtersActive && (
+                    <button type="button" className="btn-ghost" onClick={clearFilters}>{t("filters.clearAll")}</button>
+                )}
             </div>
             {loading ? (
                 <TableSkeleton rows={4} />
             ) : visible.length === 0 ? (
-                <EmptyState title={t("dashboard.noUsers")} text={search ? t("common.noResults") : undefined} />
+                <EmptyState title={t("dashboard.noUsers")} text={filtersActive ? t("common.noResults") : undefined} />
             ) : (
                 <>
                 <div className="table-wrap">
@@ -157,10 +215,10 @@ function UserManagement() {
                                 </select>
                             </td>
                             <td>
-                                <input
-                                    type="checkbox"
+                                <ToggleSwitch
                                     checked={!!user.is_active}
-                                    onChange={(e) => handleUpdateUser(user.id, {is_active: e.target.checked})}
+                                    onChange={(v) => handleUpdateUser(user.id, {is_active: v})}
+                                    ariaLabel={t("users.active")}
                                 />
                             </td>
                             <td>

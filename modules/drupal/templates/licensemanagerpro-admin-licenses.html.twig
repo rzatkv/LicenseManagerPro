@@ -1,0 +1,66 @@
+{#
+/**
+ * @file
+ * Admin license list.
+ *
+ * Available variables:
+ * - licenses: list of license arrays (key, product, owner_email,
+ *   billing_cycle, status, expires_at).
+ * - error: failure message string, or NULL.
+ * - mint_link: render array for the "Mint license" button.
+ */
+#}
+<div class="lmp">
+  <header class="lmp-header">
+    <span class="lmp-header__mark" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="14" r="5" stroke="currentColor" stroke-width="2"/><path d="M11.5 10.5 20 2M16 5l3 3M13.5 7.5l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </span>
+    <span class="lmp-header__text">
+      <strong class="lmp-header__wordmark">LicenseManagerPro</strong>
+      <span class="lmp-header__subtitle">{{ 'Licenses'|t }}</span>
+    </span>
+    <span class="lmp-header__actions">{{ mint_link }}</span>
+  </header>
+
+  {% if error %}
+    <div class="lmp-alert lmp-alert--error" role="alert">{{ error }}</div>
+  {% endif %}
+
+  {% if licenses is empty and not error %}
+    <div class="lmp-card">
+      <p>{{ 'No licenses found.'|t }}</p>
+    </div>
+  {% endif %}
+
+  {% if licenses is not empty %}
+    <div class="lmp-card lmp-card--table">
+      <table class="lmp-table">
+        <thead>
+          <tr>
+            <th>{{ 'License key'|t }}</th>
+            <th>{{ 'Product'|t }}</th>
+            <th>{{ 'Owner'|t }}</th>
+            <th>{{ 'Billing cycle'|t }}</th>
+            <th>{{ 'Status'|t }}</th>
+            <th>{{ 'Expires'|t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for license in licenses %}
+            <tr>
+              <td>
+                <code class="lmp-key">{{ license.key }}</code>
+                <button type="button" class="lmp-copy" data-lmp-copy="{{ license.key }}">{{ 'Copy'|t }}</button>
+              </td>
+              <td>{{ license.product }}</td>
+              <td>{{ license.owner_email }}</td>
+              <td>{{ license.billing_cycle }}</td>
+              <td><span class="lmp-pill lmp-pill--{{ license.status|lower }}">{{ license.status }}</span></td>
+              <td>{{ license.expires_at ? license.expires_at|date('Y-m-d') : '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>

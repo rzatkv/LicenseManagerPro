@@ -397,7 +397,7 @@ function LicenseList() {
                     <th className="col-id">ID</th>
                     <th>{t("licenses.key")}</th>
                     <th>{t("licenses.product")}</th>
-                    <th>{t("licenses.billingCycle")}</th>
+                    <th className="col-cycle">{t("licenses.billingCycle")}</th>
                     <th>{t("common.status")}</th>
                     <th className="col-created">{t("common.createdAt")}</th>
                     <th>{t("common.actions")}</th>
@@ -411,7 +411,7 @@ function LicenseList() {
                             <span className="key-cell-text">{license.key}</span> <CopyButton text={license.key} />
                         </td>
                         <td>{license.product}</td>
-                        <td>{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
+                        <td className="col-cycle">{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
                         <td>{statusPill(license.status, t)}</td>
                         <td className="nowrap col-created">{formatDate(license.created_at, lang)}</td>
                         <td>

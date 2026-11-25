@@ -7,7 +7,6 @@ SMTP server is configured instead of raising.
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import List, Optional
 
 from config import (
     SMTP_FROM,
@@ -22,9 +21,9 @@ from config import (
 def send_email(
     subject: str,
     body: str,
-    to_emails: List[str],
-    from_email: Optional[str] = None,
-    password: Optional[str] = None,
+    to_emails: list[str],
+    from_email: str | None = None,
+    password: str | None = None,
 ) -> bool:
     """Send an HTML email. Returns True on success, False otherwise."""
     if not SMTP_HOST:

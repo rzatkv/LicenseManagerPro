@@ -1,7 +1,7 @@
 import {DEMO_MODE} from "../config";
 
 /**
- * Demo backend: an in-browser mock of the real FastAPI API (v2.2).
+ * Demo backend: an in-browser mock of the real FastAPI API (v2.3).
  *
  * Active only when the app is built with REACT_APP_DEMO_MODE=true
  * (the GitHub Pages demo). Data lives in localStorage so creates and
@@ -11,10 +11,23 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v8";
+const STORAGE_KEY = "lmp-demo-db-v9";
+const APP_VERSION = "2.3.0";
+const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
+// One module per platform (v2.3): the Downloads page links DIRECTLY to
+// the GitHub release asset, so the module version always matches the
+// installed app version (version parity).
 const MODULES = [
-    {id: "whmcs", name: "WHMCS Module", version: "1.0.0", description: "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS."},
-    {id: "woocommerce", name: "WooCommerce Plugin", version: "1.0.0", description: "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer."},
+    {id: "whmcs", name: "WHMCS Module", version: APP_VERSION, description: "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS."},
+    {id: "woocommerce", name: "WooCommerce Plugin", version: APP_VERSION, description: "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer."},
+    {id: "wordpress", name: "WordPress Plugin", version: APP_VERSION, description: "WordPress plugin (no WooCommerce): license minting on demand and a My Licenses page."},
+    {id: "joomla", name: "Joomla Extension", version: APP_VERSION, description: "Joomla component: admin config, license actions and a user licenses view."},
+    {id: "prestashop", name: "PrestaShop Module", version: APP_VERSION, description: "PrestaShop module: mints licenses when an order is paid and shows them to the customer."},
+    {id: "magento", name: "Magento Module", version: APP_VERSION, description: "Magento 2 module: admin config, order-paid minting and customer account licenses."},
+    {id: "opencart", name: "OpenCart Extension", version: APP_VERSION, description: "OpenCart extension: mints licenses on completed orders and shows them in the customer account."},
+    {id: "shopware", name: "Shopware Plugin", version: APP_VERSION, description: "Shopware 6 plugin: order-placed minting and a storefront My Licenses page."},
+    {id: "drupal", name: "Drupal Module", version: APP_VERSION, description: "Drupal module: settings form, admin minting and a user licenses page."},
+    {id: "odoo", name: "Odoo Module", version: APP_VERSION, description: "Odoo module: mints licenses on sale order confirmation and lists them in the portal."},
 ];
 const ACCESS_RIGHTS = [
     "create_license",
@@ -98,9 +111,9 @@ function seed() {
         {id: 2, name: "Business Apps", slug: "business-apps", description: "CRM, helpdesk and office tools.", color: "#C1165E", sort_order: 1, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
     ];
     const products = [
-        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
-        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
-        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
+        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, security_overrides: null, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
+        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, security_overrides: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
+        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, security_overrides: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
     ];
     const lic = (id, productId, product, owner, status, expires, created, extra) => ({
         id, key: randomLicenseKey(products.find((p) => p.id === productId)), product, product_id: productId,
@@ -111,12 +124,23 @@ function seed() {
     });
     return {
         users: [
-            {id: 1, email: "demo@demo.com", role: "admin", is_active: true, created_at: isoDaysAgo(30)},
-            {id: 2, email: "manager@demo.com", role: "manager", is_active: true, created_at: isoDaysAgo(12)},
-            {id: 3, email: "support@demo.com", role: "support", is_active: true, created_at: isoDaysAgo(5)},
-            {id: 4, email: "viewer@demo.com", role: "viewer", is_active: true, created_at: isoDaysAgo(3)},
+            {id: 1, email: "demo@demo.com", role: "admin", role_id: 1, display_name: "Demo Admin", avatar_url: null, totp_enabled: false, last_login_at: now, is_active: true, created_at: isoDaysAgo(30)},
+            {id: 2, email: "manager@demo.com", role: "manager", role_id: 2, display_name: "Demo Manager", avatar_url: null, totp_enabled: false, last_login_at: isoDaysAgo(1), is_active: true, created_at: isoDaysAgo(12)},
+            {id: 3, email: "support@demo.com", role: "support", role_id: 3, display_name: "Demo Support", avatar_url: null, totp_enabled: false, last_login_at: isoDaysAgo(2), is_active: true, created_at: isoDaysAgo(5)},
+            {id: 4, email: "viewer@demo.com", role: "viewer", role_id: 4, display_name: "Demo Viewer", avatar_url: null, totp_enabled: false, last_login_at: null, is_active: true, created_at: isoDaysAgo(3)},
         ],
         currentUserId: 1,
+        // Built-in roles (v2.3): same permission sets as the backend seed.
+        roles: [
+            {id: 1, name: "Admin", slug: "admin", description: "Full access to everything.", permissions: ["*"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 2, name: "Manager", slug: "manager", description: "Everything except managing users and roles.", permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 3, name: "Support", slug: "support", description: "Read everything; create/renew licenses and API keys.", permissions: ["licenses:create", "licenses:renew", "api_keys:create"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 4, name: "Viewer", slug: "viewer", description: "Read-only.", permissions: [], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+        ],
+        // Per-user preferences (v2.3): theme + dashboard layout.
+        preferences: {},
+        // Global license-security config (v2.3): the strict default.
+        licenseSecurity: {strictness: "strict", enforce_domain_lock: true, enforce_ip_lock: true, enforce_install_path_lock: true, enforce_activation_limit: true, missing_lock_behavior: "deny"},
         products,
         licenses: [
             lic(1, 1, "CloudPanel Pro", "acme@example.com", "active", isoDaysFromNow(200), isoDaysAgo(30), {billing_cycle: "annual", allowed_domains: ["acme.example.com"], activations: 3, max_activations: 10}),
@@ -129,9 +153,12 @@ function seed() {
             lic(8, 2, "CRM Suite", "sales@example.com", "active", isoDaysFromNow(60), isoDaysAgo(1), {billing_cycle: "annual"}),
         ],
         apiKeys: [
-            {id: 1, key: "lmp_demo_A1b2C3d4E5f6G7h8", access_rights: ["create_license", "get_license_info", "renew_license"], expires_at: isoDaysFromNow(90), associated_ip: null, associated_domain: null, associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(30)},
-            {id: 2, key: "lmp_demo_X9y8Z7w6V5u4T3s2", access_rights: ["get_license_info"], expires_at: null, associated_ip: null, associated_domain: null, associated_directory: null, single_use: true, consumed: false, created_at: isoDaysAgo(12)},
-            {id: 3, key: "lmp_demo_M4n5B6v7C8x9Z0a1", access_rights: [...ACCESS_RIGHTS], expires_at: isoDaysFromNow(365), associated_ip: null, associated_domain: "example.com", associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(5)},
+            // v2.3: `key` is the display prefix only; the secret lives in
+            // `_secret` (never sent to the page except once, at creation,
+            // as `plain_key`) — mirroring the hashed backend storage.
+            {id: 1, key: "lmp_demo_A1b", _secret: "lmp_demo_A1b2C3d4E5f6G7h8", scopes: [], require_signed_requests: false, access_rights: ["create_license", "get_license_info", "renew_license"], expires_at: isoDaysFromNow(90), associated_ip: null, associated_domain: null, associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(30)},
+            {id: 2, key: "lmp_demo_X9y", _secret: "lmp_demo_X9y8Z7w6V5u4T3s2", scopes: [], require_signed_requests: false, access_rights: ["get_license_info"], expires_at: null, associated_ip: null, associated_domain: null, associated_directory: null, single_use: true, consumed: false, created_at: isoDaysAgo(12)},
+            {id: 3, key: "lmp_demo_M4n", _secret: "lmp_demo_M4n5B6v7C8x9Z0a1", scopes: ["module"], require_signed_requests: false, access_rights: ["create_license", "edit_license", "delete_license", "get_license_info", "renew_license"], expires_at: isoDaysFromNow(90), associated_ip: null, associated_domain: "example.com", associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(5)},
         ],
         languages: [
             {code: "en", name: "English", builtin: true, translations: {}},
@@ -157,8 +184,8 @@ function seed() {
             {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
         ],
         settings: {
-            app_version: "2.2.2",
-            latest_version: "2.2.2",
+            app_version: APP_VERSION,
+            latest_version: APP_VERSION,
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
             site_name: "License Manager Pro",
@@ -166,7 +193,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v2.2", message: "Download the real WHMCS and WooCommerce modules from the Downloads page.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v2.3", message: "Ten platform modules, scoped module keys, 2FA and customizable widgets — see the Downloads page.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -191,6 +218,7 @@ function seed() {
         nextNotificationId: 4,
         nextBlacklistId: 1,
         nextActivationId: 2,
+        nextRoleId: 5,
     };
 }
 
@@ -219,6 +247,27 @@ function loadDb() {
                 if (!parsed.notifications) { parsed.notifications = fresh.notifications; parsed.nextNotificationId = fresh.nextNotificationId; }
                 if (!parsed.blacklist) { parsed.blacklist = []; parsed.nextBlacklistId = 1; }
                 if (!parsed.activations) { parsed.activations = []; parsed.nextActivationId = 1; }
+                // v2.3 collections: backfill when a pre-v2.3 DB is loaded.
+                if (!parsed.roles) { parsed.roles = fresh.roles; parsed.nextRoleId = fresh.nextRoleId; }
+                if (!parsed.preferences) parsed.preferences = {};
+                if (!parsed.licenseSecurity) parsed.licenseSecurity = fresh.licenseSecurity;
+                if (!parsed.users[0].role_id) {
+                    parsed.users.forEach((u, i) => {
+                        u.role_id = i + 1;
+                        u.display_name = u.display_name || null;
+                        u.avatar_url = u.avatar_url || null;
+                        u.totp_enabled = u.totp_enabled || false;
+                        u.last_login_at = u.last_login_at || null;
+                    });
+                }
+                if (parsed.apiKeys && parsed.apiKeys.length && parsed.apiKeys[0]._secret === undefined) {
+                    parsed.apiKeys.forEach((k) => {
+                        k._secret = k.key;
+                        k.key = String(k.key).slice(0, 12);
+                        k.scopes = k.scopes || [];
+                        k.require_signed_requests = k.require_signed_requests || false;
+                    });
+                }
                 if (!parsed.settings.site_name) parsed.settings.site_name = "License Manager Pro";
                 if (!parsed.settings.logo_url) parsed.settings.logo_url = "./logo.svg";
                 return parsed;
@@ -254,6 +303,14 @@ function fail(status, message) {
 
 function currentUser() {
     return db.users.find((u) => u.id === db.currentUserId) || db.users[0];
+}
+
+// Public form of an API key: prefix only, never the secret (mirrors the
+// v2.3 backend). The secret is returned once, at creation/rotation, as
+// `plain_key` on that response only.
+function publicApiKey(k, plainKey) {
+    const { _secret, ...rest } = k;
+    return {...rest, plain_key: plainKey || null};
 }
 
 // Role enforcement mirroring the backend: viewer is read-only, support
@@ -419,6 +476,40 @@ export async function mockRequest(method, endpoint, body) {
             points.push({date: d.toISOString().slice(0, 10), count});
         }
         return {points};
+    }
+    if (method === "GET" && path === "/dashboard/activations-trend") {
+        const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
+        const points = [];
+        const today = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+            const next = new Date(d);
+            next.setDate(next.getDate() + 1);
+            const count = (db.activations || []).filter((a) => {
+                const c = new Date(a.created_at);
+                return c >= d && c < next;
+            }).length;
+            points.push({date: d.toISOString().slice(0, 10), count});
+        }
+        return {points};
+    }
+    if (method === "GET" && path === "/dashboard/webhook-stats") {
+        const deliveries = db.deliveries || [];
+        const total = deliveries.length;
+        const success = deliveries.filter((d) => d.success).length;
+        const byEvent = {};
+        for (const d of deliveries) {
+            const entry = byEvent[d.event] || (byEvent[d.event] = {total: 0, success: 0});
+            entry.total += 1;
+            if (d.success) entry.success += 1;
+        }
+        return {
+            total,
+            success,
+            failed: total - success,
+            success_rate: total ? Math.round((1000 * success) / total) / 10 : 100,
+            by_event: byEvent,
+        };
     }
 
     // ---- Products -----------------------------------------------------------
@@ -630,9 +721,16 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- Downloads ----------------------------------------------------------
+    // Direct GitHub release asset links (v2.3): the module version always
+    // matches the installed app version (version parity).
     if (parts[0] === "downloads") {
         if (method === "GET" && parts.length === 1) {
-            return MODULES.map((m) => ({...m, updated_at: db.settings.last_updated}));
+            const version = db.settings.app_version || APP_VERSION;
+            return MODULES.map((m) => ({
+                ...m,
+                download_url: `${GITHUB_RELEASE_BASE}/v${version}/licensemanagerpro-${m.id}-${version}.zip`,
+                updated_at: db.settings.last_updated,
+            }));
         }
         if (method === "GET" && parts.length === 2 && parts[1] === "versions") {
             const out = {};
@@ -643,7 +741,7 @@ export async function mockRequest(method, endpoint, body) {
         }
         if (method === "GET" && parts.length === 2) {
             // The in-browser mock cannot build a ZIP; the Downloads page
-            // links to the GitHub releases page in demo mode instead.
+            // links to the GitHub release asset in demo mode instead.
             fail(404, "Download available in the self-hosted app");
         }
     }
@@ -685,8 +783,15 @@ export async function mockRequest(method, endpoint, body) {
             if (productId) {
                 product = db.products.find((p) => p.id === productId);
                 if (!product) fail(400, "Product not found");
-                if (!cycle || !product.billing_cycles.includes(cycle)) {
-                    fail(400, "billing_cycle must be one of the product's billing cycles");
+                if (cycle && !BILLING_CYCLES.includes(cycle)) {
+                    fail(422, `Unknown billing cycle: ${cycle}`);
+                }
+                if (!cycle) fail(400, "billing_cycle is required when product_id is given");
+                // Billing-cycle sync (v2.3): a cycle the product does not
+                // list yet is ADDED to the product, and the license expiry
+                // follows the cycle the module sent.
+                if (!product.billing_cycles.includes(cycle)) {
+                    product.billing_cycles = [...product.billing_cycles, cycle];
                 }
                 expiresAt = expiryForCycle(cycle, new Date());
             } else {
@@ -750,6 +855,26 @@ export async function mockRequest(method, endpoint, body) {
             const base = license.expires_at && new Date(license.expires_at) > new Date()
                 ? new Date(license.expires_at)
                 : new Date();
+            // Billing-cycle switch (v2.3 sync): ?billing_cycle=... or the
+            // body's billing_cycle — expiry follows that cycle and the
+            // product gains it when missing.
+            const newCycle = query.get("billing_cycle") || (body && body.billing_cycle) || null;
+            if (newCycle) {
+                if (!BILLING_CYCLES.includes(newCycle)) fail(422, `Unknown billing cycle: ${newCycle}`);
+                const product = license.product_id ? db.products.find((p) => p.id === license.product_id) : null;
+                if (product && !product.billing_cycles.includes(newCycle)) {
+                    product.billing_cycles = [...product.billing_cycles, newCycle];
+                }
+                const months = CYCLE_MONTHS[newCycle];
+                if (months == null) fail(400, "Lifetime licenses do not expire and cannot be renewed");
+                license.billing_cycle = newCycle;
+                license.expires_at = addMonths(base, months).toISOString();
+                license.status = "active";
+                license.updated_at = new Date().toISOString();
+                logAudit("license.renew", "license", id, {billing_cycle: newCycle});
+                save();
+                return withEffectiveStatus(license);
+            }
             if (body && body.extend_days != null) {
                 base.setDate(base.getDate() + Number(body.extend_days));
             } else if (license.billing_cycle) {
@@ -859,7 +984,7 @@ export async function mockRequest(method, endpoint, body) {
     // ---- API keys -----------------------------------------------------------
     if (parts[0] === "api-keys") {
         if (method === "GET" && parts.length === 1) {
-            const paged = paginate(db.apiKeys.map((k) => ({...k})), query);
+            const paged = paginate(db.apiKeys.map((k) => publicApiKey(k)), query);
             if (Array.isArray(paged)) return {api_keys: paged};
             return {api_keys: paged.items, total: paged.total};
         }
@@ -876,13 +1001,23 @@ export async function mockRequest(method, endpoint, body) {
             for (const right of rights) {
                 if (!ACCESS_RIGHTS.includes(right)) fail(400, `Invalid access right: ${right}`);
             }
-            const key = (body && body.key) || `lmp_${randomToken(32)}`;
-            if (db.apiKeys.some((k) => k.key === key)) fail(400, "API Key already exists");
+            const scopes = (body && body.scopes) || [];
+            if (scopes.includes("module")) {
+                const days = body && body.expires_in_days != null ? Number(body.expires_in_days) : 90;
+                if (![30, 90, 180, 365].includes(days)) {
+                    fail(400, "Module keys expire in one of 30/90/180/365 days");
+                }
+            }
+            const secret = (body && body.key) || `lmp_${randomToken(32)}`;
+            if (db.apiKeys.some((k) => k._secret === secret)) fail(400, "API Key already exists");
             const created = {
                 id: db.nextApiKeyId++,
-                key,
-                access_rights: rights,
-                expires_at: body && body.expires_in_days ? isoDaysFromNow(Number(body.expires_in_days)) : null,
+                key: secret.slice(0, 12),
+                _secret: secret,
+                scopes,
+                require_signed_requests: !!(body && body.require_signed_requests),
+                access_rights: rights.length ? rights : (scopes.includes("module") ? ["create_license", "edit_license", "delete_license", "get_license_info", "renew_license"] : rights),
+                expires_at: body && body.expires_in_days ? isoDaysFromNow(Number(body.expires_in_days)) : (scopes.includes("module") ? isoDaysFromNow(90) : null),
                 associated_ip: (body && body.associated_ip) || null,
                 associated_domain: (body && body.associated_domain) || null,
                 associated_directory: (body && body.associated_directory) || null,
@@ -893,13 +1028,27 @@ export async function mockRequest(method, endpoint, body) {
             db.apiKeys.unshift(created);
             logAudit("api_key.create", "api_key", created.id, {access_rights: created.access_rights});
             save();
-            return {...created};
+            // The secret is shown ONCE, at creation.
+            return publicApiKey(created, secret);
+        }
+        if (method === "POST" && parts.length === 3 && parts[2] === "rotate" && /^\d+$/.test(parts[1])) {
+            requireRole(["admin", "manager"]);
+            const id = Number(parts[1]);
+            const key = db.apiKeys.find((k) => k.id === id);
+            if (!key) fail(404, "API Key not found");
+            const secret = `lmp_${randomToken(32)}`;
+            key._secret = secret;
+            key.key = secret.slice(0, 12);
+            key.consumed = false;
+            logAudit("api_key.rotate", "api_key", id, null);
+            save();
+            return publicApiKey(key, secret);
         }
         if (parts.length === 2 && /^\d+$/.test(parts[1])) {
             const id = Number(parts[1]);
             const key = db.apiKeys.find((k) => k.id === id);
             if (!key) fail(404, "API Key not found");
-            if (method === "GET") return {...key};
+            if (method === "GET") return publicApiKey(key);
             if (method === "PUT") {
                 requireRole(["admin", "manager", "support"]);
                 if (body && body.access_rights) {
@@ -908,13 +1057,15 @@ export async function mockRequest(method, endpoint, body) {
                     }
                     key.access_rights = body.access_rights;
                 }
+                if (body && body.scopes) key.scopes = body.scopes;
+                if (body && body.require_signed_requests !== undefined) key.require_signed_requests = !!body.require_signed_requests;
                 if (body && body.expires_in_days != null) key.expires_at = isoDaysFromNow(Number(body.expires_in_days));
                 for (const field of ["associated_ip", "associated_domain", "associated_directory", "single_use"]) {
                     if (body && body[field] !== undefined) key[field] = body[field];
                 }
                 logAudit("api_key.update", "api_key", id, null);
                 save();
-                return {...key};
+                return publicApiKey(key);
             }
             if (method === "DELETE") {
                 requireRole(["admin", "manager"]);
@@ -928,6 +1079,36 @@ export async function mockRequest(method, endpoint, body) {
 
     // ---- Users --------------------------------------------------------------
     if (parts[0] === "users") {
+        if (method === "PUT" && parts.length === 2 && parts[1] === "me") {
+            const me = currentUser();
+            if (body && body.display_name !== undefined) me.display_name = body.display_name || null;
+            if (body && body.avatar_url !== undefined) {
+                const url = body.avatar_url || "";
+                if (url) {
+                    if (url.length > 3000000) fail(400, "Avatar is too large (max ~2 MB)");
+                    if (!url.startsWith("data:image/png;base64,") && !url.startsWith("data:image/jpeg;base64,") && !url.startsWith("data:image/webp;base64,") && !url.startsWith("http://") && !url.startsWith("https://")) {
+                        fail(400, "Avatar must be a PNG/JPEG/WebP data URL or an http(s) URL (SVG is not allowed)");
+                    }
+                }
+                me.avatar_url = url || null;
+            }
+            logAudit("user.profile_update", "user", me.id, null);
+            save();
+            return {...me};
+        }
+        if (parts.length === 3 && parts[1] === "me" && parts[2] === "preferences") {
+            const me = currentUser();
+            if (!db.preferences) db.preferences = {};
+            if (method === "GET") {
+                return {preferences: db.preferences[me.id] || {}};
+            }
+            if (method === "PUT") {
+                const prefs = db.preferences[me.id] || (db.preferences[me.id] = {});
+                prefs[body.key] = body.value;
+                save();
+                return {preferences: prefs};
+            }
+        }
         if (method === "GET" && parts.length === 1) {
             return paginate(db.users.map((u) => ({...u})), query);
         }
@@ -937,10 +1118,18 @@ export async function mockRequest(method, endpoint, body) {
             if (!body.password || body.password.length < 8) fail(400, "Password must be at least 8 characters");
             if (!ROLES.includes(body.role || "viewer")) fail(400, `Invalid role: ${body.role}`);
             if (db.users.some((u) => u.email === body.email)) fail(400, "User already exists");
+            const roleRow = body.role_id != null
+                ? (db.roles || []).find((r) => r.id === Number(body.role_id))
+                : (db.roles || []).find((r) => r.slug === (body.role || "viewer"));
             const created = {
                 id: db.nextUserId++,
                 email: body.email,
-                role: body.role || "viewer",
+                role: roleRow ? roleRow.slug : (body.role || "viewer"),
+                role_id: roleRow ? roleRow.id : null,
+                display_name: body.display_name || null,
+                avatar_url: null,
+                totp_enabled: false,
+                last_login_at: null,
                 is_active: true,
                 created_at: new Date().toISOString(),
             };
@@ -957,6 +1146,15 @@ export async function mockRequest(method, endpoint, body) {
             if (method === "PUT") {
                 requireRole(["admin"]);
                 if (body && body.role && !ROLES.includes(body.role)) fail(400, `Invalid role: ${body.role}`);
+                if (body && body.role_id != null) {
+                    const roleRow = (db.roles || []).find((r) => r.id === Number(body.role_id));
+                    if (!roleRow) fail(400, `Role id ${body.role_id} not found`);
+                    body.role = roleRow.slug;
+                    user.role_id = roleRow.id;
+                } else if (body && body.role) {
+                    const roleRow = (db.roles || []).find((r) => r.slug === body.role);
+                    user.role_id = roleRow ? roleRow.id : null;
+                }
                 Object.assign(user, body || {});
                 logAudit(body && body.role ? "user.role_change" : "user.update", "user", id, {email: user.email, role: user.role});
                 save();
@@ -1014,6 +1212,145 @@ export async function mockRequest(method, endpoint, body) {
                 save();
                 return {message: "Language deleted"};
             }
+        }
+    }
+
+    // ---- Global search (v2.3) ---------------------------------------------
+    if (method === "GET" && path === "/search") {
+        const q = (query.get("q") || "").trim().toLowerCase();
+        if (!q) return {licenses: [], products: [], users: []};
+        const matches = (s) => (s || "").toLowerCase().includes(q);
+        const licenses = db.licenses
+            .filter((l) => matches(l.key) || matches(l.product) || matches(l.owner_email))
+            .slice(0, 5)
+            .map((l) => ({type: "license", id: l.id, title: l.key, subtitle: l.product, link: "/licenses"}));
+        const products = db.products
+            .filter((p) => matches(p.name) || matches(p.slug))
+            .slice(0, 5)
+            .map((p) => ({type: "product", id: p.id, title: p.name, subtitle: p.slug, link: "/products"}));
+        const users = (currentUser().role === "admin" || currentUser().role === "manager")
+            ? db.users.filter((u) => matches(u.email)).slice(0, 5).map((u) => ({type: "user", id: u.id, title: u.email, subtitle: u.role, link: "/users"}))
+            : [];
+        return {licenses, products, users};
+    }
+
+    // ---- Roles (v2.3) -------------------------------------------------------
+    if (parts[0] === "roles") {
+        if (method === "GET" && parts.length === 2 && parts[1] === "permissions") {
+            return {permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read", "users:write", "roles:write", "downloads:read"]};
+        }
+        if (method === "GET" && parts.length === 1) {
+            requireRole(["admin"]);
+            return [...(db.roles || [])];
+        }
+        if (method === "POST" && parts.length === 1) {
+            requireRole(["admin"]);
+            if (!body || !body.name) fail(400, "Role name is required");
+            const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            if ((db.roles || []).some((r) => r.slug === slug)) fail(400, "Role slug already exists");
+            const created = {
+                id: db.nextRoleId++,
+                name: body.name,
+                slug,
+                description: body.description || null,
+                permissions: (body.permissions || []).filter((p) => typeof p === "string"),
+                is_builtin: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            db.roles.push(created);
+            logAudit("role.create", "role", created.id, {name: created.name});
+            save();
+            return {...created};
+        }
+        if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+            requireRole(["admin"]);
+            const id = Number(parts[1]);
+            const role = (db.roles || []).find((r) => r.id === id);
+            if (!role) fail(404, "Role not found");
+            if (method === "GET") return {...role};
+            if (method === "PUT") {
+                if (role.is_builtin && body && body.slug && body.slug !== role.slug) fail(400, "Built-in roles cannot be renamed");
+                if (body && body.name) role.name = body.name;
+                if (body && body.description !== undefined) role.description = body.description;
+                if (body && body.permissions) role.permissions = body.permissions.filter((p) => typeof p === "string");
+                role.updated_at = new Date().toISOString();
+                logAudit("role.update", "role", id, {name: role.name});
+                save();
+                return {...role};
+            }
+            if (method === "DELETE") {
+                if (role.is_builtin) fail(400, "Built-in roles cannot be deleted");
+                if (db.users.some((u) => u.role_id === id)) fail(400, "Cannot delete role: users are assigned to it");
+                db.roles = db.roles.filter((r) => r.id !== id);
+                logAudit("role.delete", "role", id, {name: role.name});
+                save();
+                return {message: "Role deleted"};
+            }
+        }
+    }
+
+    // ---- Two-factor auth, demo mode (v2.3) ----------------------------------
+    // Honest demo copy: the demo secret is DEMO2FASECRET and the only
+    // accepted code is 123456 — the Profile page says so.
+    const DEMO_2FA_SECRET = "DEMO2FASECRET";
+    const DEMO_2FA_CODE = "123456";
+    if (parts[0] === "auth" && parts[1] === "2fa") {
+        const me = currentUser();
+        if (method === "GET" && parts[2] === "status") {
+            return {enabled: !!me.totp_enabled, backup_codes_remaining: me.totp_enabled ? 8 : 0};
+        }
+        if (method === "POST" && parts[2] === "setup") {
+            if (me.totp_enabled) fail(400, "2FA is already enabled");
+            return {
+                secret: DEMO_2FA_SECRET,
+                otpauth_url: `otpauth://totp/LicenseManagerPro:${me.email}?secret=${DEMO_2FA_SECRET}&issuer=LicenseManagerPro`,
+                qr_data_url: "",
+            };
+        }
+        if (method === "POST" && parts[2] === "verify") {
+            if (body && String(body.code).trim() === DEMO_2FA_CODE) {
+                me.totp_enabled = true;
+                logAudit("user.2fa_enable", "user", me.id, null);
+                save();
+                return {backup_codes: ["DEMO-BACKUP-1", "DEMO-BACKUP-2", "DEMO-BACKUP-3", "DEMO-BACKUP-4", "DEMO-BACKUP-5", "DEMO-BACKUP-6", "DEMO-BACKUP-7", "DEMO-BACKUP-8"]};
+            }
+            fail(400, "Invalid verification code");
+        }
+        if (method === "POST" && parts[2] === "disable") {
+            if (!me.totp_enabled) fail(400, "2FA is not enabled");
+            if (body && String(body.code).trim() !== DEMO_2FA_CODE) fail(400, "Invalid verification code");
+            me.totp_enabled = false;
+            logAudit("user.2fa_disable", "user", me.id, null);
+            save();
+            return {message: "Two-factor authentication disabled"};
+        }
+    }
+    if (method === "POST" && path === "/auth/verify-2fa") {
+        if (body && String(body.code).trim() === DEMO_2FA_CODE) {
+            return {access_token: "demo-token", token_type: "bearer"};
+        }
+        fail(401, "Invalid verification code");
+    }
+
+    // ---- License security (v2.3) --------------------------------------------
+    if (parts[0] === "settings" && parts[1] === "license-security") {
+        if (method === "GET" && parts.length === 2) {
+            return {...(db.licenseSecurity || {})};
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            const next = {...(db.licenseSecurity || {}), ...(body || {})};
+            if (next.strictness && !["strict", "lenient"].includes(next.strictness)) {
+                fail(400, "strictness must be 'strict' or 'lenient'");
+            }
+            if (next.missing_lock_behavior && !["deny", "allow"].includes(next.missing_lock_behavior)) {
+                fail(400, "missing_lock_behavior must be 'deny' or 'allow'");
+            }
+            db.licenseSecurity = next;
+            logAudit("setting.update", "setting", "license_security", {value: next});
+            save();
+            return {...next};
         }
     }
 

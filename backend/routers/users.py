@@ -1,12 +1,19 @@
 """User routes (admin panel)."""
-from typing import List
+import json
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
-from schemas import MessageResponse, UserCreateRequest, UserResponse, UserUpdateRequest
+from models import User, UserSetting
+from schemas import (
+    MessageResponse,
+    UserCreateRequest,
+    UserPreferencesPutRequest,
+    UserPreferencesResponse,
+    UserResponse,
+    UserUpdateRequest,
+)
 from services import notifications as notification_service
 from services import users as user_service
 from services.audit import log_audit
@@ -23,7 +30,68 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("", response_model=List[UserResponse])
+@router.put("/me", response_model=UserResponse)
+def update_my_profile(
+    request: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update your own profile (display name, avatar). Role changes are
+    ignored here — only admins change roles, via PUT /users/{id}."""
+    profile_request = UserUpdateRequest(
+        display_name=request.display_name,
+        avatar_url=request.avatar_url,
+    )
+    user = user_service.update_user(current_user.id, profile_request, db)
+    log_audit(db, current_user.email, "user.profile_update", "user", user.id)
+    return user
+
+
+@router.get("/me/preferences", response_model=UserPreferencesResponse)
+def get_my_preferences(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Per-user preferences (theme, dashboard layout, …) as one dict."""
+    prefs = {}
+    for row in db.query(UserSetting).filter(UserSetting.user_id == current_user.id).all():
+        try:
+            prefs[row.key] = json.loads(row.value or "null")
+        except (ValueError, TypeError):
+            prefs[row.key] = None
+    return {"preferences": prefs}
+
+
+@router.put("/me/preferences", response_model=UserPreferencesResponse)
+def put_my_preference(
+    request: UserPreferencesPutRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Store one preference key (theme, dashboard layout, …)."""
+    row = (
+        db.query(UserSetting)
+        .filter(
+            UserSetting.user_id == current_user.id,
+            UserSetting.key == request.key,
+        )
+        .first()
+    )
+    if row is None:
+        db.add(
+            UserSetting(
+                user_id=current_user.id,
+                key=request.key,
+                value=json.dumps(request.value),
+            )
+        )
+    else:
+        row.value = json.dumps(request.value)
+    db.commit()
+    return get_my_preferences(db=db, current_user=current_user)
+
+
+@router.get("", response_model=list[UserResponse])
 def list_users(
     response: Response,
     page: Pagination = Depends(pagination_params),
@@ -39,6 +107,10 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("users:write")),
 ):
+    # Privilege-escalation guard: only an admin may create an
+    # admin-equivalent user (a custom role with "*" counts).
+    if user_service.role_request_is_admin(request.role, request.role_id, db) and not user_service.is_admin_equivalent(current_user):
+        raise HTTPException(status_code=403, detail="Only an admin can create an admin user")
     user = user_service.create_user(request, db)
     log_audit(
         db,
@@ -66,6 +138,14 @@ def update_user(
     current_user: User = Depends(require_permission("users:write")),
 ):
     existing = user_service.get_user(user_id, db)
+    # Privilege-escalation guard: only an admin may modify an
+    # admin-equivalent user or promote anyone to an admin-equivalent
+    # role (a custom role with "*" counts).
+    if not user_service.is_admin_equivalent(current_user):
+        if user_service.is_admin_equivalent(existing):
+            raise HTTPException(status_code=403, detail="Only an admin can modify an admin user")
+        if (request.role is not None or request.role_id is not None) and user_service.role_request_is_admin(request.role, request.role_id, db):
+            raise HTTPException(status_code=403, detail="Only an admin can assign an admin role")
     role_changed = (
         request.role is not None and request.role != existing.role
     )
@@ -85,7 +165,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("users:write")),
+    current_user: User = Depends(require_admin),
 ):
     user_service.delete_user(user_id, db, current_user)
     log_audit(db, current_user.email, "user.delete", "user", user_id)

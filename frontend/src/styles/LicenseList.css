@@ -77,7 +77,15 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
 .license-list-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
 .license-list-container table .row-actions .icon-btn svg { display: block; }
 @media (max-width: 1024px) {
-  .license-list-container .col-id, .license-list-container .col-created { display: none; }
+  .license-list-container .col-id, .license-list-container .col-created, .license-list-container .col-cycle { display: none; }
+  /* Fixed layout with explicit widths: with table-layout auto the actions
+     column absorbed all leftover width (~348px) and the key column grew
+     past its ellipsis cap. Fixed widths keep key/product/status/actions
+     inside 886px with no horizontal scroll. */
+  .license-list-container table { table-layout: fixed; }
+  .license-list-container table th:nth-child(2) { width: 230px; }
+  .license-list-container table th:nth-child(5) { width: 112px; }
+  .license-list-container table th:nth-child(7) { width: 172px; }
 }
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }

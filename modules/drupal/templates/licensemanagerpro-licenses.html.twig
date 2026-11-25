@@ -1,0 +1,68 @@
+{#
+/**
+ * @file
+ * "My licenses" page for the logged-in user.
+ *
+ * Available variables:
+ * - licenses: list of license arrays (key, product, billing_cycle,
+ *   status, expires_at, owner_email).
+ * - error: failure message string, or NULL.
+ */
+#}
+<div class="lmp">
+  <header class="lmp-header">
+    <span class="lmp-header__mark" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="14" r="5" stroke="currentColor" stroke-width="2"/><path d="M11.5 10.5 20 2M16 5l3 3M13.5 7.5l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </span>
+    <span class="lmp-header__text">
+      <strong class="lmp-header__wordmark">LicenseManagerPro</strong>
+      <span class="lmp-header__subtitle">{{ 'My licenses'|t }}</span>
+    </span>
+  </header>
+
+  {% if error %}
+    <div class="lmp-alert lmp-alert--error" role="alert">{{ error }}</div>
+  {% endif %}
+
+  {% if licenses is empty and not error %}
+    <div class="lmp-card">
+      <p>{{ 'You do not have any licenses yet.'|t }}</p>
+    </div>
+  {% endif %}
+
+  {% for license in licenses %}
+    <article class="lmp-card">
+      <div class="lmp-card__head">
+        <h2 class="lmp-card__title">{{ license.product }}</h2>
+        <span class="lmp-pill lmp-pill--{{ license.status|lower }}">{{ license.status }}</span>
+      </div>
+      <dl class="lmp-facts">
+        <div class="lmp-facts__row">
+          <dt>{{ 'License key'|t }}</dt>
+          <dd>
+            <code class="lmp-key">{{ license.key }}</code>
+            <button type="button" class="lmp-copy" data-lmp-copy="{{ license.key }}">{{ 'Copy'|t }}</button>
+          </dd>
+        </div>
+        {% if license.billing_cycle %}
+          <div class="lmp-facts__row">
+            <dt>{{ 'Billing cycle'|t }}</dt>
+            <dd>{{ license.billing_cycle }}</dd>
+          </div>
+        {% endif %}
+        {% if license.expires_at %}
+          <div class="lmp-facts__row">
+            <dt>{{ 'Expires'|t }}</dt>
+            <dd>{{ license.expires_at|date('Y-m-d') }}</dd>
+          </div>
+        {% endif %}
+        {% if license.max_activations is defined %}
+          <div class="lmp-facts__row">
+            <dt>{{ 'Activations'|t }}</dt>
+            <dd>{{ license.activations|default(0) }} / {{ license.max_activations }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+    </article>
+  {% endfor %}
+</div>

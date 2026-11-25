@@ -42,13 +42,13 @@ function check(name, cond, extra) {
 }
 
 (async () => {
-  console.log("Demo mock checks (v2.2 flows):");
+  console.log("Demo mock checks (v2.3 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.2.2
+  // 1. Seed versions bumped to 2.3.0
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.2.2", settings.app_version === "2.2.2", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.2.2", settings.latest_version === "2.2.2", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.3.0", settings.app_version === "2.3.0", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.3.0", settings.latest_version === "2.3.0", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -175,15 +175,17 @@ function check(name, cond, extra) {
   const bl = await mockRequest("GET", "/blacklist?type=ip");
   check("blacklist list returns the entry", Array.isArray(bl) && bl.length === 1, JSON.stringify(bl && bl.length));
 
-  // 23. v2.2: downloads + versions
+  // 23. v2.3: downloads + versions (10 modules, direct GitHub release URLs)
   const downloads = await mockRequest("GET", "/downloads");
-  check("downloads lists whmcs + woocommerce", Array.isArray(downloads) && downloads.length === 2 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "woocommerce"), JSON.stringify(downloads && downloads.length));
+  check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
+  const whmcsDl = downloads.find((d) => d.id === "whmcs");
+  check("download URL is the direct GitHub release asset for v2.3.0", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.0/licensemanagerpro-whmcs-2.3.0.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns both modules at 1.0.0", versions.whmcs && versions.whmcs.local === "1.0.0" && versions.whmcs.latest === "1.0.0" && versions.woocommerce && versions.woocommerce.local === "1.0.0", JSON.stringify(versions));
+  check("downloads versions returns all 10 modules at 2.3.0", versions.whmcs && versions.whmcs.local === "2.3.0" && versions.odoo && versions.odoo.latest === "2.3.0", JSON.stringify(versions.whmcs));
 
-  // 24. v2.2: update-check (demo is up to date) + staged update shape
+  // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.2.2", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.0", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
@@ -202,6 +204,99 @@ function check(name, cond, extra) {
   await mockRequest("DELETE", `/licenses/${lic3.id}/activations/${act.id}`);
   const actsAfter = await mockRequest("GET", `/licenses/${lic3.id}/activations`);
   check("activation delete frees the slot", Array.isArray(actsAfter) && !actsAfter.some((a) => a.id === act.id), JSON.stringify(actsAfter && actsAfter.length));
+
+  // 26. v2.3: global search
+  const searchProducts = await mockRequest("GET", "/search?q=cloudpanel");
+  check("search finds the CloudPanel product", searchProducts.products && searchProducts.products.length === 1 && searchProducts.products[0].title === "CloudPanel Pro", JSON.stringify(searchProducts.products));
+  const searchEmpty = await mockRequest("GET", "/search?q=");
+  check("empty search returns empty groups", searchEmpty.licenses.length === 0 && searchEmpty.products.length === 0 && searchEmpty.users.length === 0, JSON.stringify(searchEmpty));
+  const searchLic = await mockRequest("GET", "/search?q=cpn-");
+  check("search finds licenses by key prefix", searchLic.licenses.length >= 1 && searchLic.licenses[0].type === "license", JSON.stringify(searchLic.licenses.length));
+
+  // 27. v2.3: roles CRUD + delete guards
+  const roles = await mockRequest("GET", "/roles");
+  check("roles seed has the 4 built-ins", Array.isArray(roles) && roles.length === 4 && roles.every((r) => r.is_builtin), JSON.stringify(roles && roles.length));
+  const perms = await mockRequest("GET", "/roles/permissions");
+  check("permissions list includes roles:write", perms.permissions && perms.permissions.includes("roles:write"), JSON.stringify(perms.permissions));
+  let builtinDelBlocked = false;
+  try { await mockRequest("DELETE", "/roles/1"); } catch (e) { builtinDelBlocked = e.status === 400; }
+  check("built-in role cannot be deleted", builtinDelBlocked);
+  const customRole = await mockRequest("POST", "/roles", {name: "Auditor", permissions: ["audit:read", "downloads:read"]});
+  check("custom role created with slug", customRole && customRole.slug === "auditor" && customRole.is_builtin === false, JSON.stringify(customRole && customRole.slug));
+  const tempUser = await mockRequest("POST", "/users", {email: "auditor@example.com", password: "password123", role_id: customRole.id});
+  check("user created with a custom role_id", tempUser && tempUser.role_id === customRole.id && tempUser.role === "auditor", JSON.stringify(tempUser && tempUser.role));
+  let assignedDelBlocked = false;
+  try { await mockRequest("DELETE", `/roles/${customRole.id}`); } catch (e) { assignedDelBlocked = e.status === 400; }
+  check("role assigned to a user cannot be deleted", assignedDelBlocked);
+  await mockRequest("PUT", `/users/${tempUser.id}`, {role: "viewer"});
+  await mockRequest("DELETE", `/users/${tempUser.id}`);
+  const roleDeleted = await mockRequest("DELETE", `/roles/${customRole.id}`);
+  check("role deletes once unassigned", roleDeleted && roleDeleted.message === "Role deleted", JSON.stringify(roleDeleted));
+
+  // 28. v2.3: 2FA demo flow (code 123456)
+  const status0 = await mockRequest("GET", "/auth/2fa/status");
+  check("2FA starts disabled", status0.enabled === false, JSON.stringify(status0));
+  const setup = await mockRequest("POST", "/auth/2fa/setup", {});
+  check("2FA setup returns the demo secret", setup.secret === "DEMO2FASECRET" && setup.otpauth_url.includes("DEMO2FASECRET"), JSON.stringify(setup.secret));
+  let wrongCodeRejected = false;
+  try { await mockRequest("POST", "/auth/2fa/verify", {code: "000000"}); } catch (e) { wrongCodeRejected = e.status === 400; }
+  check("wrong 2FA code is rejected", wrongCodeRejected);
+  const enabled = await mockRequest("POST", "/auth/2fa/verify", {code: "123456"});
+  check("correct demo code enables 2FA with backup codes", Array.isArray(enabled.backup_codes) && enabled.backup_codes.length === 8, JSON.stringify(enabled.backup_codes && enabled.backup_codes.length));
+  const status1 = await mockRequest("GET", "/auth/2fa/status");
+  check("2FA status reports enabled", status1.enabled === true, JSON.stringify(status1));
+  let wrongDisableRejected = false;
+  try { await mockRequest("POST", "/auth/2fa/disable", {code: "000000"}); } catch (e) { wrongDisableRejected = e.status === 400; }
+  check("disable with a wrong code is rejected", wrongDisableRejected);
+  const disabled = await mockRequest("POST", "/auth/2fa/disable", {code: "123456"});
+  check("disable with the demo code works", disabled && disabled.message.includes("disabled"), JSON.stringify(disabled));
+
+  // 29. v2.3: license-security config
+  const sec0 = await mockRequest("GET", "/settings/license-security");
+  check("license security defaults to strict", sec0.strictness === "strict" && sec0.enforce_domain_lock === true, JSON.stringify(sec0.strictness));
+  const sec1 = await mockRequest("PUT", "/settings/license-security", {strictness: "lenient", missing_lock_behavior: "allow"});
+  check("license security accepts a partial update (merge)", sec1.strictness === "lenient" && sec1.missing_lock_behavior === "allow" && sec1.enforce_domain_lock === true, JSON.stringify(sec1));
+  let badStrictnessRejected = false;
+  try { await mockRequest("PUT", "/settings/license-security", {strictness: "chaos"}); } catch (e) { badStrictnessRejected = e.status === 400; }
+  check("invalid strictness is rejected", badStrictnessRejected);
+  await mockRequest("PUT", "/settings/license-security", {strictness: "strict", missing_lock_behavior: "deny"});
+
+  // 30. v2.3: API keys are prefix-only; create/rotate show the secret once
+  const keys = await mockRequest("GET", "/api-keys?skip=0&limit=10");
+  check("api-keys list exposes prefix only (no full secret)", keys.api_keys.every((k) => k.key.length === 12 && !("_secret" in k) && k.plain_key === null), JSON.stringify(keys.api_keys.map((k) => k.key)));
+  const moduleKey = await mockRequest("POST", "/api-keys", {scopes: ["module"], expires_in_days: 30, access_rights: ["create_license"]});
+  check("module key created with plain_key shown once", moduleKey.plain_key && moduleKey.plain_key.startsWith("lmp_") && moduleKey.key === moduleKey.plain_key.slice(0, 12), JSON.stringify(moduleKey.key));
+  let badExpiryRejected = false;
+  try { await mockRequest("POST", "/api-keys", {scopes: ["module"], expires_in_days: 45}); } catch (e) { badExpiryRejected = e.status === 400; }
+  check("module key with a non-allowed expiry is rejected", badExpiryRejected);
+  const rotated = await mockRequest("POST", `/api-keys/${moduleKey.id}/rotate`, {});
+  check("rotation returns a new secret once", rotated.plain_key && rotated.plain_key !== moduleKey.plain_key && rotated.key === rotated.plain_key.slice(0, 12), JSON.stringify(rotated.key));
+  await mockRequest("DELETE", `/api-keys/${moduleKey.id}`);
+
+  // 31. v2.3: billing-cycle sync on create + renew; unknown cycle 422
+  const syncLic = await mockRequest("POST", "/licenses", {product_id: 2, billing_cycle: "biennial", owner_email: "sync@example.com"});
+  check("license created with a synced cycle follows it", syncLic && syncLic.billing_cycle === "biennial" && syncLic.expires_at !== null, JSON.stringify(syncLic && syncLic.billing_cycle));
+  const syncedProduct = (await mockRequest("GET", "/products?slug=crm-suite"))[0];
+  check("product gains the synced cycle", syncedProduct.billing_cycles.includes("biennial"), JSON.stringify(syncedProduct.billing_cycles));
+  let unknownCycleRejected = false;
+  try { await mockRequest("POST", "/licenses", {product_id: 2, billing_cycle: "triennial"}); } catch (e) { unknownCycleRejected = e.status === 422; }
+  check("unknown billing cycle is rejected with 422", unknownCycleRejected);
+  const renewed = await mockRequest("POST", `/licenses/${syncLic.id}/renew?billing_cycle=quarterly`, {});
+  check("renew with a new cycle follows it and syncs the product", renewed.billing_cycle === "quarterly", JSON.stringify(renewed.billing_cycle));
+  const syncedProduct2 = (await mockRequest("GET", "/products?slug=crm-suite"))[0];
+  check("product gains the renewed cycle too", syncedProduct2.billing_cycles.includes("quarterly"), JSON.stringify(syncedProduct2.billing_cycles));
+
+  // 32. v2.3: per-user preferences + dashboard extras
+  const prefsSaved = await mockRequest("PUT", "/users/me/preferences", {key: "theme", value: {preset: "ocean"}});
+  check("preferences saved", prefsSaved.preferences && prefsSaved.preferences.theme && prefsSaved.preferences.theme.preset === "ocean", JSON.stringify(prefsSaved.preferences));
+  const prefsRead = await mockRequest("GET", "/users/me/preferences");
+  check("preferences round-trip", prefsRead.preferences && prefsRead.preferences.theme.preset === "ocean", JSON.stringify(prefsRead.preferences));
+  const actTrend = await mockRequest("GET", "/dashboard/activations-trend?days=14");
+  check("activations trend returns 14 points", actTrend.points && actTrend.points.length === 14, JSON.stringify(actTrend.points && actTrend.points.length));
+  const whStats = await mockRequest("GET", "/dashboard/webhook-stats");
+  // Seeded with 2 deliveries; license creates in earlier checks append
+  // more, so assert the running total and the 100% success rate.
+  check("webhook stats track all deliveries with 100% success", whStats.total >= 2 && whStats.success === whStats.total && whStats.success_rate === 100 && whStats.by_event["license.created"].total >= 1, JSON.stringify(whStats));
 
   console.log(`\n${passed} passed, ${failed} failed.`);
   process.exit(failed ? 1 : 0);

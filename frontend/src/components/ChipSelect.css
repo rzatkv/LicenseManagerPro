@@ -1,0 +1,55 @@
+/* Chip / pill multi-select (v2.3) — replaces checkbox groups.
+   Chips are flex items sized to their content: the label never wraps
+   (white-space: nowrap) and the container wraps chips as whole units
+   (flex-wrap: wrap), so a label can never break mid-word or stack one
+   character per line in RTL. Never add overflow-wrap anywhere here. */
+.chip-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    margin: 0;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.chip:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    filter: none;
+}
+.chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.chip-label { white-space: nowrap; }
+.chip-check {
+    display: none;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+.chip-selected {
+    background: var(--accent-gradient);
+    background-color: var(--accent);
+    border-color: transparent;
+    color: #FFFFFF;
+}
+.chip-selected:hover:not(:disabled) { color: #FFFFFF; border-color: transparent; }
+.chip-selected .chip-check { display: inline; }

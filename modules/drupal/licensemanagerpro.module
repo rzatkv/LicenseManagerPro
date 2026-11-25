@@ -1,0 +1,50 @@
+<?php
+
+/**
+ * @file
+ * License Manager Pro — hook implementations.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function licensemanagerpro_help(string $route_name, RouteMatchInterface $route_match): ?string {
+  if ($route_name === 'help.page.licensemanagerpro') {
+    $output = '<h2>' . t('About') . '</h2>';
+    $output .= '<p>' . t('License Manager Pro provisions software licenses from a License Manager Pro backend. The module authenticates with a single scoped module API key — never with an admin email or password — and mints licenses for a mapped product and billing cycle.') . '</p>';
+    $output .= '<h2>' . t('Uses') . '</h2>';
+    $output .= '<dl>';
+    $output .= '<dt>' . t('Settings') . '</dt><dd>' . t('Enter the backend API URL and the module API key under Configuration → Web services → License Manager Pro, map Drupal node types to License Manager Pro product slugs, and test the connection.') . '</dd>';
+    $output .= '<dt>' . t('My licenses') . '</dt><dd>' . t('Logged-in users see the licenses owned by their account email at /user/licenses.') . '</dd>';
+    $output .= '<dt>' . t('Minting') . '</dt><dd>' . t('Administrators mint a license for any user from the Licenses administration page. Commerce order completion is not wired in by this module; see the module README for the five-line hook a site builder can add.') . '</dd>';
+    $output .= '</dl>';
+    return $output;
+  }
+  return NULL;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function licensemanagerpro_theme(array $existing, string $type, string $theme, string $path): array {
+  return [
+    'licensemanagerpro_licenses' => [
+      'variables' => [
+        'licenses' => [],
+        'error' => NULL,
+      ],
+      'template' => 'licensemanagerpro-licenses',
+    ],
+    'licensemanagerpro_admin_licenses' => [
+      'variables' => [
+        'licenses' => [],
+        'error' => NULL,
+      ],
+      'template' => 'licensemanagerpro-admin-licenses',
+    ],
+  ];
+}

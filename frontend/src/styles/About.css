@@ -1,47 +1,140 @@
+/* About (v2.3 redesign): hero card + split cards in a responsive grid.
+   All colors come from the theme variables in index.css — no hard-coded
+   colors, so both languages and both themes render correctly. */
+
 .about-container {
     padding: 20px;
-    text-align: center;
 }
 
-.about-container h1 {
-    margin-bottom: 20px;
-    color: var(--text);
+.about-hero {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 28px;
+    margin: 0 auto 20px;
+    max-width: 880px;
 }
 
-.about-info {
-    margin-bottom: 20px;
-    font-size: 18px;
+.about-logo {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
 }
 
-.about-info p {
-    margin: 10px 0;
+.about-hero-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.about-hero-text h1 {
+    margin: 0;
+}
+
+.about-version {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.about-tagline {
+    margin: 0;
     color: var(--muted);
 }
 
-.update-section {
-    margin-top: 20px;
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    max-width: 880px;
+    margin: 0 auto;
 }
 
-.update-section p {
-    margin-bottom: 10px;
-    font-size: 16px;
-    color: var(--danger);
+.about-card {
+    padding: 20px;
+    text-align: start;
 }
 
-.update-section button {
-    padding: 10px 20px;
-    background: var(--success);
-    color: var(--on-accent);
-    border: none;
-    border-radius: 999px;
+.about-card h2 {
+    margin-bottom: 12px;
+}
+
+.about-card p {
+    color: var(--muted);
+}
+
+.about-whats-new {
+    margin: 0;
+    padding-inline-start: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--text);
+}
+
+.about-info-list {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.about-info-list > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.about-info-list dt {
+    color: var(--muted);
+}
+
+.about-info-list dd {
+    margin: 0;
+    color: var(--text);
+}
+
+.about-api-url {
+    direction: ltr;
+    unicode-bidi: plaintext;
+    overflow-wrap: anywhere;
+}
+
+.about-card details {
+    margin: 10px 0;
+}
+
+.about-card summary {
     cursor: pointer;
+    font-weight: 600;
 }
 
-/* Updates card (v2.2): live GitHub check + staged update. */
-.updates-card { padding: 20px; margin: 20px auto; max-width: 640px; text-align: start; }
-.updates-card h2 { text-align: center; margin-bottom: 12px; }
-.updates-card p { color: var(--muted); }
-.updates-card details { margin: 10px 0; }
-.updates-card summary { cursor: pointer; font-weight: 600; }
-.updates-card pre { margin: 8px 0; }
-.staged-note { margin-top: 12px; }
+.about-card pre {
+    margin: 8px 0;
+}
+
+.about-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+@media (max-width: 560px) {
+    .about-hero {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .about-version {
+        justify-content: center;
+    }
+}

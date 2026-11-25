@@ -5,7 +5,7 @@ defaults to a local SQLite file so the app runs out of the box. Point it at
 a MySQL URL (mysql+pymysql://...) to use MySQL instead.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, text
@@ -18,7 +18,23 @@ logger = logging.getLogger(__name__)
 
 def utcnow() -> datetime:
     """Naive UTC now (datetimes are stored naive in the database)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def escape_like(value: str) -> str:
+    """Escape a user-supplied term for a SQL LIKE pattern.
+
+    SQLAlchemy parameterises the value (no SQL injection), but ``%``
+    and ``_`` in the input would still act as wildcards — a search for
+    "%" would match every row. Escape them (and the escape char itself)
+    and always pair with ``.like(pattern, escape="\\\\")``.
+    """
+    return (
+        (value or "")
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
 
 
 class Base(DeclarativeBase):
@@ -130,9 +146,40 @@ def seed_settings(db):
         # on the login page; both are editable from Settings.
         "site_name": "License Manager Pro",
         "logo_url": "./logo.svg",
+        # License security defaults (v2.3): strict validation, all locks
+        # enforced, missing lock data denies. See services/license_security.
+        "license_security": (
+            '{"strictness": "strict", "enforce_domain_lock": true, '
+            '"enforce_ip_lock": true, "enforce_install_path_lock": true, '
+            '"enforce_activation_limit": true, "missing_lock_behavior": "deny"}'
+        ),
     }
     for key, value in defaults.items():
         existing = db.query(SystemSetting).filter(SystemSetting.key == key).first()
         if existing is None:
             db.add(SystemSetting(key=key, value=value))
+    db.commit()
+
+
+def seed_roles(db):
+    """Seed the four built-in roles (v2.3) if they are missing."""
+    import json
+
+    from models import Role
+    from utils.permissions import ROLE_PERMISSIONS
+
+    for slug, perms in ROLE_PERMISSIONS.items():
+        if slug == "user":
+            continue  # legacy alias, not a real role
+        existing = db.query(Role).filter(Role.slug == slug).first()
+        if existing is None:
+            db.add(
+                Role(
+                    name=slug.capitalize(),
+                    slug=slug,
+                    description=None,
+                    permissions=json.dumps(sorted(perms)),
+                    is_builtin=True,
+                )
+            )
     db.commit()

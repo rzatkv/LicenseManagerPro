@@ -1,0 +1,215 @@
+/* License Manager Pro — branded admin-safe styles.
+   No external assets: gradient, key mark and pills are pure CSS. */
+
+.lmp {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.lmp-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #c1165e 0%, #8a3fd1 55%, #6d5df6 100%);
+  box-shadow: 0 8px 24px rgba(109, 93, 246, 0.35);
+}
+
+.lmp-header__mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.lmp-header__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.lmp-header__wordmark {
+  font-size: 20px;
+  letter-spacing: 0.01em;
+}
+
+.lmp-header__subtitle {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.lmp-header__actions {
+  margin-left: auto;
+}
+
+.lmp-header__actions .button {
+  background: #fff;
+  color: #6d5df6;
+  border: 0;
+}
+
+.lmp-card {
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  border: 1px solid #e3e0f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(30, 20, 80, 0.06);
+}
+
+.lmp-card--table {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.lmp-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.lmp-card__title {
+  margin: 0;
+  font-size: 17px;
+}
+
+.lmp-facts {
+  margin: 0;
+}
+
+.lmp-facts__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 0;
+  border-top: 1px solid #f0edf7;
+}
+
+.lmp-facts__row:first-child {
+  border-top: 0;
+}
+
+.lmp-facts dt {
+  flex: 0 0 140px;
+  color: #6b6580;
+  font-weight: 600;
+}
+
+.lmp-facts dd {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.lmp-key {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #f4f1fb;
+  color: #4a3d8f;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.lmp-copy {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border: 1px solid #d9d3ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #6d5df6;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lmp-copy:hover {
+  background: #f4f1fb;
+}
+
+.lmp-pill {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.lmp-pill--active {
+  background: #e2f6e8;
+  color: #1e7d34;
+}
+
+.lmp-pill--inactive {
+  background: #f0edf7;
+  color: #6b6580;
+}
+
+.lmp-pill--expired {
+  background: #fde8e8;
+  color: #b3261e;
+}
+
+.lmp-alert {
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+}
+
+.lmp-alert--error {
+  border: 1px solid #f5c6c6;
+  background: #fdeeee;
+  color: #8f1d16;
+}
+
+.lmp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lmp-table th,
+.lmp-table td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0edf7;
+}
+
+.lmp-table thead th {
+  color: #6b6580;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lmp-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .lmp-header {
+    padding: 14px 16px;
+  }
+
+  .lmp-header__wordmark {
+    font-size: 17px;
+  }
+
+  .lmp-card {
+    padding: 14px 16px;
+  }
+
+  .lmp-facts dt {
+    flex-basis: 100%;
+  }
+}

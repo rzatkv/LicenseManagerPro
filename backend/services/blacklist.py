@@ -56,11 +56,11 @@ def validate_entry_value(entry_type: str, value: str) -> None:
     if entry_type == "ip":
         try:
             ipaddress.ip_network(value, strict=False)
-        except ValueError:
+        except ValueError as exc:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid IP or CIDR block: {value}",
-            )
+            ) from exc
     elif entry_type == "domain":
         if any(ch.isspace() for ch in value) or "." not in value:
             raise HTTPException(

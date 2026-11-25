@@ -2,13 +2,17 @@
 
 CRUD endpoints require a JWT (admin panel); the check-access endpoint is
 public because it is how external clients validate a key.
+
+v2.3: the secret is never stored and never listed — list/get return only
+the display prefix; the full secret is returned ONCE at creation and at
+rotation (``plain_key``). Module-scoped keys (scopes=["module"]) are
+time-limited (30/90/180/365 days) and can require HMAC-signed requests.
 """
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import escape_like, get_db
 from models import ApiKey
 from schemas import (
     AccessResponse,
@@ -32,8 +36,8 @@ router = APIRouter()
 def check_access(
     request: Request,
     api_key: str = Header(..., alias="api-key"),
-    domain: Optional[str] = Query(default=None),
-    directory: Optional[str] = Query(default=None),
+    domain: str | None = Query(default=None),
+    directory: str | None = Query(default=None),
     db: Session = Depends(get_db),
     _rate_limited=Depends(rate_limit_validate),
 ):
@@ -49,19 +53,23 @@ def check_access(
 def list_api_keys(
     response: Response,
     page: Pagination = Depends(pagination_params),
-    search: Optional[str] = Query(default=None),
+    search: str | None = Query(default=None),
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    """List API keys with pagination and optional search."""
+    """List API keys with pagination and optional search (matches the
+    display prefix — the secret itself is never stored or searchable)."""
     query = db.query(ApiKey)
     if search:
-        like = f"%{search}%"
-        query = query.filter(ApiKey.key.like(like))
+        like = f"%{escape_like(search)}%"
+        query = query.filter(ApiKey.key.like(like, escape="\\"))
     total = query.count()
     keys = query.order_by(ApiKey.id.desc()).offset(page.skip).limit(page.limit).all()
     response.headers["X-Total-Count"] = str(total)
-    return {"total": total, "api_keys": keys}
+    return {
+        "total": total,
+        "api_keys": [api_key_service.serialize_api_key(k) for k in keys],
+    }
 
 
 @router.post("", response_model=ApiKeyResponse, status_code=201)
@@ -70,10 +78,11 @@ def create_api_key(
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("api_keys:create")),
 ):
-    """Create an API key (a random key is generated when none is supplied)."""
-    entry = api_key_service.add_api_key(request, db)
+    """Create an API key. The plaintext secret is returned ONCE in
+    ``plain_key`` — copy it now; it is never shown again."""
+    entry, plain_key = api_key_service.add_api_key(request, db)
     log_audit(db, current_user.email, "api_key.create", "api_key", entry.id)
-    return entry
+    return api_key_service.serialize_api_key(entry, plain_key=plain_key)
 
 
 @router.get("/{api_key_id}", response_model=ApiKeyResponse)
@@ -87,7 +96,20 @@ def get_api_key(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="API Key not found")
-    return entry
+    return api_key_service.serialize_api_key(entry)
+
+
+@router.post("/{api_key_id}/rotate", response_model=ApiKeyResponse)
+def rotate_api_key(
+    api_key_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("api_keys:write")),
+):
+    """Rotate a key: a new secret is generated, the old one stops working
+    immediately. The new secret is returned ONCE in ``plain_key``."""
+    entry, plain_key = api_key_service.rotate_api_key(api_key_id, db)
+    log_audit(db, current_user.email, "api_key.rotate", "api_key", entry.id)
+    return api_key_service.serialize_api_key(entry, plain_key=plain_key)
 
 
 @router.put("/{api_key_id}", response_model=ApiKeyResponse)
@@ -97,10 +119,11 @@ def update_api_key(
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("api_keys:write")),
 ):
-    """Update an existing API key."""
+    """Update an existing API key (the secret itself never changes here —
+    use rotation for that)."""
     entry = api_key_service.update_api_key(api_key_id, request, db)
     log_audit(db, current_user.email, "api_key.update", "api_key", entry.id)
-    return entry
+    return api_key_service.serialize_api_key(entry)
 
 
 @router.delete("/{api_key_id}", response_model=MessageResponse)

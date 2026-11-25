@@ -1,0 +1,270 @@
+.profile-container {
+    padding: 20px;
+}
+
+.profile-container h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-loading {
+    text-align: center;
+    color: var(--muted);
+}
+
+/* Two cards side by side on wide screens, stacked on mobile. */
+.profile-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    max-width: 1080px;
+    margin: 0 auto;
+    align-items: start;
+}
+
+@media (min-width: 900px) {
+    .profile-cards {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.profile-card {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.profile-card h2 {
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.profile-card .field-label {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.profile-card .hint {
+    margin: 0;
+}
+
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.profile-form .form-row,
+.twofa-setup .form-row,
+.twofa-disable .form-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.readonly-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text);
+}
+
+/* Avatar: click the circle to change it. */
+.avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.avatar-preview {
+    width: 96px;
+    height: 96px;
+    padding: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    flex: 0 0 auto;
+    background: var(--accent-gradient);
+    background-color: var(--accent);
+    border: none;
+    cursor: pointer;
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: #ffffff;
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.avatar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.avatar-file-input {
+    display: none;
+}
+
+/* 2FA */
+.twofa-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.twofa-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.twofa-badge-on {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.twofa-badge-off {
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+}
+
+.twofa-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.twofa-setup p {
+    margin: 0;
+}
+
+.twofa-qr {
+    width: 200px;
+    height: 200px;
+    max-width: 100%;
+    align-self: center;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    padding: 8px;
+}
+
+.twofa-secret {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    word-break: break-all;
+}
+
+.twofa-secret code {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.hint-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.backup-codes-box {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    background: var(--surface-2);
+}
+
+.backup-codes-box h3 {
+    margin-bottom: 6px;
+}
+
+.backup-codes-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.backup-codes-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.backup-codes-list code {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.twofa-enabled {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.twofa-enabled p {
+    margin: 0;
+}
+
+.twofa-disable {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .profile-container {
+        padding: 12px;
+    }
+
+    .profile-card {
+        padding: 18px;
+    }
+
+    .avatar-preview {
+        width: 80px;
+        height: 80px;
+    }
+
+    .avatar-initials {
+        font-size: 26px;
+    }
+}

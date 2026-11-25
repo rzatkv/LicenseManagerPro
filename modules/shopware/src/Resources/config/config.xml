@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/platform/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>License Manager Pro — Connection</title>
+        <title lang="de-DE">License Manager Pro — Verbindung</title>
+
+        <input-field type="text">
+            <name>apiUrl</name>
+            <label>License Manager Pro URL</label>
+            <label lang="de-DE">License Manager Pro URL</label>
+            <placeholder>https://license.example.com</placeholder>
+            <helpText>Base URL of your License Manager Pro installation, without a trailing slash and without /api (the plugin appends /api itself). Must be https in production. TLS verification is always on.</helpText>
+            <helpText lang="de-DE">Basis-URL Ihrer License Manager Pro Installation, ohne abschließenden Schrägstrich und ohne /api (das Plugin hängt /api selbst an). In der Produktion muss https verwendet werden. Die TLS-Prüfung ist immer aktiv.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>apiKey</name>
+            <label>Module API key</label>
+            <label lang="de-DE">Modul-API-Schlüssel</label>
+            <helpText>Create a module-scoped API key in the License Manager Pro panel (API Keys → module scope), copy it once, and paste it here. Never use an admin e-mail/password. The key is stored in the Shopware system config.</helpText>
+            <helpText lang="de-DE">Erstellen Sie im License Manager Pro Panel (API Keys → Modul-Bereich) einen API-Schlüssel mit Modul-Berechtigung, kopieren Sie ihn einmal und fügen Sie ihn hier ein. Verwenden Sie niemals eine Admin-E-Mail oder ein Passwort.</helpText>
+        </input-field>
+
+        <input-field type="bool">
+            <name>signedRequests</name>
+            <label>Sign requests with HMAC</label>
+            <label lang="de-DE">Anfragen mit HMAC signieren</label>
+            <helpText>When enabled, every request also sends X-LMP-Timestamp and X-LMP-Signature (HMAC-SHA256 over method, path, timestamp and body hash). The server rejects timestamps older than 5 minutes. The shop and the License Manager Pro server must have synchronised clocks.</helpText>
+            <helpText lang="de-DE">Wenn aktiviert, sendet jede Anfrage zusätzlich X-LMP-Timestamp und X-LMP-Signature (HMAC-SHA256 über Methode, Pfad, Zeitstempel und Body-Hash). Der Server lehnt Zeitstempel ab, die älter als 5 Minuten sind. Die Uhren von Shop und License Manager Pro Server müssen synchron laufen.</helpText>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Product mapping</title>
+        <title lang="de-DE">Produktzuordnung</title>
+
+        <input-field type="textarea">
+            <name>productMapping</name>
+            <label>Product mapping (JSON)</label>
+            <label lang="de-DE">Produktzuordnung (JSON)</label>
+            <placeholder>{"018f2a1c3d4e5f6a7b8c9d0e1f2a3b4c": {"slug": "cloudpanel-pro", "cycle": "annual"}}</placeholder>
+            <helpText>JSON object mapping Shopware product IDs to License Manager Pro products. Each entry: {"slug": "lmp-product-slug", "cycle": "monthly|quarterly|semiannual|annual|biennial|lifetime"}. The cycle is optional; when omitted, the product custom field "lmp_billing_cycle" is used, otherwise the backend applies the product default. Only mapped products receive a license. Find a product ID in the Shopware admin (Catalogue → Products → open the product; the ID is in the URL).</helpText>
+            <helpText lang="de-DE">JSON-Objekt, das Shopware-Produkt-IDs auf License Manager Pro Produkte abbildet. Jeder Eintrag: {"slug": "lmp-produkt-slug", "cycle": "monthly|quarterly|semiannual|annual|biennial|lifetime"}. Der Zyklus ist optional; wenn er fehlt, wird das benutzerdefinierte Feld "lmp_billing_cycle" des Produkts verwendet, sonst gilt der Standard des Produkts. Nur zugeordnete Produkte erhalten eine Lizenz.</helpText>
+        </input-field>
+    </card>
+</config>

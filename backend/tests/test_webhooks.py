@@ -26,7 +26,7 @@ def _create_product(client, auth_headers, **overrides):
     body = {
         "name": "Hooked",
         "billing_cycles": ["monthly", "annual"],
-        "webhook_url": "https://example.invalid/hook",
+        "webhook_url": "https://8.8.8.8/hook",  # literal public IP: passes the SSRF guard; httpx is mocked,
         "webhook_secret": "topsecret",
     }
     body.update(overrides)

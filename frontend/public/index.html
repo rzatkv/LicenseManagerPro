@@ -11,6 +11,19 @@
       name="description"
       content="License Manager Pro - manage API keys, licenses, users and system settings"
     />
+    <!--
+      Content Security Policy for the static frontend (v2.3). The API's
+      own responses carry a stricter CSP from the backend. connect-src
+      allows http:/https: because the API base URL is admin-configured
+      (a fixed origin would break self-hosted installs on custom
+      domains); everything else is same-origin + data: images (avatars,
+      logo) only. Inline <style> tags need 'unsafe-inline'; inline
+      event handlers and inline scripts are not used.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    />
     <title>License Manager Pro</title>
   </head>
   <body>

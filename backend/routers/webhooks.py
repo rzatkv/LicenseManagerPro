@@ -1,5 +1,4 @@
 """Webhook delivery listing (v2.0, JWT required)."""
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
@@ -13,10 +12,10 @@ from utils.pagination import Pagination, paginate_query, pagination_params
 router = APIRouter()
 
 
-@router.get("/deliveries", response_model=List[WebhookDeliveryResponse])
+@router.get("/deliveries", response_model=list[WebhookDeliveryResponse])
 def list_deliveries(
     response: Response,
-    product_id: Optional[int] = Query(default=None),
+    product_id: int | None = Query(default=None),
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),

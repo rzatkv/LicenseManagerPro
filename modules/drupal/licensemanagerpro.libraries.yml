@@ -1,0 +1,9 @@
+licensemanagerpro:
+  version: 1
+  css:
+    theme:
+      css/licensemanagerpro.css: {}
+  js:
+    js/licensemanagerpro.js: {}
+  dependencies:
+    - core/drupal

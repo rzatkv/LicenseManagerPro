@@ -5,7 +5,6 @@ Notification writes must never break the operation that fires them, so
 failures are logged and swallowed.
 """
 import logging
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -19,9 +18,9 @@ def notify(
     title: str,
     message: str,
     type_: str = "info",
-    link: Optional[str] = None,
-    user_id: Optional[int] = None,
-) -> Optional[Notification]:
+    link: str | None = None,
+    user_id: int | None = None,
+) -> Notification | None:
     row = Notification(
         title=title,
         message=message,
@@ -32,7 +31,7 @@ def notify(
     try:
         db.add(row)
         db.commit()
-    except Exception as exc:  # noqa: BLE001 - notifications must never break the caller
+    except Exception as exc:
         db.rollback()
         logger.warning("Could not write notification %r: %s", title, exc)
         return None
@@ -45,8 +44,8 @@ def notify_admins(
     title: str,
     message: str,
     type_: str = "info",
-    link: Optional[str] = None,
-) -> Optional[Notification]:
+    link: str | None = None,
+) -> Notification | None:
     """Broadcast to every admin (a NULL user_id row is shown to all admins)."""
     return notify(db, title, message, type_=type_, link=link, user_id=None)
 

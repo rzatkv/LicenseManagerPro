@@ -1,0 +1,31 @@
+<?php
+/**
+ * License Manager Pro — Test Connection button (admin config).
+ *
+ * @var \Magento\Backend\Block\Template $block
+ */
+?>
+<button type="button" id="lmp_test_connection" class="action-default scalable"
+        onclick="lmpTestConnection()">
+    <?= $block->escapeHtml(__('Test Connection')) ?>
+</button>
+<span id="lmp_test_result" style="margin-left:12px;"></span>
+<script>
+    function lmpTestConnection() {
+        var result = document.getElementById('lmp_test_result');
+        result.textContent = '<?= $block->escapeJs(__('Testing…')) ?>';
+        result.style.color = '';
+        fetch('<?= $block->escapeUrl($block->getData('test_url')) ?>', {
+            method: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            credentials: 'same-origin'
+        }).then(function (response) { return response.json(); })
+        .then(function (data) {
+            result.textContent = data.message || '';
+            result.style.color = data.success ? '#1a7f37' : '#c1165e';
+        }).catch(function () {
+            result.textContent = '<?= $block->escapeJs(__('Connection test failed.')) ?>';
+            result.style.color = '#c1165e';
+        });
+    }
+</script>

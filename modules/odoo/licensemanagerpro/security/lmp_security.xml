@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Portal users may only ever see licenses whose owner e-mail is
+         their own. Internal users are not restricted by this rule.
+         The portal controller additionally checks ownership on every
+         request, so this rule is a second layer, not the only one. -->
+    <record id="lmp_license_portal_rule" model="ir.rule">
+        <field name="name">Portal users see only their own licenses</field>
+        <field name="model_id" ref="model_lmp_license"/>
+        <field name="domain_force">[('owner_email', '=', user.email)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    </record>
+</odoo>

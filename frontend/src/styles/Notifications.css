@@ -1,3 +1,34 @@
 .notif-page-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .notif-page-list .notif-item { border: 1px solid var(--glass-border); background: var(--glass); }
 .notif-page-list .notif-item .badge { margin-inline-start: auto; flex-shrink: 0; }
+
+/* Filter bar (v2.3): wrapping flex row — the search input grows, selects
+   stay auto-width, Clear appears only while a filter is active. */
+.filter-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-container label {
+    color: var(--muted);
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+.filter-container select {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.toolbar .search-wrap {
+    flex: 1 1 280px;
+    min-width: 0;
+}
+
+.toolbar .search-wrap .search-input {
+    max-width: none;
+}

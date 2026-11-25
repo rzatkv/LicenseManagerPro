@@ -11,7 +11,7 @@ from models import Notification, User
 from schemas import MessageResponse, NotificationResponse, NotificationsListResponse
 from services import notifications as notification_service
 from utils.auth import get_current_user
-from utils.pagination import Pagination, paginate_list, pagination_params
+from utils.pagination import Pagination, pagination_params
 
 router = APIRouter()
 

@@ -8,10 +8,11 @@ import {DEMO_MODE, API_BASE_URL} from "../config";
 import "../styles/Downloads.css";
 
 /**
- * Downloads page: the real WHMCS server module and the WooCommerce plugin.
- * In the self-hosted app the Download button streams a ZIP built on the
- * fly (GET /api/downloads/{id}); in demo mode the mock has no ZIP to
- * build, so the buttons link to the GitHub releases page instead.
+ * Downloads page (v2.3): all 10 platform modules. The Download button
+ * opens the DIRECT GitHub release-asset link from the API — the module
+ * version always matches the installed app version (version parity).
+ * The on-the-fly ZIP endpoint (/api/downloads/{id}) stays as a fallback
+ * when the release asset is not published yet.
  */
 function Downloads() {
     const {t} = useLanguage();
@@ -41,10 +42,12 @@ function Downloads() {
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
     const handleDownload = async (mod) => {
-        if (DEMO_MODE) {
-            window.open("https://github.com/rzatkv/LicenseManagerPro/releases/latest", "_blank", "noopener");
+        // Direct GitHub release asset (primary path, version parity).
+        if (mod.download_url && /^https?:\/\//.test(mod.download_url)) {
+            window.open(mod.download_url, "_blank", "noopener");
             return;
         }
+        // Fallback: stream a ZIP of the installed module files.
         setDownloading(mod.id);
         try {
             const response = await fetch(`${API_BASE_URL}/downloads/${mod.id}`, {
@@ -95,7 +98,7 @@ function Downloads() {
                         const updateAvailable = latest && latest !== mod.version;
                         return (
                             <div key={mod.id} className="download-card glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
-                                <h2>{mod.id === "whmcs" ? t("downloads.whmcs") : t("downloads.woocommerce")}</h2>
+                                <h2>{mod.name || mod.id}</h2>
                                 <p className="download-version">
                                     {t("downloads.version")}: {mod.version}
                                     {updateAvailable && (
@@ -104,7 +107,7 @@ function Downloads() {
                                 </p>
                                 <p>{mod.description}</p>
                                 <p className="download-install">
-                                    {mod.id === "whmcs" ? t("downloads.installWhmcs") : t("downloads.installWoo")}
+                                    {mod.id === "whmcs" ? t("downloads.installWhmcs") : mod.id === "woocommerce" ? t("downloads.installWoo") : t("downloads.installGeneric")}
                                 </p>
                                 {DEMO_MODE && <p className="download-demo-note">{t("downloads.demoNote")}</p>}
                                 <button onClick={() => handleDownload(mod)} disabled={downloading === mod.id}>

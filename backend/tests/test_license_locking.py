@@ -1,5 +1,5 @@
 """License locking + product billing-cycle tests (v2.0)."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from services.licenses import add_months
 
@@ -29,7 +29,7 @@ def test_annual_license_expiry_is_12_calendar_months(client, auth_headers):
     assert created["product_id"] == product["id"]
     assert created["billing_cycle"] == "annual"
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     expected = add_months(now, 12)
     actual = datetime.fromisoformat(created["expires_at"])
     # Same calendar date a year later (allow a few seconds of clock skew).
@@ -50,12 +50,17 @@ def test_create_license_requires_cycle_for_product(client, auth_headers):
     )
     assert response.status_code == 400
 
+    # v2.3 (billing-cycle sync): a cycle the product does not list is
+    # ADDED to the product and the license is created with that cycle.
     response = client.post(
         "/api/licenses",
         json={"product_id": product["id"], "billing_cycle": "biennial"},
         headers=auth_headers,
     )
-    assert response.status_code == 400  # biennial not offered by this product
+    assert response.status_code == 201, response.text
+    assert response.json()["billing_cycle"] == "biennial"
+    synced = client.get(f"/api/products/{product['id']}", headers=auth_headers).json()
+    assert "biennial" in synced["billing_cycles"]
 
 
 def test_validate_lock_domain(client, auth_headers):

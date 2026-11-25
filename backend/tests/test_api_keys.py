@@ -22,8 +22,11 @@ def test_create_key_generates_value_when_omitted(client, auth_headers):
 
 
 def test_create_key_with_explicit_value(client, auth_headers):
+    # v2.3: `key` is the 12-char display prefix; the full secret is
+    # returned once as `plain_key` and never again.
     data = _create_key(client, auth_headers, key="my-explicit-key-123")
-    assert data["key"] == "my-explicit-key-123"
+    assert data["key"] == "my-explicit-key-123"[:12]
+    assert data["plain_key"] == "my-explicit-key-123"
 
 
 def test_create_key_rejects_bad_access_right(client, auth_headers):
@@ -65,7 +68,9 @@ def test_get_and_update_key(client, auth_headers):
     created = _create_key(client, auth_headers, key="updatable-key-123")
     response = client.get(f"/api/api-keys/{created['id']}", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["key"] == "updatable-key-123"
+    # v2.3: get returns the prefix only, never the secret.
+    assert response.json()["key"] == "updatable-key-123"[:12]
+    assert response.json().get("plain_key") is None
 
     response = client.put(
         f"/api/api-keys/{created['id']}",
@@ -87,23 +92,25 @@ def test_delete_key(client, auth_headers):
 def test_check_access_valid_key(client, auth_headers):
     created = _create_key(client, auth_headers, key="valid-check-key-123")
     response = client.get(
-        "/api/api-keys/check-access", headers={"api-key": created["key"]}
+        "/api/api-keys/check-access", headers={"api-key": created["plain_key"]}
     )
     assert response.status_code == 200
     assert response.json()["access_rights"] == ["get_license_info"]
 
 
 def test_check_access_unknown_key_rejected(client):
+    # v2.3: an unknown key is 401 (invalid credentials), not 403.
     response = client.get("/api/api-keys/check-access", headers={"api-key": "nope"})
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_check_access_expired_key_rejected(client, auth_headers):
     created = _create_key(client, auth_headers, key="expired-key-123456", expires_in_days=-1)
     response = client.get(
-        "/api/api-keys/check-access", headers={"api-key": created["key"]}
+        "/api/api-keys/check-access", headers={"api-key": created["plain_key"]}
     )
-    assert response.status_code == 403
+    # v2.3: an expired key is 401 (invalid credentials), not 403.
+    assert response.status_code == 401
     assert "expired" in response.json()["detail"].lower()
 
 
@@ -111,10 +118,10 @@ def test_check_access_single_use_consumed_on_first_use(client, auth_headers):
     created = _create_key(
         client, auth_headers, key="single-use-key-123", single_use=True
     )
-    first = client.get("/api/api-keys/check-access", headers={"api-key": created["key"]})
+    first = client.get("/api/api-keys/check-access", headers={"api-key": created["plain_key"]})
     assert first.status_code == 200
     second = client.get(
-        "/api/api-keys/check-access", headers={"api-key": created["key"]}
+        "/api/api-keys/check-access", headers={"api-key": created["plain_key"]}
     )
     assert second.status_code == 403
     assert "already used" in second.json()["detail"]
@@ -125,7 +132,7 @@ def test_check_access_wrong_ip_rejected(client, auth_headers):
         client, auth_headers, key="ip-locked-key-1234", associated_ip="203.0.113.99"
     )
     response = client.get(
-        "/api/api-keys/check-access", headers={"api-key": created["key"]}
+        "/api/api-keys/check-access", headers={"api-key": created["plain_key"]}
     )
     assert response.status_code == 403
 
@@ -140,13 +147,13 @@ def test_check_access_wrong_domain_rejected(client, auth_headers):
     response = client.get(
         "/api/api-keys/check-access",
         params={"domain": "other.com"},
-        headers={"api-key": created["key"]},
+        headers={"api-key": created["plain_key"]},
     )
     assert response.status_code == 403
     ok = client.get(
         "/api/api-keys/check-access",
         params={"domain": "example.com"},
-        headers={"api-key": created["key"]},
+        headers={"api-key": created["plain_key"]},
     )
     assert ok.status_code == 200
 
@@ -161,12 +168,12 @@ def test_check_access_daily_limit(client, auth_headers):
     assert response.status_code == 200
     created = _create_key(client, auth_headers, key="limited-key-12345")
     assert (
-        client.get("/api/api-keys/check-access", headers={"api-key": created["key"]}).status_code
+        client.get("/api/api-keys/check-access", headers={"api-key": created["plain_key"]}).status_code
         == 200
     )
     assert (
-        client.get("/api/api-keys/check-access", headers={"api-key": created["key"]}).status_code
+        client.get("/api/api-keys/check-access", headers={"api-key": created["plain_key"]}).status_code
         == 200
     )
-    third = client.get("/api/api-keys/check-access", headers={"api-key": created["key"]})
+    third = client.get("/api/api-keys/check-access", headers={"api-key": created["plain_key"]})
     assert third.status_code == 429

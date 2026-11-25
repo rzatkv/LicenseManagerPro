@@ -19,6 +19,8 @@ function AuditLogs() {
   const [page, setPage] = useState(1);
   const [entity, setEntity] = useState("");
   const [actor, setActor] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [sort, setSort] = useState("newest");
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = useCallback(async () => {
@@ -54,12 +56,36 @@ function AuditLogs() {
     return key ? t(key) : e;
   };
 
-  const filtered = logs.filter((log) => {
-    if (!actor.trim()) return true;
-    const q = actor.trim().toLowerCase();
-    return (log.actor_email || "").toLowerCase().includes(q)
-      || (log.action || "").toLowerCase().includes(q);
-  });
+  // Distinct action values from the loaded logs (e.g. license.create,
+  // user.login) — shown raw, same convention as the action badges below.
+  // The entity filter above is server-side; the action filter and sort
+  // here are client-side over the loaded page, which works in demo mode
+  // as-is (the demo mock has no server-side action filter).
+  const actions = [...new Set(logs.map((log) => log.action).filter(Boolean))].sort();
+  const filtersActive = entity !== "" || actor.trim() !== "" || actionFilter !== "" || sort !== "newest";
+  const filtered = logs
+    .filter((log) => {
+      if (actor.trim()) {
+        const q = actor.trim().toLowerCase();
+        if (!(log.actor_email || "").toLowerCase().includes(q)
+          && !(log.action || "").toLowerCase().includes(q)) return false;
+      }
+      if (actionFilter && log.action !== actionFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = new Date(a.created_at || 0).getTime();
+      const tb = new Date(b.created_at || 0).getTime();
+      return sort === "oldest" ? ta - tb : tb - ta;
+    });
+
+  const clearFilters = () => {
+    setEntity("");
+    setActor("");
+    setActionFilter("");
+    setSort("newest");
+    setPage(1);
+  };
 
   return (
     <div className="audit-logs-container page-enter">
@@ -89,6 +115,29 @@ function AuditLogs() {
             onChange={(e) => setActor(e.target.value)}
           />
         </div>
+        <div className="filter-container">
+          <label htmlFor="audit-action">{t("audit.action")}:</label>
+          <select
+            id="audit-action"
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+          >
+            <option value="">{t("common.all")}</option>
+            {actions.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+        <div className="filter-container">
+          <label htmlFor="audit-sort">{t("common.createdAt")}:</label>
+          <select id="audit-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="newest">↓</option>
+            <option value="oldest">↑</option>
+          </select>
+        </div>
+        {filtersActive && (
+          <button type="button" className="btn-ghost" onClick={clearFilters}>{t("filters.clearAll")}</button>
+        )}
       </div>
 
       {loading ? (

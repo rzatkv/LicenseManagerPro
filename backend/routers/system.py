@@ -24,8 +24,10 @@ from schemas import (
 )
 from services import updates as update_service
 from services import webhooks as webhook_service
+from services.audit import log_audit
 from services.settings import get_all_settings, update_setting
 from utils.auth import require_admin
+from utils.module_auth import require_actor
 from utils.permissions import require_admin_or_manager
 
 router = APIRouter()
@@ -36,7 +38,7 @@ def readiness(db: Session = Depends(get_db)):
     """Readiness probe (no auth): 200 when the DB answers, else 503."""
     try:
         db.execute(text("SELECT 1"))
-    except Exception as exc:  # noqa: BLE001 - readiness reports any DB failure
+    except Exception as exc:
         return JSONResponse(
             status_code=503,
             content={"status": "not_ready", "detail": str(exc)},
@@ -54,7 +56,9 @@ def _versions(db: Session) -> tuple[str, str]:
 @router.get("/info", response_model=SystemInfoResponse)
 def get_system_info(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    # v2.3: admin JWT, or a module key (system:read) — the modules' Test
+    # connection calls this endpoint.
+    _actor=Depends(require_actor(jwt_perm="*", module_scope="system:read")),
 ):
     settings = get_all_settings(db)
     return {
@@ -99,8 +103,9 @@ def apply_update(
     try:
         result = update_service.stage_update()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     update_setting(db, "latest_version", result["version"])
+    log_audit(db, _admin.email, "system.update_staged", "system", result["version"])
     return result
 
 

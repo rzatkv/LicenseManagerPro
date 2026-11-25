@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import APP_VERSION, CORS_ORIGINS, SECRET_KEY
-from database import SessionLocal, create_tables, ensure_schema, seed_settings
+from database import SessionLocal, create_tables, ensure_schema, seed_roles, seed_settings
 from models import User
 from routers import (
     api_keys,
@@ -25,6 +25,8 @@ from routers import (
     notifications,
     product_groups,
     products,
+    roles,
+    search,
     settings,
     system,
     users,
@@ -66,6 +68,13 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_settings(db)
+        seed_roles(db)
+        # v2.3: hash any pre-v2.3 plaintext API keys (one-time migration).
+        from services import api_keys as api_key_service
+
+        migrated = api_key_service.migrate_api_key_hashes(db)
+        if migrated:
+            logger.info("Migrated %d API key(s) to hashed storage.", migrated)
         if db.query(User).count() == 0:
             logger.info(
                 "No users exist yet. Create the first admin with: "
@@ -137,6 +146,8 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(languages.router, prefix="/api/languages", tags=["Languages"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
+app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["Audit Logs"])

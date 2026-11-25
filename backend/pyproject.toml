@@ -1,0 +1,15 @@
+[tool.ruff]
+# v2.3: lint configuration. B008 is ignored on purpose — FastAPI's
+# Depends()/Security() in argument defaults is the framework idiom, not
+# a bug. Target Python 3.11+ (PEP 604 unions, built-in generics).
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Enforced rules: errors, pyflakes, import order, pyupgrade, bugbear
+# (minus B008), ruff. Design rules (SIM/TRY/PLR) and E501 are not
+# enforced — the legacy code has long lines and HTTP status literals
+# (404/400) that read better as-is; new code should still prefer
+# constants for non-HTTP magic values.
+select = ["E", "F", "I", "UP", "B", "RUF"]
+ignore = ["B008", "E501"]

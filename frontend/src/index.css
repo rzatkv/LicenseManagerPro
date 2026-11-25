@@ -345,6 +345,13 @@ pre {
    `fieldset {min-width: 0}` rule did not fully tame — in RTL long labels
    ("license.validated_failed", "مادام‌العمر") still overflowed the group
    and the form card. The div has no such UA sizing behaviour. */
+/* Multi-select option groups (v2.3): chips, not checkboxes. The old
+   .check-group grid + .check-label rules were deleted — checkbox groups
+   stacked one character per line in RTL in v2.2.1/v2.2.2 no matter what
+   min-width or wrapping rule was applied. ChipSelect (components/) is a
+   flex row of pill buttons with nowrap labels that wrap as whole units,
+   which kills that bug by construction. .check-field below is only the
+   titled bordered wrapper around a group. */
 .check-field {
     border: 1px solid var(--border);
     border-radius: 14px;
@@ -353,43 +360,8 @@ pre {
 }
 .check-field-title { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
 
-/* Checkbox items in a grid with a REAL minimum column width (170px):
-   v2.2.1 used a flex-wrap row where each label was a flex item with
-   min-width: 0 and its text had `anywhere` wrapping — in the
-   wizard's narrow cells the item shrank below its min-content width
-   and `anywhere` wrapping let the browser break the word character by
-   character, so every label rendered as a vertical single-character
-   stack with ~450px rows (worse than the v2.2.0 clipping it replaced).
-   A grid column can never shrink below its minmax() floor, and
-   break-word only breaks a word when that word alone overflows its
-   own line — it never stacks one character per line. */
-.check-group {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 8px;
-    min-width: 0;
-}
-
 /* Values that must never split across lines ("15 days", "49 USD"). */
 .nowrap { white-space: nowrap; }
-
-/* Checkbox + label in one flex row: the box sits at the inline-start of its
-   label in both LTR and RTL, never centred above the text. The text may
-   break (overflow-wrap: break-word) only when a single word is wider than
-   its grid cell — NEVER `anywhere`: that lets the browser break at any
-   character, which is what stacked every label one letter per line in
-   v2.2.1. A 170px cell already fits "license.validated_failed" whole. */
-.check-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-    color: var(--text);
-    cursor: pointer;
-    min-width: 0;
-}
-.check-label input[type="checkbox"] { margin: 0; flex-shrink: 0; }
-.check-label-text { overflow-wrap: break-word; min-width: 0; }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }
@@ -598,7 +570,7 @@ pre {
 .chart-anim circle.chart-seg { transition: stroke-dasharray 0.8s ease, stroke-dashoffset 0.8s ease; }
 
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 /* Narrow screens: search inputs take the full width of their container. */
@@ -606,4 +578,57 @@ pre {
     .search-wrap { width: 100%; }
     .search-wrap .search-input { max-width: none; flex: 1; min-width: 0; }
     .toolbar .search-wrap { flex: 1 1 100%; }
+}
+
+/* ------------------------------------------------------------------ v2.3
+   Colour presets: each [data-preset] overrides the brand variables
+   (--accent, --accent-2, --accent-soft, --accent-gradient, --hero-gradient)
+   for light and dark. "default" is the v2.1 magenta/violet look (the
+   values already in :root / [data-theme="dark"] above). A "custom" preset
+   is applied inline by theme.js instead of here. */
+[data-preset="ocean"] {
+    --accent: #0284C7; --accent-2: #0369A1; --accent-soft: #E0F2FE;
+    --accent-gradient: linear-gradient(135deg, #0EA5E9, #0284C7, #2563EB, #1D4ED8);
+    --hero-gradient: linear-gradient(135deg, #BAE6FD, #7DD3FC, #93C5FD, #BFDBFE);
+}
+[data-theme="dark"][data-preset="ocean"] {
+    --accent: #38BDF8; --accent-2: #0284C7; --accent-soft: #0C2D48;
+    --accent-gradient: linear-gradient(135deg, #0EA5E9, #0284C7, #2563EB, #1D4ED8);
+    --hero-gradient: linear-gradient(135deg, #0C2436, #0F2F4A, #12294D, #0E2A3F);
+}
+[data-preset="forest"] {
+    --accent: #16A34A; --accent-2: #15803D; --accent-soft: #DCFCE7;
+    --accent-gradient: linear-gradient(135deg, #22C55E, #16A34A, #059669, #0D9488);
+    --hero-gradient: linear-gradient(135deg, #BBF7D0, #86EFAC, #6EE7B7, #99F6E4);
+}
+[data-theme="dark"][data-preset="forest"] {
+    --accent: #4ADE80; --accent-2: #16A34A; --accent-soft: #0F2E1D;
+    --accent-gradient: linear-gradient(135deg, #22C55E, #16A34A, #059669, #0D9488);
+    --hero-gradient: linear-gradient(135deg, #10291A, #0F2E22, #0C2B25, #0F2A24);
+}
+[data-preset="sunset"] {
+    --accent: #EA580C; --accent-2: #DC2626; --accent-soft: #FFEDD5;
+    --accent-gradient: linear-gradient(135deg, #F97316, #EA580C, #DC2626, #DB2777);
+    --hero-gradient: linear-gradient(135deg, #FED7AA, #FDBA74, #FCA5A5, #F9A8D4);
+}
+[data-theme="dark"][data-preset="sunset"] {
+    --accent: #FB923C; --accent-2: #EA580C; --accent-soft: #3A1D0D;
+    --accent-gradient: linear-gradient(135deg, #F97316, #EA580C, #DC2626, #DB2777);
+    --hero-gradient: linear-gradient(135deg, #2E1A0E, #331A10, #2E1414, #2A1420);
+}
+[data-preset="graphite"] {
+    --accent: #475569; --accent-2: #334155; --accent-soft: #E2E8F0;
+    --accent-gradient: linear-gradient(135deg, #64748B, #475569, #334155, #1E293B);
+    --hero-gradient: linear-gradient(135deg, #E2E8F0, #CBD5E1, #C7D2FE, #E0E7FF);
+}
+[data-theme="dark"][data-preset="graphite"] {
+    --accent: #94A3B8; --accent-2: #64748B; --accent-soft: #1E293B;
+    --accent-gradient: linear-gradient(135deg, #64748B, #475569, #334155, #1E293B);
+    --hero-gradient: linear-gradient(135deg, #1E293B, #1A2433, #1B2536, #1C2331);
+}
+
+/* Animated theme switch: theme.js adds this class to <html> for ~450ms
+   while the variables change, so surfaces cross-fade instead of snapping. */
+.theme-animating, .theme-animating * {
+    transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease !important;
 }

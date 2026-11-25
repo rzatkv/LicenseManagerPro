@@ -51,3 +51,43 @@ table td button {
 .branding-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
 .branding-fields input { width: 100%; }
 .branding-upload-label { display: inline-flex; align-items: center; padding: 10px 18px; border-radius: 16px; cursor: pointer; font-size: 14px; font-weight: 600; }
+
+/* Tabs (v2.3): one Settings page, five sections — split, not squeezed. */
+.settings-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; }
+.settings-tab { padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.settings-tab:hover { border-color: var(--accent); color: var(--text); }
+.settings-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; box-shadow: var(--shadow); }
+.settings-section { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.settings-section h3 { margin: 0; }
+.settings-section h4 { margin: 8px 0 0; }
+
+/* Language picker: one row per language, check on the active one. */
+.language-picker { display: flex; flex-direction: column; gap: 10px; }
+.language-option { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; text-align: start; }
+.language-option:hover { border-color: var(--accent); }
+.language-option.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.language-option-check { color: var(--accent); font-weight: 700; }
+
+/* Theme tab: segmented mode control + preset swatch grid + custom builder. */
+.theme-mode-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.theme-mode-label { font-weight: 600; color: var(--muted); font-size: 14px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.segmented-btn { padding: 9px 18px; border: none; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.segmented-btn.active { background: var(--accent-gradient); color: #fff; }
+.theme-preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.theme-preset { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease; text-align: start; }
+.theme-preset:hover { transform: translateY(-2px); }
+.theme-preset.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.theme-preset-swatch { height: 56px; border-radius: 12px; }
+.theme-preset-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.theme-preset-check { position: absolute; top: 8px; inset-inline-end: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-gradient); color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.theme-custom { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+.theme-custom-fields { display: flex; flex-wrap: wrap; gap: 16px; }
+.theme-custom-field { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.theme-custom-field input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; }
+.theme-custom-value { font-family: monospace; font-size: 12px; color: var(--muted); }
+
+/* License Security tab. */
+.security-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--muted); max-width: 360px; }
+.security-field select { width: 100%; }
+.security-toggles { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
