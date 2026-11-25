@@ -1,6 +1,8 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
 import {en as enDict, fa as faDict, SECTIONS} from "../i18n/translations";
 import "../styles/Languages.css";
 
@@ -8,9 +10,9 @@ const ALL_KEYS = Object.keys(enDict);
 
 function Languages() {
   const {t, fetchLanguages} = useLanguage();
+  const {toast} = useToast();
   const [languages, setLanguages] = useState([]);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [selectedCode, setSelectedCode] = useState(null);
   const [selectedName, setSelectedName] = useState("");
   const [isBuiltin, setIsBuiltin] = useState(false);
@@ -24,11 +26,10 @@ function Languages() {
     try {
       const data = await get("/languages");
       setLanguages(Array.isArray(data) ? data : []);
-      setError("");
     } catch (err) {
-      setError(err.message || t("common.failedFetch"));
+      toast.error(err.message || t("common.failedFetch"));
     }
-  }, [t]);
+  }, [t, toast]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -49,9 +50,8 @@ function Languages() {
           : (dict[key] !== undefined ? dict[key] : "");
       }
       setValues(merged);
-      setError("");
     } catch (err) {
-      setError(err.message || t("common.failedFetch"));
+      toast.error(err.message || t("common.failedFetch"));
     }
   };
 
@@ -65,12 +65,10 @@ function Languages() {
       setLanguages([...languages, {code, name: newName.trim()}]);
       setNewCode("");
       setNewName("");
-      setNotice(t("languages.keysCloned"));
-      setTimeout(() => setNotice(""), 4000);
-      setError("");
+      toast.success(t("languages.keysCloned"));
       await fetchLanguages();
     } catch (err) {
-      setError(err.message || t("common.error"));
+      toast.error(err.message || t("common.error"));
     }
   };
 
@@ -78,29 +76,26 @@ function Languages() {
     if (!selectedCode || isBuiltin) return;
     try {
       await put(`/languages/${selectedCode}`, {name: selectedName, translations: values});
-      setNotice(t("languages.saved"));
-      setTimeout(() => setNotice(""), 3000);
-      setError("");
+      toast.success(t("languages.saved"));
       await fetchLanguages();
     } catch (err) {
-      setError(err.message || t("common.error"));
+      toast.error(err.message || t("common.error"));
     }
   };
 
   const handleDelete = async (code) => {
     if (code === "en" || code === "fa") {
-      setError(t("languages.cannotDeleteBuiltin"));
+      toast.error(t("languages.cannotDeleteBuiltin"));
       return;
     }
-    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await del(`/languages/${code}`);
       setLanguages(languages.filter((l) => l.code !== code));
       if (selectedCode === code) { setSelectedCode(null); setValues({}); }
-      setError("");
+      toast.success(t("languages.deleted"));
       await fetchLanguages();
     } catch (err) {
-      setError(err.message || t("common.error"));
+      toast.error(err.message || t("common.error"));
     }
   };
 
@@ -118,10 +113,8 @@ function Languages() {
   }
 
   return (
-    <div className="languages-container">
-      <h1>{t("languages.title")}</h1>
-      {notice && <p className="update-message">{notice}</p>}
-      {error && <div className="error-message">{error}</div>}
+    <div className="languages-container page-enter">
+      <h1 className="gradient-text">{t("languages.title")}</h1>
 
       <form className="add-language-form" onSubmit={handleAdd}>
         <h3>{t("languages.add")}</h3>
@@ -148,7 +141,7 @@ function Languages() {
               <td>
                 <button className="view-btn" onClick={() => openEditor(lang)}>{t("common.edit")}</button>{" "}
                 {lang.code !== "en" && lang.code !== "fa" && (
-                  <button className="delete-btn" onClick={() => handleDelete(lang.code)}>{t("common.delete")}</button>
+                  <button className="delete-btn" onClick={() => setPendingDelete(lang.code)}>{t("common.delete")}</button>
                 )}
               </td>
             </tr>
@@ -188,6 +181,12 @@ function Languages() {
       ) : (
         <p className="dashboard-empty">{t("languages.selectLanguage")}</p>
       )}
+      <ConfirmModal
+        open={pendingDelete !== null}
+        message={t("common.confirmDelete")}
+        onConfirm={() => { const code = pendingDelete; setPendingDelete(null); handleDelete(code); }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

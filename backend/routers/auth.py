@@ -15,11 +15,13 @@ from schemas import (
     UserResponse,
 )
 from services import users as user_service
+from services.audit import log_audit
 from utils.auth import (
     create_access_token,
     verify_access_token,
     verify_password,
 )
+from utils.rate_limit import rate_limit_auth
 
 router = APIRouter()
 optional_security = HTTPBearer(auto_error=False)
@@ -40,7 +42,11 @@ def _optional_user(
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+    _rate_limited=Depends(rate_limit_auth),
+):
     """Authenticate with email + password and return a JWT access token."""
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not verify_password(request.password, user.hashed_password):
@@ -58,6 +64,7 @@ def register(
     request: RegisterRequest,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(_optional_user),
+    _rate_limited=Depends(rate_limit_auth),
 ):
     """Create a user.
 
@@ -67,17 +74,28 @@ def register(
     """
     user_count = db.query(User).count()
     if user_count == 0:
-        return user_service.create_user(
+        user = user_service.create_user(
             UserCreateRequest(email=request.email, password=request.password, role="admin"),
             db,
         )
+        log_audit(db, user.email, "user.create", "user", user.id, {"email": user.email, "role": "admin"})
+        return user
     if current_user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin privileges required")
-    return user_service.create_user(
+    user = user_service.create_user(
         UserCreateRequest(
             email=request.email, password=request.password, role=request.role
         ),
         db,
     )
+    log_audit(
+        db,
+        current_user.email,
+        "user.create",
+        "user",
+        user.id,
+        {"email": user.email, "role": user.role},
+    )
+    return user

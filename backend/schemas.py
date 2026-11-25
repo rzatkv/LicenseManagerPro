@@ -1,4 +1,5 @@
 """Pydantic v2 request/response schemas."""
+import json
 from datetime import datetime
 from typing import List, Optional
 
@@ -326,3 +327,29 @@ class CheckUpdatesResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# --- Audit log (v2.1) -------------------------------------------------------
+
+
+class AuditLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    actor_email: str
+    action: str
+    entity: str
+    entity_id: Optional[str] = None
+    details: Optional[dict] = None
+    created_at: datetime
+
+    @field_validator("details", mode="before")
+    @classmethod
+    def _parse_details(cls, value):
+        # Stored as a JSON string in the database (or NULL).
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError:
+                return None
+        return value

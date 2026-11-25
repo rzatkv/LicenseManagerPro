@@ -30,6 +30,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "languages:write",
         "settings:write",
         "system:check-expiring",
+        "audit:read",
     },
     "support": {
         "licenses:create",

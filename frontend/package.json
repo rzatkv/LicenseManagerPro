@@ -27,9 +27,11 @@
   "private": true,
   "scripts": {
     "build": "react-scripts build",
+    "check-demo": "node scripts/check-demo.js",
+    "check-i18n": "node scripts/check-i18n.js",
     "eject": "react-scripts eject",
     "start": "react-scripts start",
     "test": "react-scripts test"
   },
-  "version": "2.0.0"
+  "version": "2.1.0"
 }

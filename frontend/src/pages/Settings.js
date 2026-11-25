@@ -1,17 +1,20 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
 import {DEMO_MODE} from "../config";
 import {resetDemoData} from "../utils/demoData";
 import "../styles/Settings.css";
 
 function Settings() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [settings, setSettings] = useState({});
-    const [updateMessage, setUpdateMessage] = useState("");
-    const [error, setError] = useState("");
     const [newKey, setNewKey] = useState("");
     const [newValue, setNewValue] = useState("");
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const [confirmReset, setConfirmReset] = useState(false);
 
     const fetchSettings = useCallback(async () => {
         try {
@@ -26,18 +29,13 @@ function Settings() {
         fetchSettings();
     }, [fetchSettings]);
 
-    const flash = (message) => {
-        setUpdateMessage(message);
-        setTimeout(() => setUpdateMessage(""), 3000);
-    };
-
     const handleUpdate = async (key, value) => {
         try {
             await put(`/settings/${key}`, {key, value});
             setSettings((prev) => ({...prev, [key]: value}));
-            flash(t("settings.updated"));
+            toast.success(t("settings.updated"));
         } catch (err) {
-            console.error("Failed to update settings.");
+            toast.error(err.message || t("settings.updateFailed"));
         }
     };
 
@@ -45,7 +43,7 @@ function Settings() {
         e.preventDefault();
         const key = newKey.trim();
         if (!key) {
-            setError(t("settings.keyRequired"));
+            toast.error(t("settings.keyRequired"));
             return;
         }
         try {
@@ -53,10 +51,9 @@ function Settings() {
             setSettings((prev) => ({...prev, [key]: newValue}));
             setNewKey("");
             setNewValue("");
-            setError("");
-            flash(`Setting '${key}' created successfully!`);
+            toast.success(t("settings.created"));
         } catch (err) {
-            setError(err.message || "Failed to create setting.");
+            toast.error(err.message || t("settings.createFailed"));
         }
     };
 
@@ -68,10 +65,9 @@ function Settings() {
                 delete next[key];
                 return next;
             });
-            setError("");
-            flash(`Setting '${key}' deleted successfully!`);
+            toast.success(t("settings.deleted"));
         } catch (err) {
-            setError(err.message || "Failed to delete setting.");
+            toast.error(err.message || t("settings.deleteFailed"));
         }
     };
 
@@ -81,10 +77,8 @@ function Settings() {
     };
 
     return (
-        <div className="settings-container">
-            <h1>{t("settings.title")}</h1>
-            {updateMessage && <p className="update-message">{updateMessage}</p>}
-            {error && <div className="error-message">{error}</div>}
+        <div className="settings-container page-enter">
+            <h1 className="gradient-text">{t("settings.title")}</h1>
             <form className="add-setting-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
                 <h3>{t("settings.create")}</h3>
                 <input
@@ -125,7 +119,7 @@ function Settings() {
                             <button onClick={() => handleUpdate(key, settings[key])}>
                                 {t("common.update")}
                             </button>{" "}
-                            <button className="delete-btn" onClick={() => handleDelete(key)}>
+                            <button className="delete-btn" onClick={() => setPendingDelete(key)}>
                                 {t("common.delete")}
                             </button>
                         </td>
@@ -135,10 +129,23 @@ function Settings() {
             </table>
             {DEMO_MODE && (
                 <div style={{marginTop: "24px", textAlign: "center"}}>
-                    <button onClick={handleResetDemo}>{t("settings.resetDemo")}</button>
+                    <button onClick={() => setConfirmReset(true)}>{t("settings.resetDemo")}</button>
                     <p>{t("settings.resetDemoHint")}</p>
                 </div>
             )}
+            <ConfirmModal
+                open={pendingDelete !== null}
+                message={t("common.confirmDelete")}
+                onConfirm={() => { const key = pendingDelete; setPendingDelete(null); handleDelete(key); }}
+                onCancel={() => setPendingDelete(null)}
+            />
+            <ConfirmModal
+                open={confirmReset}
+                message={t("settings.resetDemoHint")}
+                confirmLabel={t("settings.resetDemo")}
+                onConfirm={() => { setConfirmReset(false); handleResetDemo(); }}
+                onCancel={() => setConfirmReset(false)}
+            />
         </div>
     );
 }

@@ -30,13 +30,9 @@
 
 .update-section button {
     padding: 10px 20px;
-    background-color: var(--success);
-    color: var(--surface);
+    background: var(--success);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
-}
-
-.update-section button:hover {
-    background-color: var(--success);
 }

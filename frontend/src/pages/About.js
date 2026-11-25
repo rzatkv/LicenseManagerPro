@@ -1,10 +1,12 @@
 import React, {useState, useEffect} from "react";
 import {get, post} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
 import "../styles/About.css";
 
 function About() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [version, setVersion] = useState("");
     const [lastUpdated, setLastUpdated] = useState("");
     const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -34,16 +36,16 @@ function About() {
     const handleUpdate = async () => {
         try {
             await post("/system/update", {});
-            alert(t("about.updated"));
+            toast.success(t("about.updated"));
             setUpdateAvailable(false);
         } catch (err) {
-            alert(t("about.updateFailed"));
+            toast.error(err.message || t("about.updateFailed"));
         }
     };
 
     return (
-        <div className="about-container">
-            <h1>{t("about.title")}</h1>
+        <div className="about-container page-enter">
+            <h1 className="gradient-text">{t("about.title")}</h1>
             <div className="about-info">
                 <p><strong>{t("about.version")}:</strong> {version}</p>
                 <p><strong>{t("about.lastUpdated")}:</strong> {lastUpdated}</p>

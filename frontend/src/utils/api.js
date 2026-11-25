@@ -134,3 +134,56 @@ export const del = async (endpoint) => {
         throw error;
     }
 };
+
+/**
+ * Paginated list fetch: GET path?skip=&limit= (+ any query already in path).
+ * Returns {items, total}. In real mode the total comes from the
+ * X-Total-Count response header and the body stays a JSON array; in demo
+ * mode the mock returns the same {items, total} shape. get() is unchanged
+ * and keeps returning a plain array for backward compatibility.
+ * @param {string} path
+ * @param {{skip?: number, limit?: number}} opts
+ * @returns {Promise<{items: any[], total: number}>}
+ */
+export const getList = async (path, {skip = 0, limit = 10} = {}) => {
+    const sep = path.includes("?") ? "&" : "?";
+    const url = `${path}${sep}skip=${skip}&limit=${limit}`;
+    if (DEMO_MODE) {
+        try {
+            const data = await mockRequest("GET", url);
+            if (data && Array.isArray(data.items)) {
+                return {items: data.items, total: data.total != null ? data.total : data.items.length};
+            }
+            if (data && Array.isArray(data.api_keys)) {
+                return {items: data.api_keys, total: data.total != null ? data.total : data.api_keys.length};
+            }
+            if (Array.isArray(data)) return {items: data, total: data.length};
+            return {items: [], total: 0};
+        } catch (error) {
+            console.error(`GET ${url} failed:`, error);
+            throw error;
+        }
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}${url}`, {
+            headers: {...authHeaders()},
+        });
+        if (!response.ok) {
+            let detail = `Error: ${response.status}`;
+            try {
+                const err = await response.json();
+                detail = err.detail || detail;
+            } catch (e) {}
+            const error = new Error(detail);
+            error.status = response.status;
+            throw error;
+        }
+        const body = await response.json();
+        const totalHeader = Number(response.headers.get("X-Total-Count"));
+        const items = Array.isArray(body) ? body : (body.api_keys || []);
+        return {items, total: Number.isFinite(totalHeader) ? totalHeader : items.length};
+    } catch (error) {
+        console.error(`GET ${url} failed:`, error);
+        throw error;
+    }
+};

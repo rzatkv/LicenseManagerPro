@@ -190,3 +190,18 @@ class SystemSetting(Base):
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AuditLog(Base):
+    """One recorded admin action (who did what, to which entity, when)."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    actor_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    entity: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # JSON object stored as text, or NULL.
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)

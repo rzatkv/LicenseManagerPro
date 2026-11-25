@@ -1,11 +1,18 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {Link} from "react-router-dom";
-import {get, post, put, del} from "../utils/api";
+import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
+import CopyButton from "../components/CopyButton";
+import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
+import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Products.css";
 
 const ALL_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"];
 const ALL_EVENTS = ["license.created", "license.renewed", "license.revoked", "license.expiring", "license.expired", "license.validated_failed"];
+const PAGE_SIZE = 10;
 
 const emptyForm = {
   name: "", slug: "", description: "", price: "", currency: "USD", status: "active",
@@ -14,24 +21,33 @@ const emptyForm = {
 
 function Products() {
   const {t} = useLanguage();
+  const {toast} = useToast();
   const [products, setProducts] = useState([]);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [testResult, setTestResult] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await get("/products");
-      setProducts(Array.isArray(data) ? data : []);
-      setError("");
+      const {items, total: t} = await getList("/products", {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+      setProducts(items);
+      setTotal(t);
     } catch (err) {
-      setError(err.message || t("common.failedFetch"));
+      toast.error(err.message || t("common.failedFetch"));
+      setProducts([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
-  }, [t]);
+  }, [page, toast, t]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -47,8 +63,6 @@ function Products() {
   useEffect(() => {
     if (selectedId) fetchDeliveries(selectedId);
   }, [selectedId, fetchDeliveries]);
-
-  const flash = (msg) => { setNotice(msg); setTimeout(() => setNotice(""), 4000); };
 
   const toggleIn = (field, value) => {
     setForm((prev) => ({
@@ -66,7 +80,6 @@ function Products() {
       webhook_events: p.webhook_events || [], webhook_secret: p.webhook_secret || "",
     });
     setTestResult(null);
-    setError("");
   };
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); setTestResult(null); };
@@ -78,28 +91,28 @@ function Products() {
       if (editingId !== null) {
         const updated = await put(`/products/${editingId}`, payload);
         setProducts(products.map((p) => (p.id === editingId ? updated : p)));
-        flash(t("common.saved"));
+        toast.success(t("products.updated"));
       } else {
         const created = await post("/products", payload);
-        setProducts([...products, created]);
-        flash(t("common.saved"));
+        if (page === 1) setProducts([...products, created].slice(0, PAGE_SIZE));
+        setTotal((prev) => prev + 1);
+        toast.success(t("products.created"));
       }
       resetForm();
-      setError("");
     } catch (err) {
-      setError(err.message || t("common.error"));
+      toast.error(err.message || t("common.error"));
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await del(`/products/${id}`);
       setProducts(products.filter((p) => p.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
       if (selectedId === id) { setSelectedId(null); setDeliveries([]); }
-      setError("");
+      toast.success(t("products.deleted"));
     } catch (err) {
-      setError(err.message || t("common.error"));
+      toast.error(err.message || t("common.error"));
     }
   };
 
@@ -108,19 +121,25 @@ function Products() {
       const result = await post(`/products/${id}/test-webhook`, {});
       setTestResult({id, ...result});
       fetchDeliveries(id);
-      setError("");
+      toast.success(t("common.success"));
     } catch (err) {
       setTestResult({id, success: false, status_code: null, error: err.message});
+      toast.error(err.message || t("common.error"));
     }
   };
 
-  return (
-    <div className="products-container">
-      <h1>{t("products.title")}</h1>
-      {notice && <p className="update-message">{notice}</p>}
-      {error && <div className="error-message">{error}</div>}
+  // Client-side search over the loaded page (name / slug).
+  const visible = products.filter((p) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (p.name || "").toLowerCase().includes(q) || (p.slug || "").toLowerCase().includes(q);
+  });
 
-      <form className="product-form" onSubmit={handleSubmit}>
+  return (
+    <div className="products-container page-enter">
+      <h1 className="gradient-text">{t("products.title")}</h1>
+
+      <form className="product-form glass-card" onSubmit={handleSubmit}>
         <h3>{editingId !== null ? `${t("products.edit")} #${editingId}` : t("products.create")}</h3>
         <div className="form-row">
           <input type="text" placeholder={t("products.name")} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} required />
@@ -155,14 +174,26 @@ function Products() {
         <input type="text" placeholder={t("products.webhookSecret")} value={form.webhook_secret} onChange={(e) => setForm({...form, webhook_secret: e.target.value})} />
         <div className="form-row">
           <button type="submit">{editingId !== null ? t("common.save") : t("products.create")}</button>
-          {editingId !== null && <button type="button" onClick={resetForm}>{t("common.cancel")}</button>}
+          {editingId !== null && <button type="button" className="btn-ghost" onClick={resetForm}>{t("common.cancel")}</button>}
         </div>
         <p className="hint">{t("products.slugHint")}</p>
       </form>
 
-      {products.length === 0 ? (
-        <p className="dashboard-empty">{t("products.noProducts")}</p>
+      <div className="toolbar">
+        <div className="search-wrap">
+          <span className="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </span>
+          <input type="text" className="search-input" placeholder={t("products.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading ? (
+        <TableSkeleton rows={4} />
+      ) : visible.length === 0 ? (
+        <EmptyState title={t("products.noProducts")} text={search ? t("common.noResults") : undefined} />
       ) : (
+        <>
         <table>
           <thead>
             <tr>
@@ -177,26 +208,30 @@ function Products() {
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className={selectedId === p.id ? "selected-row" : ""}>
+            {visible.map((p, i) => (
+              <tr key={p.id} className={`${selectedId === p.id ? "selected-row " : ""}stagger-item`} style={{animationDelay: `${i * 40}ms`}}>
                 <td>{p.name}</td>
                 <td>{p.slug}</td>
                 <td>{p.price} {p.currency}</td>
                 <td>{(p.billing_cycles || []).map((c) => <span key={c} className="badge">{t(`cycle.${c}`)}</span>)}</td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
-                <td>{p.webhook_url ? t("products.webhookConfigured") : t("products.notConfigured")}</td>
+                <td>
+                  {p.webhook_url ? (<>{t("products.webhookConfigured")} <CopyButton text={p.webhook_url} /></>) : t("products.notConfigured")}
+                </td>
                 <td>{p.license_count ?? "-"}</td>
                 <td>
                   <button className="view-btn" onClick={() => setSelectedId(p.id)}>{t("common.view")}</button>{" "}
                   <button className="edit-btn" onClick={() => handleEdit(p)}>{t("common.edit")}</button>{" "}
                   {p.webhook_url && <button onClick={() => handleTestWebhook(p.id)}>{t("products.testWebhook")}</button>}{" "}
                   <Link to={`/licenses?product=${p.id}`}>{t("products.viewLicenses")}</Link>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(p.id)}>{t("common.delete")}</button>
+                  <button className="delete-btn" onClick={() => setPendingDelete(p.id)}>{t("common.delete")}</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        </>
       )}
 
       {testResult && (
@@ -234,6 +269,12 @@ function Products() {
           )}
         </div>
       )}
+      <ConfirmModal
+        open={pendingDelete !== null}
+        message={t("common.confirmDelete")}
+        onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

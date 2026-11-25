@@ -10,7 +10,10 @@ import About from "./pages/About";
 import Products from "./pages/Products";
 import Languages from "./pages/Languages";
 import ApiDocs from "./pages/ApiDocs";
+import AuditLogs from "./pages/AuditLogs";
 import Layout from "./components/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
+import {ToastProvider} from "./components/Toast";
 import {LanguageProvider} from "./i18n";
 import {ThemeProvider} from "./theme";
 import {isAuthenticated} from "./utils/auth";
@@ -26,15 +29,17 @@ function App() {
     return (
         <ThemeProvider>
             <LanguageProvider>
+                <ToastProvider>
                 <Router>
                     <Routes>
                         <Route path="/" element={<Login/>}/>
-                        <Route element={<ProtectedRoute><Layout/></ProtectedRoute>}>
+                        <Route element={<ProtectedRoute><ErrorBoundary><Layout/></ErrorBoundary></ProtectedRoute>}>
                             <Route path="/dashboard" element={<Dashboard/>}/>
                             <Route path="/products" element={<Products/>}/>
                             <Route path="/licenses" element={<LicenseList/>}/>
                             <Route path="/api-keys" element={<APIKeyList/>}/>
                             <Route path="/users" element={<UserManagement/>}/>
+                            <Route path="/audit-logs" element={<AuditLogs/>}/>
                             <Route path="/languages" element={<Languages/>}/>
                             <Route path="/docs" element={<ApiDocs/>}/>
                             <Route path="/settings" element={<Settings/>}/>
@@ -42,6 +47,7 @@ function App() {
                         </Route>
                     </Routes>
                 </Router>
+                </ToastProvider>
             </LanguageProvider>
         </ThemeProvider>
     );

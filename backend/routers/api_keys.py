@@ -5,7 +5,7 @@ public because it is how external clients validate a key.
 """
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -19,8 +19,11 @@ from schemas import (
     UpdateApiKeyRequest,
 )
 from services import api_keys as api_key_service
+from services.audit import log_audit
 from utils.auth import get_current_user
+from utils.pagination import Pagination, pagination_params
 from utils.permissions import require_permission
+from utils.rate_limit import rate_limit_validate
 
 router = APIRouter()
 
@@ -32,6 +35,7 @@ def check_access(
     domain: Optional[str] = Query(default=None),
     directory: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
+    _rate_limited=Depends(rate_limit_validate),
 ):
     """Validate an API key (public endpoint used by external clients)."""
     client_ip = request.client.host if request.client else None
@@ -43,8 +47,8 @@ def check_access(
 
 @router.get("", response_model=ApiKeyListResponse)
 def list_api_keys(
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=500),
+    response: Response,
+    page: Pagination = Depends(pagination_params),
     search: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
@@ -55,7 +59,8 @@ def list_api_keys(
         like = f"%{search}%"
         query = query.filter(ApiKey.key.like(like))
     total = query.count()
-    keys = query.order_by(ApiKey.id.desc()).offset(skip).limit(limit).all()
+    keys = query.order_by(ApiKey.id.desc()).offset(page.skip).limit(page.limit).all()
+    response.headers["X-Total-Count"] = str(total)
     return {"total": total, "api_keys": keys}
 
 
@@ -63,10 +68,12 @@ def list_api_keys(
 def create_api_key(
     request: AddApiKeyRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("api_keys:create")),
+    current_user=Depends(require_permission("api_keys:create")),
 ):
     """Create an API key (a random key is generated when none is supplied)."""
-    return api_key_service.add_api_key(request, db)
+    entry = api_key_service.add_api_key(request, db)
+    log_audit(db, current_user.email, "api_key.create", "api_key", entry.id)
+    return entry
 
 
 @router.get("/{api_key_id}", response_model=ApiKeyResponse)
@@ -88,17 +95,20 @@ def update_api_key(
     api_key_id: int,
     request: UpdateApiKeyRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("api_keys:write")),
+    current_user=Depends(require_permission("api_keys:write")),
 ):
     """Update an existing API key."""
-    return api_key_service.update_api_key(api_key_id, request, db)
+    entry = api_key_service.update_api_key(api_key_id, request, db)
+    log_audit(db, current_user.email, "api_key.update", "api_key", entry.id)
+    return entry
 
 
 @router.delete("/{api_key_id}", response_model=MessageResponse)
 def delete_api_key(
     api_key_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("api_keys:write")),
+    current_user=Depends(require_permission("api_keys:write")),
 ):
     api_key_service.delete_api_key(api_key_id, db)
+    log_audit(db, current_user.email, "api_key.delete", "api_key", api_key_id)
     return {"message": "API Key deleted successfully"}

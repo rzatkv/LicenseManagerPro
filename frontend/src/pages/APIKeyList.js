@@ -1,7 +1,15 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {get, post, put, del} from "../utils/api";
+import {getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
+import CopyButton from "../components/CopyButton";
+import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
+import {TableSkeleton} from "../components/Skeleton";
 import "../styles/APIKeyList.css";
+
+const PAGE_SIZE = 10;
 
 const ALL_ACCESS_RIGHTS = [
     "create_license",
@@ -17,8 +25,12 @@ const ALL_ACCESS_RIGHTS = [
 
 function APIKeyList() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [apiKeys, setApiKeys] = useState([]);
-    const [error, setError] = useState("");
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
     const [newKey, setNewKey] = useState("");
     const [newRights, setNewRights] = useState(["get_license_info"]);
     const [newExpiresInDays, setNewExpiresInDays] = useState("");
@@ -27,17 +39,22 @@ function APIKeyList() {
     const [newDirectory, setNewDirectory] = useState("");
     const [newSingleUse, setNewSingleUse] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [pendingDelete, setPendingDelete] = useState(null);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const fetchApiKeys = useCallback(async () => {
+        setLoading(true);
         try {
-            const data = await get("/api-keys");
-            setApiKeys(data.api_keys);
-            setError("");
+            const {items, total: t} = await getList("/api-keys", {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            setApiKeys(items);
+            setTotal(t);
         } catch (err) {
-            setError(err.message || t("common.failedFetch"));
+            toast.error(err.message || t("common.failedFetch"));
+            setApiKeys([]);
+            setTotal(0);
+        } finally {
+            setLoading(false);
         }
-    }, [t]);
+    }, [page, toast, t]);
 
     useEffect(() => {
         fetchApiKeys();
@@ -47,8 +64,10 @@ function APIKeyList() {
         try {
             await del(`/api-keys/${id}`);
             setApiKeys(apiKeys.filter((key) => key.id !== id));
+            setTotal((prev) => Math.max(0, prev - 1));
+            toast.success(t("apikeys.deleted"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -79,7 +98,6 @@ function APIKeyList() {
         setNewDomain(key.associated_domain || "");
         setNewDirectory(key.associated_directory || "");
         setNewSingleUse(!!key.single_use);
-        setError("");
     };
 
     const handleCreate = async (e) => {
@@ -95,8 +113,8 @@ function APIKeyList() {
                     single_use: newSingleUse,
                 });
                 setApiKeys(apiKeys.map((key) => (key.id === editingId ? updated : key)));
+                toast.success(t("apikeys.updated"));
                 resetForm();
-                setError("");
                 return;
             }
             const created = await post("/api-keys", {
@@ -108,19 +126,27 @@ function APIKeyList() {
                 associated_directory: newDirectory || undefined,
                 single_use: newSingleUse,
             });
-            setApiKeys([created, ...apiKeys]);
+            if (page === 1) setApiKeys([created, ...apiKeys].slice(0, PAGE_SIZE));
+            setTotal((prev) => prev + 1);
+            toast.success(t("apikeys.created"));
             resetForm();
-            setError("");
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
+    // Client-side search over the loaded page (key value / access rights).
+    const visible = apiKeys.filter((key) => {
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (key.key || "").toLowerCase().includes(q)
+            || (key.access_rights || []).join(" ").toLowerCase().includes(q);
+    });
+
     return (
-        <div className="api-key-list-container">
-            <h1>{t("apikeys.title")}</h1>
-            {error && <div className="error-message">{error}</div>}
-            <form className="add-api-key-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
+        <div className="api-key-list-container page-enter">
+            <h1 className="gradient-text">{t("apikeys.title")}</h1>
+            <form className="add-api-key-form glass-card" onSubmit={handleCreate} style={{margin: "16px 0"}}>
                 <h3>{editingId !== null ? `${t("apikeys.edit")} #${editingId}` : t("apikeys.create")}</h3>
                 <input
                     type="text"
@@ -176,42 +202,65 @@ function APIKeyList() {
                 </label>
                 <button type="submit">{editingId !== null ? t("apikeys.saveChanges") : t("apikeys.create")}</button>
                 {editingId !== null && (
-                    <button type="button" onClick={resetForm} style={{marginLeft: "8px"}}>
+                    <button type="button" className="btn-ghost" onClick={resetForm} style={{marginLeft: "8px"}}>
                         {t("common.cancel")}
                     </button>
                 )}
             </form>
-            <table>
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>{t("apikeys.key")}</th>
-                    <th>{t("apikeys.accessRights")}</th>
-                    <th>{t("apikeys.expires")}</th>
-                    <th>{t("apikeys.singleUse")}</th>
-                    <th>{t("common.actions")}</th>
-                </tr>
-                </thead>
-                <tbody>
-                {apiKeys.map((key) => (
-                    <tr key={key.id}>
-                        <td>{key.id}</td>
-                        <td>{key.key}</td>
-                        <td>{key.access_rights.join(", ")}</td>
-                        <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : t("common.never")}</td>
-                        <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
-                        <td>
-                            <button className="edit-btn" onClick={() => handleEdit(key)}>
-                                {t("common.edit")}
-                            </button>{" "}
-                            <button className="delete-btn" onClick={() => handleDelete(key.id)}>
-                                {t("common.delete")}
-                            </button>
-                        </td>
+            <div className="toolbar">
+                <div className="search-wrap">
+                    <span className="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    </span>
+                    <input type="text" className="search-input" placeholder={t("apikeys.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+            </div>
+            {loading ? (
+                <TableSkeleton rows={4} />
+            ) : visible.length === 0 ? (
+                <EmptyState title={t("dashboard.noApiKeys")} text={search ? t("common.noResults") : undefined} />
+            ) : (
+                <>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>{t("apikeys.key")}</th>
+                        <th>{t("apikeys.accessRights")}</th>
+                        <th>{t("apikeys.expires")}</th>
+                        <th>{t("apikeys.singleUse")}</th>
+                        <th>{t("common.actions")}</th>
                     </tr>
-                ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                    {visible.map((key, i) => (
+                        <tr key={key.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
+                            <td>{key.id}</td>
+                            <td>{key.key} <CopyButton text={key.key} /></td>
+                            <td>{key.access_rights.join(", ")}</td>
+                            <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : t("common.never")}</td>
+                            <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
+                            <td>
+                                <button className="edit-btn" onClick={() => handleEdit(key)}>
+                                    {t("common.edit")}
+                                </button>{" "}
+                                <button className="delete-btn" onClick={() => setPendingDelete(key.id)}>
+                                    {t("common.delete")}
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                </>
+            )}
+            <ConfirmModal
+                open={pendingDelete !== null}
+                message={t("common.confirmDelete")}
+                onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

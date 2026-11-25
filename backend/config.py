@@ -33,7 +33,12 @@ CORS_ORIGINS = [
 ]
 
 # Current application version, shown by GET /api/system/info.
-APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
+APP_VERSION = os.getenv("APP_VERSION", "2.1.0")
+
+# Rate limits (requests per minute, per client IP) for the hand-rolled
+# sliding-window limiter in utils/rate_limit.py.
+RATE_LIMIT_AUTH_PER_MINUTE = int(os.getenv("RATE_LIMIT_AUTH_PER_MINUTE", "10"))
+RATE_LIMIT_VALIDATE_PER_MINUTE = int(os.getenv("RATE_LIMIT_VALIDATE_PER_MINUTE", "60"))
 
 # --- Optional SMTP settings for utils.email.send_email -------------------
 SMTP_HOST = os.getenv("SMTP_HOST", "")

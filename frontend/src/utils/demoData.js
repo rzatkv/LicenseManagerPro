@@ -11,7 +11,7 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v3";
+const STORAGE_KEY = "lmp-demo-db-v4";
 const ACCESS_RIGHTS = [
     "create_license",
     "edit_license",
@@ -144,16 +144,24 @@ function seed() {
             {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
         ],
         settings: {
-            app_version: "2.0.0",
-            latest_version: "2.0.0",
+            app_version: "2.1.0",
+            latest_version: "2.1.0",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
         },
+        audit_logs: [
+            {id: 1, actor_email: "demo@demo.com", action: "license.create", entity: "license", entity_id: 8, details: {key: "LIC-XXXX-XXXX-XXXX", product: "CRM Suite"}, created_at: isoDaysAgo(1)},
+            {id: 2, actor_email: "manager@demo.com", action: "product.update", entity: "product", entity_id: 1, details: {name: "CloudPanel Pro"}, created_at: isoDaysAgo(2)},
+            {id: 3, actor_email: "demo@demo.com", action: "user.create", entity: "user", entity_id: 4, details: {email: "viewer@demo.com", role: "viewer"}, created_at: isoDaysAgo(3)},
+            {id: 4, actor_email: "support@demo.com", action: "license.renew", entity: "license", entity_id: 7, details: {billing_cycle: "monthly"}, created_at: isoDaysAgo(2)},
+            {id: 5, actor_email: "demo@demo.com", action: "api_key.create", entity: "api_key", entity_id: 3, details: {access_rights: ["get_license_info"]}, created_at: isoDaysAgo(5)},
+        ],
         nextLicenseId: 9,
         nextApiKeyId: 4,
         nextUserId: 5,
         nextProductId: 4,
         nextDeliveryId: 3,
+        nextAuditLogId: 6,
     };
 }
 
@@ -163,9 +171,13 @@ function loadDb() {
         if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && Array.isArray(parsed.licenses)) {
+                const fresh = seed();
                 // Migrate a v2-shaped DB forward if it ever lands under v3 key.
+                if (!parsed.audit_logs) {
+                    parsed.audit_logs = fresh.audit_logs;
+                    parsed.nextAuditLogId = fresh.nextAuditLogId;
+                }
                 if (!parsed.products) {
-                    const fresh = seed();
                     parsed.products = fresh.products;
                     parsed.languages = fresh.languages;
                     parsed.deliveries = fresh.deliveries;
@@ -242,6 +254,35 @@ function recordDelivery(productId, event, url) {
     return delivery;
 }
 
+// Audit log: newest first. Appended on every mock mutation (license /
+// product / user / api-key create/update/delete, settings changes).
+function logAudit(action, entity, entityId, details) {
+    if (!Array.isArray(db.audit_logs)) db.audit_logs = [];
+    if (!db.nextAuditLogId) db.nextAuditLogId = db.audit_logs.length + 1;
+    const user = currentUser();
+    db.audit_logs.unshift({
+        id: db.nextAuditLogId++,
+        actor_email: user ? user.email : "system",
+        action,
+        entity,
+        entity_id: entityId,
+        details: details || null,
+        created_at: new Date().toISOString(),
+    });
+}
+
+// ?skip&limit pagination shared by the list endpoints. When neither param
+// is present the full list is returned (backward compat for get()).
+// When present, returns {items, total} like the real API's X-Total-Count.
+function paginate(list, query) {
+    const skipRaw = query.get("skip");
+    const limitRaw = query.get("limit");
+    if (skipRaw == null && limitRaw == null) return list;
+    const skip = Math.max(0, Number(skipRaw) || 0);
+    const limit = limitRaw != null ? Math.max(0, Number(limitRaw) || 0) : list.length;
+    return {items: list.slice(skip, skip + limit), total: list.length};
+}
+
 export async function mockRequest(method, endpoint, body) {
     await delay(250);
 
@@ -274,10 +315,10 @@ export async function mockRequest(method, endpoint, body) {
     // ---- Products -----------------------------------------------------------
     if (parts[0] === "products") {
         if (method === "GET" && parts.length === 1) {
-            return db.products.map((p) => ({
+            return paginate(db.products.map((p) => ({
                 ...p,
                 license_count: db.licenses.filter((l) => l.product_id === p.id).length,
-            }));
+            })), query);
         }
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin", "manager"]);
@@ -299,6 +340,7 @@ export async function mockRequest(method, endpoint, body) {
                 updated_at: new Date().toISOString(),
             };
             db.products.push(created);
+            logAudit("product.create", "product", created.id, {name: created.name});
             save();
             return {...created, license_count: 0};
         }
@@ -324,6 +366,7 @@ export async function mockRequest(method, endpoint, body) {
                 if (body && body.billing_cycles) {
                     product.billing_cycles = body.billing_cycles.filter((c) => BILLING_CYCLES.includes(c));
                 }
+                logAudit("product.update", "product", id, {name: product.name});
                 save();
                 return {...product, license_count: db.licenses.filter((l) => l.product_id === id).length};
             }
@@ -333,6 +376,7 @@ export async function mockRequest(method, endpoint, body) {
                     fail(400, "Cannot delete product: licenses still reference this product");
                 }
                 db.products = db.products.filter((p) => p.id !== id);
+                logAudit("product.delete", "product", id, {name: product.name});
                 save();
                 return {message: "Product deleted"};
             }
@@ -365,7 +409,7 @@ export async function mockRequest(method, endpoint, body) {
             if (filter === "daily") list = list.filter((l) => new Date(l.created_at) >= startOfToday);
             if (filter === "weekly") list = list.filter((l) => new Date(l.created_at) >= startOfWeek);
             if (filter === "monthly") list = list.filter((l) => new Date(l.created_at) >= startOfMonth);
-            return list;
+            return paginate(list, query);
         }
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin", "manager", "support"]);
@@ -403,6 +447,7 @@ export async function mockRequest(method, endpoint, body) {
                 updated_at: new Date().toISOString(),
             };
             db.licenses.unshift(created);
+            logAudit("license.create", "license", created.id, {product: created.product, owner_email: created.owner_email});
             if (product && product.webhook_url) recordDelivery(product.id, "license.created", product.webhook_url);
             save();
             return {...created};
@@ -418,12 +463,14 @@ export async function mockRequest(method, endpoint, body) {
                 if (updates.allowed_domains !== undefined) updates.allowed_domains = splitList(updates.allowed_domains);
                 if (updates.allowed_ips !== undefined) updates.allowed_ips = splitList(updates.allowed_ips);
                 Object.assign(license, updates, {updated_at: new Date().toISOString()});
+                logAudit("license.update", "license", id, {product: license.product});
                 save();
                 return withEffectiveStatus(license);
             }
             if (method === "DELETE") {
                 requireRole(["admin", "manager"]);
                 db.licenses = db.licenses.filter((l) => l.id !== id);
+                logAudit("license.delete", "license", id, {product: license.product});
                 save();
                 return {message: "License deleted"};
             }
@@ -444,6 +491,7 @@ export async function mockRequest(method, endpoint, body) {
                 license.expires_at = addMonths(base, months).toISOString();
                 license.status = "active";
                 license.updated_at = new Date().toISOString();
+                logAudit("license.renew", "license", id, {billing_cycle: license.billing_cycle});
                 save();
                 return withEffectiveStatus(license);
             } else {
@@ -452,6 +500,7 @@ export async function mockRequest(method, endpoint, body) {
             license.expires_at = base.toISOString();
             license.status = "active";
             license.updated_at = new Date().toISOString();
+            logAudit("license.renew", "license", id, {billing_cycle: license.billing_cycle});
             save();
             return withEffectiveStatus(license);
         }
@@ -482,7 +531,9 @@ export async function mockRequest(method, endpoint, body) {
     // ---- API keys -----------------------------------------------------------
     if (parts[0] === "api-keys") {
         if (method === "GET" && parts.length === 1) {
-            return {api_keys: db.apiKeys.map((k) => ({...k}))};
+            const paged = paginate(db.apiKeys.map((k) => ({...k})), query);
+            if (Array.isArray(paged)) return {api_keys: paged};
+            return {api_keys: paged.items, total: paged.total};
         }
         if (method === "GET" && parts.length === 2 && parts[1] === "check-access") {
             return {valid: true, access_rights: ["get_license_info"], message: "Demo key is valid"};
@@ -508,6 +559,7 @@ export async function mockRequest(method, endpoint, body) {
                 created_at: new Date().toISOString(),
             };
             db.apiKeys.unshift(created);
+            logAudit("api_key.create", "api_key", created.id, {access_rights: created.access_rights});
             save();
             return {...created};
         }
@@ -528,12 +580,14 @@ export async function mockRequest(method, endpoint, body) {
                 for (const field of ["associated_ip", "associated_domain", "associated_directory", "single_use"]) {
                     if (body && body[field] !== undefined) key[field] = body[field];
                 }
+                logAudit("api_key.update", "api_key", id, null);
                 save();
                 return {...key};
             }
             if (method === "DELETE") {
                 requireRole(["admin", "manager"]);
                 db.apiKeys = db.apiKeys.filter((k) => k.id !== id);
+                logAudit("api_key.delete", "api_key", id, null);
                 save();
                 return {message: "API Key deleted"};
             }
@@ -543,7 +597,7 @@ export async function mockRequest(method, endpoint, body) {
     // ---- Users --------------------------------------------------------------
     if (parts[0] === "users") {
         if (method === "GET" && parts.length === 1) {
-            return db.users.map((u) => ({...u}));
+            return paginate(db.users.map((u) => ({...u})), query);
         }
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin"]);
@@ -559,6 +613,7 @@ export async function mockRequest(method, endpoint, body) {
                 created_at: new Date().toISOString(),
             };
             db.users.push(created);
+            logAudit("user.create", "user", created.id, {email: created.email, role: created.role});
             save();
             return {...created};
         }
@@ -570,6 +625,7 @@ export async function mockRequest(method, endpoint, body) {
                 requireRole(["admin"]);
                 if (body && body.role && !ROLES.includes(body.role)) fail(400, `Invalid role: ${body.role}`);
                 Object.assign(user, body || {});
+                logAudit(body && body.role ? "user.role_change" : "user.update", "user", id, {email: user.email, role: user.role});
                 save();
                 return {...user};
             }
@@ -578,6 +634,7 @@ export async function mockRequest(method, endpoint, body) {
                 const admins = db.users.filter((u) => u.role === "admin");
                 if (user.role === "admin" && admins.length <= 1) fail(400, "Cannot delete the last admin");
                 db.users = db.users.filter((u) => u.id !== id);
+                logAudit("user.delete", "user", id, {email: user.email});
                 save();
                 return {message: "User deleted"};
             }
@@ -641,6 +698,7 @@ export async function mockRequest(method, endpoint, body) {
             if (method === "PUT") {
                 requireRole(["admin", "manager"]);
                 db.settings[key] = String(body && body.value !== undefined ? body.value : "");
+                logAudit("setting.update", "setting", key, {value: db.settings[key]});
                 save();
                 return {key, value: db.settings[key]};
             }
@@ -648,10 +706,22 @@ export async function mockRequest(method, endpoint, body) {
                 requireRole(["admin", "manager"]);
                 if (!(key in db.settings)) fail(404, "Setting not found");
                 delete db.settings[key];
+                logAudit("setting.delete", "setting", key, null);
                 save();
                 return {message: `Setting '${key}' deleted successfully`};
             }
         }
+    }
+
+    // ---- Audit logs ---------------------------------------------------------
+    if (parts[0] === "audit-logs" && method === "GET" && parts.length === 1) {
+        requireRole(["admin", "manager"]);
+        const entity = query.get("entity");
+        const actor = query.get("actor");
+        let list = [...(db.audit_logs || [])];
+        if (entity) list = list.filter((l) => l.entity === entity);
+        if (actor) list = list.filter((l) => (l.actor_email || "").toLowerCase().includes(actor.toLowerCase()));
+        return paginate(list, query);
     }
 
     // ---- System -------------------------------------------------------------

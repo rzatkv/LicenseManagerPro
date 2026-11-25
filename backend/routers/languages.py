@@ -4,7 +4,7 @@ Built-in en/fa live in the frontend, not in this table.
 """
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -16,6 +16,7 @@ from schemas import (
 )
 from services import languages as language_service
 from utils.auth import get_current_user
+from utils.pagination import Pagination, paginate_list, pagination_params
 from utils.permissions import require_permission
 
 router = APIRouter()
@@ -23,14 +24,20 @@ router = APIRouter()
 
 @router.get("", response_model=List[CustomLanguageListItem])
 def list_languages(
+    response: Response,
+    page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
     """List custom languages (code + name only)."""
-    return [
-        language_service.serialize_language(lang)
-        for lang in language_service.list_languages(db)
-    ]
+    return paginate_list(
+        [
+            language_service.serialize_language(lang)
+            for lang in language_service.list_languages(db)
+        ],
+        response,
+        page,
+    )
 
 
 @router.get("/{code}", response_model=CustomLanguageResponse)

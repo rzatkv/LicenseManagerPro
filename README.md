@@ -12,6 +12,17 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.1.0
+
+- **Design refresh (KimiaAi design language):** glassmorphism surfaces with backdrop blur, the signature magenta → pink → violet gradient as the primary accent, 16–24px radii, pill chips/buttons, soft layered shadows — in both light and dark themes, and in RTL. Pure-CSS animations throughout: page fade/slide, staggered cards, button lift + glow, shimmer skeletons, animated charts, crossfading highlights slider, pulsing active-status dots, smooth theme transitions.
+- **Complete translations:** 375 UI strings in English and Persian (was 259) — including the full ApiDocs prose, toasts, validation errors, confirm dialogs and empty states — with `npm run check-i18n` parity-checking every key. New shared components: Toasts, ConfirmModal, Skeleton, CopyButton, EmptyState, ErrorBoundary.
+- **Production hardening:** paginated lists (`skip`/`limit`, `X-Total-Count` header), in-memory rate limiting on login/register (10/min) and license-validate/check-access (60/min, env-overridable), security-headers + request-ID/logging middleware, `GET /api/system/ready` readiness probe, and a full audit log (`GET /api/audit-logs`, admin/manager only) recording every create/update/delete and role change, with its own Audit Logs page in the sidebar.
+- **Lists:** search/filter on Licenses, Products, API Keys, Users and Audit Logs, with server pagination (10 per page).
+
+### Production checklist
+
+Before running the API in production: (1) set a long random `SECRET_KEY` in `.env` (the app logs a warning at startup if the shipped default is still in use); (2) set `CORS_ORIGINS` explicitly to your frontend origin(s); (3) use MySQL (`DATABASE_URL=mysql+pymysql://...`) instead of SQLite; (4) run `POST /api/system/check-expiring?days=7` from cron daily so expiry webhooks fire; (5) back up the database regularly; (6) put the API behind HTTPS (e.g. Nginx as a reverse proxy); (7) tune the rate limits (`RATE_LIMIT_AUTH_PER_MINUTE`, `RATE_LIMIT_VALIDATE_PER_MINUTE`) for your traffic.
+
 ## What's new in v2.0.0
 
 - **Products & billing cycles:** products with monthly / quarterly / semiannual / annual / biennial / lifetime cycles; license expiry is computed automatically from the product's cycle. Licenses can still be created without a product (the old flow).

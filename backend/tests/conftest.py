@@ -22,6 +22,17 @@ from database import Base, SessionLocal, engine, get_db  # noqa: E402
 from main import app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Each test starts with a clean rate-limiter store, so the shared
+    TestClient IP ("testclient") never carries hits over from another test."""
+    from utils.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    yield
+    reset_rate_limits()
+
+
 @pytest.fixture()
 def client():
     """TestClient with fresh tables and get_db bound to the test engine."""

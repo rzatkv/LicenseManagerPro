@@ -3,7 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models import SystemSetting
 from schemas import SystemSettingRequest, SystemSettingResponse
+from services.audit import log_audit
 from services.settings import (
     delete_setting,
     get_all_settings,
@@ -41,12 +43,23 @@ def update_system_setting(
     key: str,
     request: SystemSettingRequest,
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("settings:write")),
 ):
     """Create or update one setting."""
     if key != request.key:
         raise HTTPException(status_code=400, detail="Key in path and body must match")
+    exists = (
+        db.query(SystemSetting).filter(SystemSetting.key == key).first() is not None
+    )
     update_setting(db, key, request.value)
+    log_audit(
+        db,
+        current_user.email,
+        "setting.update" if exists else "setting.create",
+        "setting",
+        key,
+        {"value": request.value},
+    )
     return {"message": f"Setting '{key}' updated successfully"}
 
 
@@ -55,8 +68,9 @@ def delete_system_setting(
     key: str,
     db: Session = Depends(get_db),
     # Managers may write settings but not delete them (see permissions map).
-    _current_user=Depends(require_permission("settings:delete")),
+    current_user=Depends(require_permission("settings:delete")),
 ):
     """Delete one setting."""
     delete_setting(db, key)
+    log_audit(db, current_user.email, "setting.delete", "setting", key)
     return {"message": f"Setting '{key}' deleted successfully"}

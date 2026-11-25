@@ -15,30 +15,31 @@
 
 table {
     width: 100%;
-    border-collapse: collapse;
 }
 
 table th,
 table td {
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 10px;
     text-align: center;
 }
 
-table th {
-    background-color: var(--accent);
-    color: var(--surface);
-}
-
 table .delete-btn {
     padding: 5px 10px;
-    background-color: var(--danger);
-    color: var(--surface);
+    background: var(--danger);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
 }
 
-table .delete-btn:hover {
-    background-color: var(--danger);
+table .edit-btn {
+    padding: 5px 10px;
+    background: var(--success);
+    color: var(--on-accent);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
 }
+.add-api-key-form { display: flex; flex-direction: column; gap: 8px; border-radius: 20px; padding: 16px; }
+.add-api-key-form input { width: 100%; box-sizing: border-box; }

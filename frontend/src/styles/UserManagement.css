@@ -19,6 +19,8 @@
     flex-direction: column;
     align-items: center;
     gap: 10px;
+    border-radius: 20px;
+    padding: 20px;
 }
 
 .add-user-form input,
@@ -26,50 +28,33 @@
     padding: 10px;
     width: 200px;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 14px;
 }
 
 .add-user-form button {
     padding: 10px 20px;
-    background-color: var(--accent);
-    color: var(--surface);
-    border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
-}
-
-.add-user-form button:hover {
-    background-color: var(--accent-hover);
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
 }
 
 table th,
 table td {
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 10px;
     text-align: center;
 }
 
-table th {
-    background-color: var(--accent);
-    color: var(--surface);
-}
-
 table .delete-btn {
     padding: 5px 10px;
-    background-color: var(--danger);
-    color: var(--surface);
+    background: var(--danger);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
-}
-
-table .delete-btn:hover {
-    background-color: var(--danger);
 }
 .hint { color: var(--muted); font-size: 13px; }
 .dashboard-section { margin: 30px auto; max-width: 900px; }

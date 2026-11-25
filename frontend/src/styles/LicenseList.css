@@ -8,9 +8,7 @@
 }
 
 .filter-container {
-    margin-bottom: 20px;
     display: flex;
-    justify-content: flex-start;
     align-items: center;
     gap: 10px;
 }
@@ -18,7 +16,7 @@
 .filter-container select {
     padding: 5px 10px;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 999px;
 }
 
 .error-message {
@@ -29,52 +27,46 @@
 
 table {
     width: 100%;
-    border-collapse: collapse;
 }
 
 table th,
 table td {
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 10px;
     text-align: center;
 }
 
-table th {
-    background-color: var(--accent);
-    color: var(--surface);
-}
-
 table .view-btn {
     padding: 5px 10px;
-    background-color: var(--success);
-    color: var(--surface);
+    background: var(--success);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
 }
+table .view-btn:hover { box-shadow: 0 6px 16px rgba(34, 197, 94, 0.35); }
 
-table .view-btn:hover {
-    background-color: var(--success);
+table .renew-btn {
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
 }
 
 table .delete-btn {
     padding: 5px 10px;
-    background-color: var(--danger);
-    color: var(--surface);
+    background: var(--danger);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
 }
-
-table .delete-btn:hover {
-    background-color: var(--danger);
-}
+table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
 .hint { color: var(--muted); font-size: 12px; display: block; }
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }
 .validate-form input { flex: 1; min-width: 140px; }
-.license-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; color: var(--text); }
-.validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.license-detail { border-radius: 20px; padding: 16px; color: var(--text); }
+.validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
 .dashboard-empty { text-align: center; color: var(--muted); }
-.add-license-form { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.add-license-form { display: flex; flex-direction: column; gap: 8px; border-radius: 20px; padding: 16px; }
 .add-license-form input, .add-license-form select { width: 100%; box-sizing: border-box; }

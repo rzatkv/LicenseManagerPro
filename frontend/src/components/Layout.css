@@ -1,18 +1,60 @@
 .layout { display: flex; min-height: 100vh; background: var(--bg); color: var(--text); }
-.layout-sidebar { width: 240px; flex-shrink: 0; background: var(--surface); border-inline-end: 1px solid var(--border); padding: 16px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.layout-brand { font-size: 18px; font-weight: 700; color: var(--accent); padding: 8px 10px 16px; }
-.layout-nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 2px 0; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 15px; }
-.layout-nav-link:hover { background: var(--surface-2); }
-.layout-nav-link.active { background: var(--accent); color: var(--on-accent); }
+.layout-sidebar {
+  width: 248px; flex-shrink: 0;
+  background: var(--glass);
+  border-inline-end: 1px solid var(--glass-border);
+  padding: 16px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.layout-brand {
+  font-size: 19px; font-weight: 700; padding: 8px 10px 16px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.layout-nav-section { margin-bottom: 8px; }
+.layout-nav-section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted-2); padding: 14px 12px 6px;
+}
+.layout-nav-link {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 2px 0;
+  border-radius: 16px; color: var(--text); text-decoration: none; font-size: 15px;
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.layout-nav-link:hover { background: var(--surface-2); transform: translateX(3px); }
+[dir="rtl"] .layout-nav-link:hover { transform: translateX(-3px); }
+.layout-nav-link.active {
+  background: var(--accent-gradient);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 6px 16px rgba(109, 93, 246, 0.35);
+}
+.layout-nav-link.active:hover { transform: none; }
 .layout-nav-icon { display: inline-flex; flex-shrink: 0; }
 .layout-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.layout-topbar { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; flex-wrap: wrap; }
-.layout-title { font-size: 20px; margin: 0; flex: 1; color: var(--text); }
+.layout-topbar {
+  display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+  background: var(--glass);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky; top: 0; z-index: 50; flex-wrap: wrap;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.layout-title {
+  font-size: 20px; margin: 0; flex: 1; color: var(--text);
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 .layout-topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.layout-select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 14px; }
+.layout-select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; }
 .layout-user { font-size: 13px; color: var(--muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layout-logout { width: auto; padding: 6px 14px; font-size: 14px; }
-.layout-demo-badge { background: #f59e0b; color: #111; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 999px; }
+.layout-demo-badge { background: var(--warning); color: var(--on-warning); font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 999px; }
 .layout-hamburger { display: none; width: auto; padding: 8px 10px; background: transparent; border: 1px solid var(--border); }
 .layout-hamburger span { display: block; width: 18px; height: 2px; background: var(--text); margin: 3px 0; }
 .layout-backdrop { display: none; }

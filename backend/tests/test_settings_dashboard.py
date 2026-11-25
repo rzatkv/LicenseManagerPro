@@ -6,7 +6,7 @@ def test_settings_crud(client, auth_headers):
     assert response.status_code == 200
     settings = response.json()
     assert settings["daily_request_limit"] == "100"
-    assert settings["app_version"] == "2.0.0"
+    assert settings["app_version"] == "2.1.0"
 
     response = client.put(
         "/api/settings/daily_request_limit",
@@ -82,7 +82,7 @@ def test_dashboard_summary(client, auth_headers):
 def test_system_info_and_check_updates(client, auth_headers):
     response = client.get("/api/system/info", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["version"] == "2.0.0"
+    assert response.json()["version"] == "2.1.0"
     assert response.json()["lastUpdated"]
 
     response = client.get("/api/system/check-updates", headers=auth_headers)

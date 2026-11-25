@@ -2,6 +2,8 @@ import React, {useEffect, useState, useCallback, useMemo} from "react";
 import {Link, useNavigate} from "react-router-dom";
 import {get, post} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import {SkeletonCard} from "../components/Skeleton";
 import "../styles/Dashboard.css";
 
 const daysLeft = (expiresAt) => {
@@ -9,20 +11,26 @@ const daysLeft = (expiresAt) => {
     return Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
 };
 
-const STATUS_COLORS = {active: "#28a745", inactive: "#6c757d", expired: "#dc3545", revoked: "#f59e0b"};
+const STATUS_COLORS = {active: "var(--success)", inactive: "var(--muted-2)", expired: "var(--danger)", revoked: "var(--warning)"};
 
-function DonutChart({data, title}) {
+function DonutChart({data, title, t}) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
     const total = Object.values(data).reduce((a, b) => a + b, 0);
     const size = 180;
     const r = 70;
     const cx = size / 2;
     const cy = size / 2;
+    const circumference = 2 * Math.PI * r;
     let offset = 0;
     const segments = Object.entries(data).filter(([, v]) => v > 0).map(([key, value]) => {
         const frac = total ? value / total : 0;
-        const dash = frac * 2 * Math.PI * r;
+        const dash = mounted ? frac * circumference : 0;
         const seg = {key, value, dash, offset};
-        offset += dash;
+        offset += frac * circumference;
         return seg;
     });
     return (
@@ -30,12 +38,12 @@ function DonutChart({data, title}) {
             <h3>{title}</h3>
             {total === 0 ? <p className="dashboard-empty">—</p> : (
                 <div className="chart-body">
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
+                    <svg className="chart-anim" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
                         <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-2)" strokeWidth="28" />
                         {segments.map((s) => (
-                            <circle key={s.key} cx={cx} cy={cy} r={r} fill="none"
-                                stroke={STATUS_COLORS[s.key] || "#007bff"} strokeWidth="28"
-                                strokeDasharray={`${s.dash} ${2 * Math.PI * r - s.dash}`}
+                            <circle key={s.key} className="chart-seg" cx={cx} cy={cy} r={r} fill="none"
+                                stroke={STATUS_COLORS[s.key] || "var(--accent)"} strokeWidth="28"
+                                strokeDasharray={`${s.dash} ${circumference - s.dash}`}
                                 strokeDashoffset={-s.offset}
                                 transform={`rotate(-90 ${cx} ${cy})`} />
                         ))}
@@ -44,8 +52,8 @@ function DonutChart({data, title}) {
                     <ul className="chart-legend">
                         {segments.map((s) => (
                             <li key={s.key}>
-                                <span className="legend-dot" style={{background: STATUS_COLORS[s.key] || "#007bff"}} />
-                                {s.key}: {s.value}
+                                <span className="legend-dot" style={{background: STATUS_COLORS[s.key] || "var(--accent)"}} />
+                                {t(`common.${s.key}`) !== `common.${s.key}` ? t(`common.${s.key}`) : s.key}: {s.value}
                             </li>
                         ))}
                     </ul>
@@ -56,6 +64,11 @@ function DonutChart({data, title}) {
 }
 
 function BarChart({data, title, color}) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
     const max = Math.max(1, ...data.map((d) => d.value));
     const width = 320;
     const height = 180;
@@ -63,9 +76,9 @@ function BarChart({data, title, color}) {
     return (
         <div className="chart-card">
             <h3>{title}</h3>
-            <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
+            <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
                 {data.map((d, i) => {
-                    const h = (d.value / max) * (height - 50);
+                    const h = mounted ? (d.value / max) * (height - 50) : 0;
                     const x = 10 + i * ((width - 20) / Math.max(1, data.length)) + (((width - 20) / Math.max(1, data.length)) - barW) / 2;
                     return (
                         <g key={d.label}>
@@ -82,12 +95,13 @@ function BarChart({data, title, color}) {
 
 function Dashboard() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [summary, setSummary] = useState(null);
     const [licenses, setLicenses] = useState([]);
     const [apiKeys, setApiKeys] = useState([]);
     const [users, setUsers] = useState([]);
     const [error, setError] = useState("");
-    const [notice, setNotice] = useState("");
+    const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
     const navigate = useNavigate();
@@ -105,6 +119,7 @@ function Dashboard() {
     }, [paused, slides.length]);
 
     const fetchAll = useCallback(async () => {
+        setLoading(true);
         try {
             const [summaryData, licensesData, keysData, usersData] = await Promise.all([
                 get("/dashboard/summary"),
@@ -120,8 +135,11 @@ function Dashboard() {
         } catch (err) {
             if (err.status === 401) { navigate("/"); return; }
             setError(err.message || t("common.failedFetch"));
+            toast.error(err.message || t("common.failedFetch"));
+        } finally {
+            setLoading(false);
         }
-    }, [navigate, t]);
+    }, [navigate, t, toast]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -129,12 +147,11 @@ function Dashboard() {
         try {
             const renewed = await post(`/licenses/${id}/renew`, {});
             setLicenses((prev) => prev.map((lic) => (lic.id === id ? renewed : lic)));
-            setNotice(t("dashboard.renewed"));
-            setTimeout(() => setNotice(""), 3000);
+            toast.success(t("dashboard.renewed"));
             const summaryData = await get("/dashboard/summary");
             setSummary(summaryData);
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -171,8 +188,30 @@ function Dashboard() {
             .sort((a, b) => b.value - a.value).slice(0, 6);
     }, [licenses]);
 
-    if (error) return <div className="dashboard-error">{error}</div>;
-    if (!summary) return <div className="dashboard-loading">{t("common.loading")}</div>;
+    if (error && !summary) {
+        return (
+            <div className="dashboard-container page-enter">
+                <div className="glass-card error-boundary">
+                    <h1 className="gradient-text">{t("common.errorTitle")}</h1>
+                    <p style={{color: "var(--muted)"}}>{error}</p>
+                    <button onClick={fetchAll}>{t("common.retry")}</button>
+                </div>
+            </div>
+        );
+    }
+
+    if (loading || !summary) {
+        return (
+            <div className="dashboard-container page-enter">
+                <h1 className="gradient-text">{t("dashboard.title")}</h1>
+                <SkeletonCard lines={2} />
+                <div className="dashboard-summary">
+                    {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} lines={2} />)}
+                </div>
+                <SkeletonCard lines={4} />
+            </div>
+        );
+    }
 
     const expiringSoon = licenses
         .filter((lic) => { const left = daysLeft(lic.expires_at); return lic.status === "active" && left !== null && left <= 30; })
@@ -182,31 +221,37 @@ function Dashboard() {
     const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, 5);
 
     return (
-        <div className="dashboard-container">
-            <h1>{t("dashboard.title")}</h1>
-            {notice && <p className="dashboard-notice">{notice}</p>}
+        <div className="dashboard-container page-enter">
+            <h1 className="gradient-text">{t("dashboard.title")}</h1>
 
-            <div className="highlights-slider" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-                <div className="slide">
+            <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+                <div className="slide slide-fade" key={slide}>
                     <h3>{slides[slide].title}</h3>
                     <p>{slides[slide].text}</p>
                 </div>
                 <div className="slider-dots">
                     {slides.map((_, i) => (
-                        <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`Slide ${i + 1}`} onClick={() => setSlide(i)} />
+                        <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
                     ))}
                 </div>
             </div>
 
             <div className="dashboard-summary">
-                <div className="summary-box"><h2>{t("dashboard.apiKeys")}</h2><p>{summary.apiKeysCount}</p></div>
-                <div className="summary-box"><h2>{t("dashboard.users")}</h2><p>{summary.usersCount}</p></div>
-                <div className="summary-box"><h2>{t("dashboard.activeLicenses")}</h2><p>{summary.activeLicenses}</p></div>
-                <div className="summary-box"><h2>{t("dashboard.inactiveLicenses")}</h2><p>{summary.inactiveLicenses}</p></div>
+                {[
+                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
+                    {label: t("dashboard.users"), value: summary.usersCount},
+                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
+                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
+                ].map((box, i) => (
+                    <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
+                        <h2>{box.label}</h2>
+                        <p>{box.value}</p>
+                    </div>
+                ))}
             </div>
 
             <div className="charts-row">
-                <DonutChart data={statusCounts} title={t("dashboard.byStatus")} />
+                <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />
                 <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />
                 <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />
             </div>
@@ -249,7 +294,7 @@ function Dashboard() {
                 {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
                     <table>
                         <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
-                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td>{lic.key}</td><td>{lic.status}</td><td>{lic.created_at}</td></tr>))}</tbody>
+                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td>{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td>{lic.created_at}</td></tr>))}</tbody>
                     </table>
                 )}
                 <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>

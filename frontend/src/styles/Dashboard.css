@@ -16,13 +16,18 @@
 }
 
 .summary-box {
-    background: var(--surface);
-    border-radius: 10px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
     padding: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     text-align: center;
     width: 200px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.summary-box:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 
 .summary-box h2 {
     margin-bottom: 10px;
@@ -77,15 +82,19 @@
 .action-btn {
     display: inline-block;
     padding: 10px 18px;
+    background: var(--accent-gradient);
     background-color: var(--accent);
     color: var(--on-accent);
-    border-radius: 5px;
+    border-radius: 999px;
     text-decoration: none;
     font-size: 15px;
+    font-weight: 600;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .action-btn:hover {
-    background-color: var(--accent-hover);
+    text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(109, 93, 246, 0.35);
 }
 
 .dashboard-section {
@@ -95,34 +104,24 @@
 
 .dashboard-section table {
     width: 100%;
-    border-collapse: collapse;
     margin-top: 10px;
 }
 
 .dashboard-section table th,
 .dashboard-section table td {
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 8px;
     text-align: center;
 }
 
-.dashboard-section table th {
-    background-color: var(--accent);
-    color: var(--surface);
-}
-
 .dashboard-section table td button {
     padding: 5px 10px;
-    background-color: var(--success);
-    color: var(--surface);
+    background: var(--success);
+    color: var(--on-accent);
     border: none;
-    border-radius: 5px;
+    border-radius: 999px;
     cursor: pointer;
     font-size: 14px;
-}
-
-.dashboard-section table td button:hover {
-    background-color: var(--success);
 }
 
 .dashboard-empty {
@@ -132,15 +131,34 @@
 
 /* v2.0 charts + highlights slider */
 .charts-row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 24px auto; max-width: 1000px; }
-.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); flex: 1; min-width: 260px; max-width: 340px; }
+.chart-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  flex: 1; min-width: 260px; max-width: 340px;
+}
 .chart-card h3 { text-align: center; font-size: 15px; margin-bottom: 12px; color: var(--text); }
 .chart-body { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .chart-legend { list-style: none; padding: 0; margin: 0; font-size: 13px; color: var(--text); }
 .chart-legend li { margin: 4px 0; display: flex; align-items: center; gap: 6px; }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.highlights-slider { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 0 auto 20px; max-width: 900px; box-shadow: var(--shadow); text-align: center; }
+.highlights-slider {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 16px 20px; margin: 0 auto 20px; max-width: 900px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
 .highlights-slider .slide h3 { color: var(--accent); margin-bottom: 6px; }
 .highlights-slider .slide p { color: var(--muted); margin: 0; }
 .slider-dots { margin-top: 12px; display: flex; gap: 8px; justify-content: center; }
-.slider-dot { width: 10px; height: 10px; padding: 0; border-radius: 50%; background: var(--border); border: none; cursor: pointer; }
+.slider-dot { width: 10px; height: 10px; padding: 0; border-radius: 50%; background: var(--border); border: none; cursor: pointer; box-shadow: none; }
+.slider-dot:hover { transform: none; box-shadow: none; }
 .slider-dot.active { background: var(--accent); }

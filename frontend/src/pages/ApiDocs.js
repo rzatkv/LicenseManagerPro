@@ -143,42 +143,43 @@ def verify_signature(raw_body: bytes, secret: str, header: str) -> bool:
     return hmac.compare_digest(expected, header or "")`;
 
 const ENDPOINTS = [
-  ["POST", "/api/auth/login", "Login, returns a JWT access token"],
-  ["POST", "/api/auth/register", "Create a user (first admin is open; afterwards admin only)"],
-  ["GET", "/api/products", "List products"],
-  ["POST", "/api/products", "Create a product (admin/manager)"],
-  ["GET", "/api/products/{id}", "Get one product"],
-  ["PUT", "/api/products/{id}", "Update a product (admin/manager)"],
-  ["DELETE", "/api/products/{id}", "Delete a product — 400 while licenses reference it"],
-  ["POST", "/api/products/{id}/test-webhook", "Send a test webhook, returns {success, status_code}"],
-  ["GET", "/api/licenses?filter=&status=&search=", "List licenses"],
-  ["POST", "/api/licenses", "Create a license (product_id + billing_cycle compute expiry)"],
-  ["GET", "/api/licenses/{id}", "Get one license"],
-  ["PUT", "/api/licenses/{id}", "Update a license"],
-  ["DELETE", "/api/licenses/{id}", "Delete a license"],
-  ["POST", "/api/licenses/{id}/renew", "Renew by billing cycle, or {extend_days} to override"],
-  ["POST", "/api/licenses/validate", "Validate a key, optionally with domain / ip / install_path locks"],
-  ["GET", "/api/api-keys", "List API keys (JWT)"],
-  ["POST", "/api/api-keys", "Create an API key"],
-  ["GET", "/api/api-keys/check-access", "Public: validate a key via the api-key header"],
-  ["GET", "/api/users/me", "The current user"],
-  ["GET", "/api/users", "List users (admin)"],
-  ["POST", "/api/users", "Create a user with a role (admin)"],
-  ["PUT", "/api/users/{id}", "Update role / active flag (admin)"],
-  ["DELETE", "/api/users/{id}", "Delete a user (admin)"],
-  ["GET", "/api/settings", "All settings"],
-  ["PUT", "/api/settings/{key}", "Create or update a setting"],
-  ["DELETE", "/api/settings/{key}", "Delete a setting"],
-  ["GET", "/api/system/info", "App version and last update"],
-  ["GET", "/api/system/check-updates", "Compare running vs latest version"],
-  ["POST", "/api/system/update", "Record the pending version as applied"],
-  ["POST", "/api/system/check-expiring?days=7", "Notify expiring/expired licenses (admin/manager)"],
-  ["GET", "/api/webhooks/deliveries?product_id=&limit=50", "Recent webhook deliveries"],
-  ["GET", "/api/languages", "List languages (code + name)"],
-  ["GET", "/api/languages/{code}", "Full translations for a language"],
-  ["PUT", "/api/languages/{code}", "Create or update a language"],
-  ["DELETE", "/api/languages/{code}", "Delete a custom language"],
-  ["GET", "/api/dashboard/summary", "Dashboard counts"],
+  ["POST", "/api/auth/login", "docs.ep.authLogin"],
+  ["POST", "/api/auth/register", "docs.ep.authRegister"],
+  ["GET", "/api/products", "docs.ep.productsList"],
+  ["POST", "/api/products", "docs.ep.productsCreate"],
+  ["GET", "/api/products/{id}", "docs.ep.productsGet"],
+  ["PUT", "/api/products/{id}", "docs.ep.productsUpdate"],
+  ["DELETE", "/api/products/{id}", "docs.ep.productsDelete"],
+  ["POST", "/api/products/{id}/test-webhook", "docs.ep.productsTestWebhook"],
+  ["GET", "/api/licenses?filter=&status=&search=", "docs.ep.licensesList"],
+  ["POST", "/api/licenses", "docs.ep.licensesCreate"],
+  ["GET", "/api/licenses/{id}", "docs.ep.licensesGet"],
+  ["PUT", "/api/licenses/{id}", "docs.ep.licensesUpdate"],
+  ["DELETE", "/api/licenses/{id}", "docs.ep.licensesDelete"],
+  ["POST", "/api/licenses/{id}/renew", "docs.ep.licensesRenew"],
+  ["POST", "/api/licenses/validate", "docs.ep.licensesValidate"],
+  ["GET", "/api/api-keys", "docs.ep.apiKeysList"],
+  ["POST", "/api/api-keys", "docs.ep.apiKeysCreate"],
+  ["GET", "/api/api-keys/check-access", "docs.ep.apiKeysCheckAccess"],
+  ["GET", "/api/users/me", "docs.ep.usersMe"],
+  ["GET", "/api/users", "docs.ep.usersList"],
+  ["POST", "/api/users", "docs.ep.usersCreate"],
+  ["PUT", "/api/users/{id}", "docs.ep.usersUpdate"],
+  ["DELETE", "/api/users/{id}", "docs.ep.usersDelete"],
+  ["GET", "/api/settings", "docs.ep.settingsList"],
+  ["PUT", "/api/settings/{key}", "docs.ep.settingsUpdate"],
+  ["DELETE", "/api/settings/{key}", "docs.ep.settingsDelete"],
+  ["GET", "/api/system/info", "docs.ep.systemInfo"],
+  ["GET", "/api/system/check-updates", "docs.ep.systemCheckUpdates"],
+  ["POST", "/api/system/update", "docs.ep.systemUpdate"],
+  ["POST", "/api/system/check-expiring?days=7", "docs.ep.systemCheckExpiring"],
+  ["GET", "/api/webhooks/deliveries?product_id=&limit=50", "docs.ep.webhooksDeliveries"],
+  ["GET", "/api/languages", "docs.ep.languagesList"],
+  ["GET", "/api/languages/{code}", "docs.ep.languagesGet"],
+  ["PUT", "/api/languages/{code}", "docs.ep.languagesUpdate"],
+  ["DELETE", "/api/languages/{code}", "docs.ep.languagesDelete"],
+  ["GET", "/api/dashboard/summary", "docs.ep.dashboardSummary"],
+  ["GET", "/api/audit-logs?skip=&limit=&entity=&actor=", "docs.ep.auditLogs"],
 ];
 
 function Section({id, title, children}) {
@@ -210,9 +211,8 @@ Authorization: Bearer <JWT>`}</pre>
 
       <Section id="apikeys" title={t("docs.apiKeys")}>
         <p>
-          External clients authenticate with an API key, not a JWT. Create one in the
-          API Keys page (or POST /api/api-keys with a JWT), then send it in the{" "}
-          <code>api-key</code> header — not <code>X-API-Key</code>:
+          {t("docs.apiKeysText1")}{" "}
+          <code>api-key</code>
         </p>
         <pre>{`GET /api/api-keys/check-access
 api-key: lmp_...
@@ -224,14 +224,7 @@ api-key: lmp_...
 #  403  Invalid API Key / API Key has expired / Single-use API Key already used
 #  403  API Key is restricted to another IP / domain / directory
 #  429  Daily request limit exceeded`}</pre>
-        <p>
-          The check enforces expiry, single-use consumption (a single-use key is marked
-          consumed on its first successful check), IP / domain / directory restrictions,
-          and the daily request limit (system setting <code>daily_request_limit</code>,
-          default 100 requests per key per day). Each successful check increments the
-          key&apos;s usage counter for today. The CRUD endpoints for API keys themselves
-          require a JWT.
-        </p>
+        <p>{t("docs.apiKeysText2")}</p>
       </Section>
 
       <Section id="endpoints" title={t("docs.endpoints")}>
@@ -244,7 +237,7 @@ api-key: lmp_...
               <tr key={method + path}>
                 <td><span className="badge badge-accent">{method}</span></td>
                 <td className="docs-path">{path}</td>
-                <td>{purpose}</td>
+                <td>{t(purpose)}</td>
               </tr>
             ))}
           </tbody>
@@ -252,44 +245,44 @@ api-key: lmp_...
       </Section>
 
       <Section id="curl" title={t("docs.curl")}>
-        <h3>Create license</h3>
+        <h3>{t("docs.curlCreate")}</h3>
         <pre>{CURL_CREATE}</pre>
-        <h3>Validate license</h3>
+        <h3>{t("docs.curlValidate")}</h3>
         <pre>{CURL_VALIDATE}</pre>
-        <h3>Renew license</h3>
+        <h3>{t("docs.curlRenew")}</h3>
         <pre>{CURL_RENEW}</pre>
       </Section>
 
       <Section id="whmcs" title={t("docs.whmcs")}>
-        <p>Two pieces: a hook that validates the customer&apos;s license key (with the domain) on client-area pages, and a server module with <code>ValidateLicense</code> / <code>RenewLicense</code> functions for provisioning.</p>
-        <h3>Hook — validate on page load</h3>
+        <p>{t("docs.whmcsText")}</p>
+        <h3>{t("docs.hookTitle")}</h3>
         <pre>{WHMCS_HOOK}</pre>
-        <h3>Server module — ValidateLicense / RenewLicense</h3>
+        <h3>{t("docs.moduleTitle")}</h3>
         <pre>{WHMCS_MODULE}</pre>
-        <p>Steps: 1) create the product in License Manager Pro and note its id; 2) in WHMCS, add a custom field for the license key (and one for the license id); 3) on product creation call POST /api/licenses with product_id + billing_cycle; 4) store the returned key in the custom field; 5) the hook above (or the module&apos;s ValidateLicense) checks it on each use; 6) on invoice payment call RenewLicense.</p>
+        <p>{t("docs.whmcsSteps")}</p>
       </Section>
 
       <Section id="wordpress" title={t("docs.wordpress")}>
-        <p>Validate the license when an order completes and when the plugin is activated, sending the site domain (and install path) so the license locks apply.</p>
+        <p>{t("docs.wordpressText")}</p>
         <pre>{WP_SNIPPET}</pre>
       </Section>
 
       <Section id="webhooks" title={t("docs.webhooks")}>
-        <p>Set a webhook URL and events on a product (Products page). Events: license.created, license.renewed, license.revoked, license.expiring, license.expired, license.validated_failed. Payload example:</p>
+        <p>{t("docs.webhooksText")}</p>
         <pre>{WEBHOOK_PAYLOAD}</pre>
-        <h3>Signature verification — PHP</h3>
+        <h3>{t("docs.sigPhp")}</h3>
         <pre>{SIG_PHP}</pre>
-        <h3>Signature verification — Python</h3>
+        <h3>{t("docs.sigPy")}</h3>
         <pre>{SIG_PY}</pre>
-        <p>Expiry notifications: run this daily from cron (admin/manager JWT) to trigger the expiring/expired webhook events and notifications:</p>
+        <p>{t("docs.webhooksCronText")}</p>
         <pre>{`curl -X POST "http://127.0.0.1:8000/api/system/check-expiring?days=7" \\
   -H "Authorization: Bearer <JWT>"
 # => {"expiring_notified": 2, "expired_notified": 1}`}</pre>
       </Section>
 
       <Section id="locking" title={t("docs.locking")}>
-        <p>A license created from a product must use one of that product&apos;s billing cycles. Expiry is computed in whole calendar months from creation: monthly +1, quarterly +3, semiannual +6, annual +12, biennial +24; lifetime never expires (expires_at is null) and cannot be renewed. Renew extends from the current expiry (or from today when already expired) by the license&apos;s own cycle; sending <code>extend_days</code> overrides the cycle.</p>
-        <p>Locking: a license can list allowed domains, allowed IPs and an install path. POST /api/licenses/validate accepts optional <code>domain</code>, <code>ip</code> and <code>install_path</code>; when the license has locks, a value that does not match returns <code>valid: false</code> with a <code>reason</code> (and fires a license.validated_failed webhook). A license without locks validates on status alone.</p>
+        <p>{t("docs.lockingText1")}</p>
+        <p>{t("docs.lockingText2")}</p>
       </Section>
     </div>
   );

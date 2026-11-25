@@ -8,6 +8,8 @@ see the README.
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -19,6 +21,19 @@ from utils.auth import require_admin
 from utils.permissions import require_admin_or_manager
 
 router = APIRouter()
+
+
+@router.get("/ready")
+def readiness(db: Session = Depends(get_db)):
+    """Readiness probe (no auth): 200 when the DB answers, else 503."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - readiness reports any DB failure
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "detail": str(exc)},
+        )
+    return {"status": "ready"}
 
 
 def _versions(db: Session) -> tuple[str, str]:

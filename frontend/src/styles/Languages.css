@@ -1,9 +1,9 @@
 .languages-container { padding: 20px; }
 .languages-container h1 { text-align: center; margin-bottom: 20px; }
-.add-language-form { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: var(--shadow); }
+.add-language-form { border-radius: 20px; padding: 16px; margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: var(--shadow); }
 .add-language-form h3 { width: 100%; margin: 0 0 4px; }
 .add-language-form input { flex: 1; min-width: 160px; }
-.lang-editor { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.lang-editor { margin-top: 24px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 16px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .lang-editor-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
 .lang-editor-tools input { flex: 1; min-width: 200px; }
 .lang-section h3 { margin: 16px 0 8px; color: var(--accent); text-transform: capitalize; }
@@ -13,6 +13,6 @@
 .hint { color: var(--muted); font-size: 13px; }
 .update-message { color: var(--success); text-align: center; }
 .dashboard-empty { text-align: center; color: var(--muted); }
-.languages-container table .view-btn { padding: 5px 10px; background: var(--success); color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-.languages-container table .delete-btn { padding: 5px 10px; background: var(--danger); color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+.languages-container table .view-btn { padding: 5px 10px; background: var(--success); color: var(--on-accent); border: none; border-radius: 999px; cursor: pointer; }
+.languages-container table .delete-btn { padding: 5px 10px; background: var(--danger); color: var(--on-accent); border: none; border-radius: 999px; cursor: pointer; }
 @media (max-width: 768px) { .lang-key-row { flex-direction: column; align-items: stretch; } .lang-key-row label { width: auto; } }

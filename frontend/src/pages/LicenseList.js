@@ -1,15 +1,37 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useSearchParams} from "react-router-dom";
-import {get, post, del} from "../utils/api";
+import {get, getList, post, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
+import CopyButton from "../components/CopyButton";
+import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
+import {TableSkeleton} from "../components/Skeleton";
 import "../styles/LicenseList.css";
+
+const PAGE_SIZE = 10;
+
+function statusPill(status, t) {
+    const label = t(`common.${status}`) !== `common.${status}` ? t(`common.${status}`) : status;
+    return (
+        <span className={`status-pill status-${status}`}>
+            {status === "active" && <span className="pulse-dot" />}
+            {label}
+        </span>
+    );
+}
 
 function LicenseList() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [licenses, setLicenses] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
     const [products, setProducts] = useState([]);
     const [filter, setFilter] = useState("all");
-    const [error, setError] = useState("");
+    const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [validateResult, setValidateResult] = useState(null);
     const [validateDomain, setValidateDomain] = useState("");
@@ -24,19 +46,25 @@ function LicenseList() {
     const [newDomains, setNewDomains] = useState("");
     const [newIps, setNewIps] = useState("");
     const [newInstallPath, setNewInstallPath] = useState("");
+    const [pendingDelete, setPendingDelete] = useState(null);
     const [searchParams] = useSearchParams();
     const productFilter = searchParams.get("product") || "";
 
     const fetchLicenses = useCallback(async () => {
+        setLoading(true);
         try {
             const q = productFilter ? `?filter=${filter}&product=${productFilter}` : `?filter=${filter}`;
-            const data = await get(`/licenses${q}`);
-            setLicenses(data);
-            setError("");
+            const {items, total: t} = await getList(`/licenses${q}`, {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            setLicenses(items);
+            setTotal(t);
         } catch (err) {
-            setError(err.message || t("common.failedFetch"));
+            toast.error(err.message || t("common.failedFetch"));
+            setLicenses([]);
+            setTotal(0);
+        } finally {
+            setLoading(false);
         }
-    }, [filter, productFilter, t]);
+    }, [filter, productFilter, page, toast, t]);
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -59,9 +87,9 @@ function LicenseList() {
             const renewed = await post(`/licenses/${id}/renew`, {});
             setLicenses(licenses.map((license) => (license.id === id ? renewed : license)));
             if (selected && selected.id === id) setSelected(renewed);
-            setError("");
+            toast.success(t("licenses.renewed"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -75,7 +103,7 @@ function LicenseList() {
             });
             setValidateResult(result);
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -83,9 +111,11 @@ function LicenseList() {
         try {
             await del(`/licenses/${id}`);
             setLicenses(licenses.filter((license) => license.id !== id));
+            setTotal((prev) => Math.max(0, prev - 1));
             if (selected && selected.id === id) setSelected(null);
+            toast.success(t("licenses.deleted"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -94,7 +124,7 @@ function LicenseList() {
         try {
             let payload;
             if (newProductId) {
-                if (!newCycle) { setError(t("licenses.cycleRequired")); return; }
+                if (!newCycle) { toast.error(t("licenses.cycleRequired")); return; }
                 payload = {
                     product_id: Number(newProductId),
                     billing_cycle: newCycle,
@@ -105,7 +135,7 @@ function LicenseList() {
                     install_path: newInstallPath || undefined,
                 };
             } else {
-                if (!newProduct.trim()) { setError(t("licenses.productRequired")); return; }
+                if (!newProduct.trim()) { toast.error(t("licenses.productRequired")); return; }
                 payload = {
                     product: newProduct,
                     owner_email: newOwnerEmail || undefined,
@@ -117,33 +147,50 @@ function LicenseList() {
                 };
             }
             const created = await post("/licenses", payload);
-            setLicenses([created, ...licenses]);
+            if (page === 1) setLicenses([created, ...licenses].slice(0, PAGE_SIZE));
+            setTotal((prev) => prev + 1);
             setNewProduct(""); setNewProductId(""); setNewCycle("");
             setNewOwnerEmail(""); setNewExpiresInDays(365); setNewMaxActivations(1);
             setNewDomains(""); setNewIps(""); setNewInstallPath("");
-            setError("");
+            toast.success(t("licenses.created"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
+    // Client-side search over the loaded page (key / product / owner).
+    const visible = licenses.filter((lic) => {
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (lic.key || "").toLowerCase().includes(q)
+            || (lic.product || "").toLowerCase().includes(q)
+            || (lic.owner_email || "").toLowerCase().includes(q);
+    });
+
     return (
-        <div className="license-list-container">
-            <h1>{t("licenses.title")}</h1>
+        <div className="license-list-container page-enter">
+            <h1 className="gradient-text">{t("licenses.title")}</h1>
             {productFilter && <p className="dashboard-empty">{t("products.title")}: {products.find((p) => String(p.id) === productFilter)?.name || productFilter}</p>}
-            {error && <div className="error-message">{error}</div>}
-            <div className="filter-container">
-                <label htmlFor="filter">{t("licenses.filter")}:</label>
-                <select id="filter" value={filter} onChange={(e) => setFilter(e.target.value)}>
-                    <option value="all">{t("licenses.all")}</option>
-                    <option value="active">{t("licenses.active")}</option>
-                    <option value="inactive">{t("licenses.inactive")}</option>
-                    <option value="daily">{t("licenses.daily")}</option>
-                    <option value="weekly">{t("licenses.weekly")}</option>
-                    <option value="monthly">{t("licenses.monthly")}</option>
-                </select>
+            <div className="toolbar">
+                <div className="filter-container">
+                    <label htmlFor="filter">{t("licenses.filter")}:</label>
+                    <select id="filter" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
+                        <option value="all">{t("licenses.all")}</option>
+                        <option value="active">{t("licenses.active")}</option>
+                        <option value="inactive">{t("licenses.inactive")}</option>
+                        <option value="daily">{t("licenses.daily")}</option>
+                        <option value="weekly">{t("licenses.weekly")}</option>
+                        <option value="monthly">{t("licenses.monthly")}</option>
+                    </select>
+                </div>
+                <div className="search-wrap">
+                    <span className="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    </span>
+                    <input type="text" className="search-input" placeholder={t("licenses.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
             </div>
-            <form className="add-license-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
+            <form className="add-license-form glass-card" onSubmit={handleCreate} style={{margin: "16px 0"}}>
                 <h3>{t("licenses.create")}</h3>
                 <select value={newProductId} onChange={(e) => { setNewProductId(e.target.value); setNewCycle(""); }}>
                     <option value="">{t("licenses.noProduct")}</option>
@@ -170,9 +217,12 @@ function LicenseList() {
                 <small className="hint">{t("licenses.installPathHint")}</small>
                 <button type="submit">{t("licenses.create")}</button>
             </form>
-            {licenses.length === 0 ? (
-                <p className="dashboard-empty">{t("licenses.noLicenses")}</p>
+            {loading ? (
+                <TableSkeleton rows={5} />
+            ) : visible.length === 0 ? (
+                <EmptyState title={t("licenses.noLicenses")} text={search ? t("common.noResults") : undefined} />
             ) : (
+            <>
             <table>
                 <thead>
                 <tr>
@@ -186,13 +236,15 @@ function LicenseList() {
                 </tr>
                 </thead>
                 <tbody>
-                {licenses.map((license) => (
-                    <tr key={license.id}>
+                {visible.map((license, i) => (
+                    <tr key={license.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
                         <td>{license.id}</td>
-                        <td>{license.key}</td>
+                        <td>
+                            {license.key} <CopyButton text={license.key} />
+                        </td>
                         <td>{license.product}</td>
                         <td>{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
-                        <td>{license.status}</td>
+                        <td>{statusPill(license.status, t)}</td>
                         <td>{license.created_at}</td>
                         <td>
                             <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
@@ -201,7 +253,7 @@ function LicenseList() {
                             <button className="renew-btn" onClick={() => handleRenew(license.id)}>
                                 {t("common.renew")}
                             </button>
-                            <button className="delete-btn" onClick={() => handleDelete(license.id)}>
+                            <button className="delete-btn" onClick={() => setPendingDelete(license.id)}>
                                 {t("common.delete")}
                             </button>
                         </td>
@@ -209,15 +261,17 @@ function LicenseList() {
                 ))}
                 </tbody>
             </table>
+            <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+            </>
             )}
             {selected && (
-                <div className="license-detail" style={{marginTop: "16px"}}>
+                <div className="license-detail glass-card" style={{marginTop: "16px"}}>
                     <h3>{t("licenses.licenseDetail")} #{selected.id}</h3>
-                    <p><strong>{t("licenses.key")}:</strong> {selected.key}</p>
+                    <p><strong>{t("licenses.key")}:</strong> {selected.key} <CopyButton text={selected.key} /></p>
                     <p><strong>{t("licenses.product")}:</strong> {selected.product}</p>
                     <p><strong>{t("licenses.billingCycle")}:</strong> {selected.billing_cycle ? t(`cycle.${selected.billing_cycle}`) : "-"}</p>
                     <p><strong>{t("licenses.owner")}:</strong> {selected.owner_email || "-"}</p>
-                    <p><strong>{t("common.status")}:</strong> {selected.status}</p>
+                    <p><strong>{t("common.status")}:</strong> {statusPill(selected.status, t)}</p>
                     <p><strong>{t("licenses.expiresAt")}:</strong> {selected.expires_at || t("common.never")}</p>
                     <p><strong>{t("licenses.activations")}:</strong> {selected.activations} / {selected.max_activations}</p>
                     <p><strong>{t("licenses.allowedDomains")}:</strong> {(selected.allowed_domains || []).join(", ") || "-"}</p>
@@ -233,7 +287,7 @@ function LicenseList() {
                         <button onClick={() => handleValidate(selected)}>{t("common.validate")}</button>
                     </div>
                     <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>{" "}
-                    <button onClick={() => { setSelected(null); setValidateResult(null); }}>{t("common.close")}</button>
+                    <button className="btn-ghost" onClick={() => { setSelected(null); setValidateResult(null); }}>{t("common.close")}</button>
                     {validateResult && (
                         <p className="validate-result">
                             <strong>{t("licenses.validation")}:</strong>{" "}
@@ -244,6 +298,12 @@ function LicenseList() {
                     )}
                 </div>
             )}
+            <ConfirmModal
+                open={pendingDelete !== null}
+                message={t("common.confirmDelete")}
+                onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

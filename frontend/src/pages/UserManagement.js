@@ -1,26 +1,42 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {get, post, put, del} from "../utils/api";
+import {getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
+import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
+import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
+import {TableSkeleton} from "../components/Skeleton";
 import "../styles/UserManagement.css";
+
+const PAGE_SIZE = 10;
 
 function UserManagement() {
     const {t} = useLanguage();
+    const {toast} = useToast();
     const [users, setUsers] = useState([]);
-    const [error, setError] = useState("");
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
     const [newUserEmail, setNewUserEmail] = useState("");
     const [newUserPassword, setNewUserPassword] = useState("");
     const [newUserRole, setNewUserRole] = useState("manager");
+    const [pendingDelete, setPendingDelete] = useState(null);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const fetchUsers = useCallback(async () => {
+        setLoading(true);
         try {
-            const data = await get("/users");
-            setUsers(data);
-            setError("");
+            const {items, total: t} = await getList("/users", {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            setUsers(items);
+            setTotal(t);
         } catch (err) {
-            setError(err.message || t("common.failedFetch"));
+            toast.error(err.message || t("common.failedFetch"));
+            setUsers([]);
+            setTotal(0);
+        } finally {
+            setLoading(false);
         }
-    }, [t]);
+    }, [page, toast, t]);
 
     useEffect(() => {
         fetchUsers();
@@ -33,13 +49,14 @@ function UserManagement() {
                 password: newUserPassword,
                 role: newUserRole,
             });
-            setUsers([...users, newUser]);
+            if (page === 1) setUsers([...users, newUser].slice(0, PAGE_SIZE));
+            setTotal((prev) => prev + 1);
             setNewUserEmail("");
             setNewUserPassword("");
             setNewUserRole("manager");
-            setError("");
+            toast.success(t("users.added"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -47,8 +64,10 @@ function UserManagement() {
         try {
             await del(`/users/${id}`);
             setUsers(users.filter((user) => user.id !== id));
+            setTotal((prev) => Math.max(0, prev - 1));
+            toast.success(t("users.deleted"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
@@ -56,17 +75,22 @@ function UserManagement() {
         try {
             const updated = await put(`/users/${id}`, changes);
             setUsers(users.map((user) => (user.id === id ? updated : user)));
-            setError("");
+            toast.success(t("users.updated"));
         } catch (err) {
-            setError(err.message || t("common.error"));
+            toast.error(err.message || t("common.error"));
         }
     };
 
+    // Client-side search over the loaded page (email).
+    const visible = users.filter((user) => {
+        if (!search.trim()) return true;
+        return (user.email || "").toLowerCase().includes(search.trim().toLowerCase());
+    });
+
     return (
-        <div className="user-management-container">
-            <h1>{t("users.title")}</h1>
-            {error && <div className="error-message">{error}</div>}
-            <div className="add-user-form">
+        <div className="user-management-container page-enter">
+            <h1 className="gradient-text">{t("users.title")}</h1>
+            <div className="add-user-form glass-card">
                 <h3>{t("users.add")}</h3>
                 <input
                     type="email"
@@ -91,51 +115,68 @@ function UserManagement() {
                 </select>
                 <button onClick={handleAddUser}>{t("users.addButton")}</button>
             </div>
-            <table>
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>{t("common.email")}</th>
-                    <th>{t("common.role")}</th>
-                    <th>{t("users.active")}</th>
-                    <th>{t("common.actions")}</th>
-                </tr>
-                </thead>
-                <tbody>
-                {users.map((user) => (
-                    <tr key={user.id}>
-                        <td>{user.id}</td>
-                        <td>{user.email}</td>
-                        <td>
-                            <select
-                                value={user.role}
-                                onChange={(e) => handleUpdateUser(user.id, {role: e.target.value})}
-                            >
-                                <option value="admin">{t("roles.admin")}</option>
-                                <option value="manager">{t("roles.manager")}</option>
-                    <option value="support">{t("roles.support")}</option>
-                    <option value="viewer">{t("roles.viewer")}</option>
-                            </select>
-                        </td>
-                        <td>
-                            <input
-                                type="checkbox"
-                                checked={!!user.is_active}
-                                onChange={(e) => handleUpdateUser(user.id, {is_active: e.target.checked})}
-                            />
-                        </td>
-                        <td>
-                            <button
-                                className="delete-btn"
-                                onClick={() => handleDeleteUser(user.id)}
-                            >
-                                {t("common.delete")}
-                            </button>
-                        </td>
+            <div className="toolbar">
+                <div className="search-wrap">
+                    <span className="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    </span>
+                    <input type="text" className="search-input" placeholder={t("users.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+            </div>
+            {loading ? (
+                <TableSkeleton rows={4} />
+            ) : visible.length === 0 ? (
+                <EmptyState title={t("dashboard.noUsers")} text={search ? t("common.noResults") : undefined} />
+            ) : (
+                <>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>{t("common.email")}</th>
+                        <th>{t("common.role")}</th>
+                        <th>{t("users.active")}</th>
+                        <th>{t("common.actions")}</th>
                     </tr>
-                ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                    {visible.map((user, i) => (
+                        <tr key={user.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
+                            <td>{user.id}</td>
+                            <td>{user.email}</td>
+                            <td>
+                                <select
+                                    value={user.role}
+                                    onChange={(e) => handleUpdateUser(user.id, {role: e.target.value})}
+                                >
+                                    <option value="admin">{t("roles.admin")}</option>
+                                    <option value="manager">{t("roles.manager")}</option>
+                        <option value="support">{t("roles.support")}</option>
+                        <option value="viewer">{t("roles.viewer")}</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input
+                                    type="checkbox"
+                                    checked={!!user.is_active}
+                                    onChange={(e) => handleUpdateUser(user.id, {is_active: e.target.checked})}
+                                />
+                            </td>
+                            <td>
+                                <button
+                                    className="delete-btn"
+                                    onClick={() => setPendingDelete(user.id)}
+                                >
+                                    {t("common.delete")}
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                </>
+            )}
 
             <div className="dashboard-section">
                 <h2>{t("users.permissionMatrix")}</h2>
@@ -160,6 +201,12 @@ function UserManagement() {
                 </table>
                 <p className="hint">{t("roles.adminDesc")} {t("roles.managerDesc")} {t("roles.supportDesc")} {t("roles.viewerDesc")}</p>
             </div>
+            <ConfirmModal
+                open={pendingDelete !== null}
+                message={t("common.confirmDelete")}
+                onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDeleteUser(id); }}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

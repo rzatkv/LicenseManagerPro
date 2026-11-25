@@ -16,6 +16,7 @@ const ICONS = {
   docs: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 006.5 22H20v-5"/></svg>,
   settings: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34h.01a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55h.01a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87v.01a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>,
   about: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>,
+  audit: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>,
 };
 
 function Layout() {
@@ -38,6 +39,7 @@ function Layout() {
     "/licenses": t("nav.licenses"),
     "/api-keys": t("nav.apiKeys"),
     "/users": t("nav.users"),
+    "/audit-logs": t("nav.auditLogs"),
     "/languages": t("nav.languages"),
     "/docs": t("nav.apiDocs"),
     "/settings": t("nav.settings"),
@@ -46,19 +48,30 @@ function Layout() {
   const title = titles[location.pathname] || t("common.appName");
 
   // Users is admin-only (GET /api/users is admin-only on the backend);
-  // Languages is admin/manager.
+  // Languages and Audit Logs are admin/manager (audit-logs API: 403 else).
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
-  const navItems = [
-    {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
-    {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
-    {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
-    {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
-    {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
-    {to: "/languages", label: t("nav.languages"), icon: ICONS.languages, show: canManage},
-    {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
-    {to: "/settings", label: t("nav.settings"), icon: ICONS.settings, show: true},
-    {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
+  const navSections = [
+    {
+      label: null,
+      items: [
+        {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
+        {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
+        {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
+        {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
+        {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
+      ],
+    },
+    {
+      label: t("nav.system"),
+      items: [
+        {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
+        {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
+        {to: "/languages", label: t("nav.languages"), icon: ICONS.languages, show: canManage},
+        {to: "/settings", label: t("nav.settings"), icon: ICONS.settings, show: true},
+        {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
+      ],
+    },
   ];
 
   const handleLogout = () => {
@@ -71,11 +84,16 @@ function Layout() {
       <aside className={`layout-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="layout-brand">{t("common.appName")}</div>
         <nav>
-          {navItems.filter((i) => i.show).map((item) => (
-            <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
-              <span className="layout-nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
+          {navSections.map((section, si) => (
+            <div key={si} className="layout-nav-section">
+              {section.label && <div className="layout-nav-section-label">{section.label}</div>}
+              {section.items.filter((i) => i.show).map((item) => (
+                <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
+                  <span className="layout-nav-icon">{item.icon}</span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
@@ -87,7 +105,7 @@ function Layout() {
           </button>
           <h1 className="layout-title">{title}</h1>
           <div className="layout-topbar-right">
-            {DEMO_MODE && <span className="layout-demo-badge">Demo</span>}
+            {DEMO_MODE && <span className="layout-demo-badge">{t("common.demo")}</span>}
             <select className="layout-select" aria-label={t("common.theme")} value={mode} onChange={(e) => setMode(e.target.value)}>
               <option value="light">{t("theme.light")}</option>
               <option value="dark">{t("theme.dark")}</option>
@@ -103,7 +121,9 @@ function Layout() {
           </div>
         </header>
         <main className="layout-content">
-          <Outlet />
+          <div key={location.pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
