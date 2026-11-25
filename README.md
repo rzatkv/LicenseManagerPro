@@ -4,136 +4,185 @@
 
 ---
 
-## Key Features:
-- **API Key Management:** View, delete, and manage access rights for API keys.
-- **License Management:** Analyze and filter licenses with the ability to view details based on status and time intervals.
-- **System Settings:** Dynamically update system configurations and automatically check for new versions.
-- **Automatic Updates:** Notify and enable admins to update the system to the latest version seamlessly.
-- **High Security:** Utilize JWT for authentication and access control.
-- **Modern UI:** Responsive and user-friendly interface with a graphical dashboard for easy management.
+## Key Features
+- **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit.
+- **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, renew, and validate license keys.
+- **User Management:** Admin-only user CRUD with roles (admin/user); nobody can delete their own account or the last admin.
+- **System Settings:** Dynamically update system configurations.
+- **Update Check:** Compare the running version against a configured latest version and record an applied update.
+- **High Security:** JWT authentication (Bearer tokens), bcrypt password hashing, and protected API routes.
+- **Modern UI:** Responsive and user-friendly interface with a graphical dashboard.
 
 ---
 
-## نصب و راه‌اندازی
+## Project Layout
 
-### مرحله 1: کلون کردن مخزن
-ریپازیتوری اصلی پروژه را کلون کنید و وارد پوشه پروژه شوید:
+```
+LicenseManagerPro/
+├── backend/                 # FastAPI backend
+│   ├── main.py              # App entrypoint, routers mounted under /api
+│   ├── config.py            # Environment-based configuration
+│   ├── database.py          # SQLAlchemy 2.x engine/session
+│   ├── models.py            # User, ApiKey, ApiUsageLog, License, SystemSetting
+│   ├── schemas.py           # Pydantic v2 schemas
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── .env.example
+│   ├── routers/             # auth, api_keys, licenses, users, dashboard, settings, system
+│   ├── services/            # api_keys, licenses, users, settings
+│   ├── utils/               # auth (JWT + hashing), email (SMTP, optional)
+│   └── tests/               # pytest suite (temporary SQLite DB)
+├── frontend/                # React 18 frontend (react-scripts)
+│   ├── package.json
+│   ├── public/index.html
+│   └── src/
+│       ├── App.js           # Routes + ProtectedRoute
+│       ├── config.js        # API_BASE_URL (REACT_APP_API_URL or http://127.0.0.1:8000/api)
+│       ├── index.js         # React 18 createRoot entrypoint
+│       ├── pages/           # Login, Dashboard, Settings, LicenseList, APIKeyList, UserManagement, About
+│       ├── styles/
+│       └── utils/           # api.js (get/post/put/del), auth.js, updateChecker.js
+├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
+└── README.md
+```
+
+---
+
+## Setup
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/rzatkv/LicenseManagerPro.git
 cd LicenseManagerPro
 ```
 
----
-
-### مرحله 2: نصب پیش‌نیازها
-
-#### نصب پیش‌نیازهای بک‌اند
-وارد پوشه بک‌اند شوید و پیش‌نیازهای مربوطه را نصب کنید:
+### 2. Backend
 
 ```bash
 cd backend
-pip install -r requirements.txt
+cp .env.example .env
+# Edit .env: set a long random SECRET_KEY (required in production).
+# DATABASE_URL defaults to SQLite (sqlite:///./license_manager.db) and
+# works out of the box. For MySQL set e.g.:
+#   DATABASE_URL=mysql+pymysql://user:password@localhost:3306/license_manager
+python -m venv ../.venv
+../.venv/bin/pip install -r requirements.txt
+../.venv/bin/uvicorn main:app --reload
 ```
 
-این دستور تمامی وابستگی‌های مورد نیاز برای اجرای بک‌اند (مانند FastAPI، SQLAlchemy، PyMySQL و ...) را نصب می‌کند.
+The API runs at **http://127.0.0.1:8000** — Swagger UI at
+[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-#### نصب پیش‌نیازهای فرانت‌اند
-وارد پوشه فرانت‌اند شوید و پیش‌نیازهای مربوط به فرانت‌اند را نصب کنید:
+### 3. Frontend
 
 ```bash
 cd ../frontend
 npm install
-```
-
-این دستور تمامی پکیج‌های مورد نیاز برای اجرای فرانت‌اند (مانند React، React Router، و ...) را دانلود و نصب می‌کند.
-
----
-
-### مرحله 3: تنظیمات پروژه
-
-#### تنظیمات بک‌اند
-1. وارد پوشه `backend` شوید:
-   ```bash
-   cd backend
-   ```
-2. فایل `database.py` را باز کنید.
-3. مقدار `DATABASE_URL` را با اطلاعات پایگاه داده MySQL خود تنظیم کنید:
-   ```python
-   DATABASE_URL = "mysql+pymysql://username:password@localhost/dbname"
-   ```
-   - `username`: نام کاربری پایگاه داده.
-   - `password`: رمز عبور پایگاه داده.
-   - `localhost`: آدرس سرور پایگاه داده (یا IP).
-   - `dbname`: نام پایگاه داده‌ای که ایجاد کرده‌اید.
-
-4. اطمینان حاصل کنید که پایگاه داده (`dbname`) از قبل ایجاد شده باشد.
-
-#### تنظیمات فرانت‌اند
-1. وارد پوشه `frontend` شوید:
-   ```bash
-   cd ../frontend
-   ```
-2. فایل `src/config.js` را باز کنید.
-3. آدرس API بک‌اند را تنظیم کنید:
-   ```javascript
-   export const API_BASE_URL = "http://127.0.0.1:8000/api";
-   ```
-   - اگر از دامنه یا آدرس سرور دیگری استفاده می‌کنید، مقدار `API_BASE_URL` را مطابق آن تنظیم کنید.
-
----
-
-### مرحله 4: اجرای پروژه
-
-#### اجرای بک‌اند
-وارد پوشه `backend` شوید و سرور را اجرا کنید:
-
-```bash
-cd backend
-uvicorn main:app --reload
-```
-
-سرور شما در آدرس زیر اجرا خواهد شد:
-- **http://127.0.0.1:8000**
-
-برای مشاهده مستندات API:
-- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- OpenAPI JSON: [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json)
-
-#### اجرای فرانت‌اند
-وارد پوشه `frontend` شوید و برنامه را اجرا کنید:
-
-```bash
-cd ../frontend
 npm start
 ```
 
-برنامه شما در مرورگر در آدرس زیر اجرا خواهد شد:
-- **http://localhost:3000**
+The app runs at **http://localhost:3000**. To point it at a different
+backend, create `frontend/.env` with:
+
+```
+REACT_APP_API_URL=http://127.0.0.1:8000/api
+```
+
+### 4. Docker (alternative)
+
+```bash
+# SQLite backend only:
+docker compose up --build
+# With MySQL instead of SQLite (set DATABASE_URL/SECRET_KEY in .env first):
+docker compose --profile mysql up --build
+```
+
+---
+
+## First Admin Account
+
+There is deliberately **no default password**. On first startup the server
+logs a message telling you to create the first admin. With no users in the
+database, registration is open (no token needed) and always creates an admin:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "admin@example.com", "password": "choose-a-strong-password"}'
+```
+
+Afterwards registration requires an admin JWT. Log in to get a token:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "admin@example.com", "password": "choose-a-strong-password"}'
+# => {"access_token": "...", "token_type": "bearer"}
+```
+
+Send the token as `Authorization: Bearer <token>` on protected routes.
 
 ---
 
 ## API Endpoints
 
+All routes live under `/api`. Protected routes require a JWT Bearer token,
+except where noted.
+
 ### Authentication
-- **POST** `/api/auth/login`: Authenticate users and return a JWT token.
+- **POST** `/api/auth/login` — Authenticate and return a JWT access token.
+- **POST** `/api/auth/register` — Create a user. Open only when no users exist yet (first-admin bootstrap, always admin); afterwards requires an admin token.
 
 ### API Key Management
-- **GET** `/api/api-keys`: Retrieve all API keys.
-- **DELETE** `/api/api-keys/{id}`: Delete an API key by ID.
+- **GET** `/api/api-keys?skip=&limit=&search=` — List API keys (paginated).
+- **POST** `/api/api-keys` — Create an API key (a random key is generated when `key` is omitted).
+- **GET** `/api/api-keys/{id}` — Get one API key.
+- **PUT** `/api/api-keys/{id}` — Update an API key.
+- **DELETE** `/api/api-keys/{id}` — Delete an API key.
+- **GET** `/api/api-keys/check-access` — Validate a key (public; send the key in the `api-key` header, optional `domain`/`directory` query params). Enforces expiry, single-use consumption, IP/domain/directory restrictions, and the daily request limit.
 
 ### License Management
-- **GET** `/api/licenses`: Retrieve licenses with optional filters.
-- **POST** `/api/licenses`: Add a new license.
-- **DELETE** `/api/licenses/{id}`: Delete a license by ID.
+- **GET** `/api/licenses?filter=&status=&search=` — List licenses. `filter` is `all` (default), `active`, `inactive`, `daily`, `weekly`, or `monthly`.
+- **POST** `/api/licenses` — Create a license (a key is generated when omitted).
+- **GET** `/api/licenses/{id}` — Get one license.
+- **PUT** `/api/licenses/{id}` — Update a license.
+- **DELETE** `/api/licenses/{id}` — Delete a license.
+- **POST** `/api/licenses/{id}/renew` — Extend expiry (`{"extend_days": 30}`).
+- **POST** `/api/licenses/validate` — Validate a license key (`{"key": "..."}`).
+
+### Users
+- **GET** `/api/users/me` — The currently authenticated user.
+- **GET** `/api/users` — List users (admin only).
+- **POST** `/api/users` — Create a user with email, password and role (admin only).
+- **PUT** `/api/users/{id}` — Update role / active flag (admin only).
+- **DELETE** `/api/users/{id}` — Delete a user (admin only; not yourself, not the last admin).
+
+### Dashboard
+- **GET** `/api/dashboard/summary` — `{apiKeysCount, usersCount, activeLicenses, inactiveLicenses}` (admin only).
 
 ### System Settings
-- **GET** `/api/settings`: Retrieve system settings.
-- **PUT** `/api/settings/{key}`: Update a specific setting.
+- **GET** `/api/settings` — All settings as a `{key: value}` object.
+- **GET** `/api/settings/{key}` — One setting.
+- **PUT** `/api/settings/{key}` — Create or update a setting (`{"key": ..., "value": ...}`).
 
 ### System Updates
-- **GET** `/api/system/check-updates`: Check if a new system update is available.
-- **POST** `/api/system/update`: Apply the latest system update.
+- **GET** `/api/system/info` — `{version, lastUpdated}` (admin only).
+- **GET** `/api/system/check-updates` — `{updateAvailable, currentVersion, latestVersion}` (admin only). Compares the running version with the `latest_version` setting.
+- **POST** `/api/system/update` — Record the pending version as applied (admin only).
+
+> **Note:** the update mechanism is an honest stub — it records the new version in the settings but does not perform a real self-update (no `git pull` / rebuild). Deploying a new version is still a manual step.
+
+---
+
+## Testing
+
+Backend tests use pytest against a temporary SQLite database (no MySQL needed):
+
+```bash
+cd backend
+../.venv/bin/python -m pytest tests/ -q
+```
 
 ---
 

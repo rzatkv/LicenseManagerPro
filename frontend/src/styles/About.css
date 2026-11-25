@@ -1,0 +1,42 @@
+.about-container {
+    padding: 20px;
+    text-align: center;
+}
+
+.about-container h1 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.about-info {
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.about-info p {
+    margin: 10px 0;
+    color: #555;
+}
+
+.update-section {
+    margin-top: 20px;
+}
+
+.update-section p {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #d9534f;
+}
+
+.update-section button {
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.update-section button:hover {
+    background-color: #218838;
+}
