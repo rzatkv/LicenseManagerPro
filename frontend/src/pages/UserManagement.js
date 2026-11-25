@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {get, post, del} from "../utils/api";
+import {get, post, put, del} from "../utils/api";
 import "../styles/UserManagement.css";
 
 function UserManagement() {
@@ -49,6 +49,16 @@ function UserManagement() {
         }
     };
 
+    const handleUpdateUser = async (id, changes) => {
+        try {
+            const updated = await put(`/users/${id}`, changes);
+            setUsers(users.map((user) => (user.id === id ? updated : user)));
+            setError("");
+        } catch (err) {
+            setError(err.message || "Failed to update user.");
+        }
+    };
+
     return (
         <div className="user-management-container">
             <h1>User Management</h1>
@@ -82,6 +92,7 @@ function UserManagement() {
                     <th>ID</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Active</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
@@ -90,7 +101,22 @@ function UserManagement() {
                     <tr key={user.id}>
                         <td>{user.id}</td>
                         <td>{user.email}</td>
-                        <td>{user.role}</td>
+                        <td>
+                            <select
+                                value={user.role}
+                                onChange={(e) => handleUpdateUser(user.id, {role: e.target.value})}
+                            >
+                                <option value="admin">Admin</option>
+                                <option value="user">User</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input
+                                type="checkbox"
+                                checked={!!user.is_active}
+                                onChange={(e) => handleUpdateUser(user.id, {is_active: e.target.checked})}
+                            />
+                        </td>
                         <td>
                             <button
                                 className="delete-btn"

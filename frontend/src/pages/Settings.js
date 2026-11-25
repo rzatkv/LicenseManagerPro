@@ -1,10 +1,15 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {get, put} from "../utils/api";
+import {get, put, del} from "../utils/api";
+import {DEMO_MODE} from "../config";
+import {resetDemoData} from "../utils/demoData";
 import "../styles/Settings.css";
 
 function Settings() {
     const [settings, setSettings] = useState({});
     const [updateMessage, setUpdateMessage] = useState("");
+    const [error, setError] = useState("");
+    const [newKey, setNewKey] = useState("");
+    const [newValue, setNewValue] = useState("");
 
     const fetchSettings = useCallback(async () => {
         try {
@@ -19,21 +24,82 @@ function Settings() {
         fetchSettings();
     }, [fetchSettings]);
 
+    const flash = (message) => {
+        setUpdateMessage(message);
+        setTimeout(() => setUpdateMessage(""), 3000);
+    };
+
     const handleUpdate = async (key, value) => {
         try {
             await put(`/settings/${key}`, {key, value});
             setSettings((prev) => ({...prev, [key]: value}));
-            setUpdateMessage("Settings updated successfully!");
-            setTimeout(() => setUpdateMessage(""), 3000);
+            flash("Settings updated successfully!");
         } catch (err) {
             console.error("Failed to update settings.");
         }
+    };
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        const key = newKey.trim();
+        if (!key) {
+            setError("Setting key is required.");
+            return;
+        }
+        try {
+            await put(`/settings/${key}`, {key, value: newValue});
+            setSettings((prev) => ({...prev, [key]: newValue}));
+            setNewKey("");
+            setNewValue("");
+            setError("");
+            flash(`Setting '${key}' created successfully!`);
+        } catch (err) {
+            setError(err.message || "Failed to create setting.");
+        }
+    };
+
+    const handleDelete = async (key) => {
+        try {
+            await del(`/settings/${key}`);
+            setSettings((prev) => {
+                const next = {...prev};
+                delete next[key];
+                return next;
+            });
+            setError("");
+            flash(`Setting '${key}' deleted successfully!`);
+        } catch (err) {
+            setError(err.message || "Failed to delete setting.");
+        }
+    };
+
+    const handleResetDemo = () => {
+        resetDemoData();
+        window.location.reload();
     };
 
     return (
         <div className="settings-container">
             <h1>System Settings</h1>
             {updateMessage && <p className="update-message">{updateMessage}</p>}
+            {error && <div className="error-message">{error}</div>}
+            <form className="add-setting-form" onSubmit={handleCreate} style={{margin: "16px 0"}}>
+                <h3>Create Setting</h3>
+                <input
+                    type="text"
+                    placeholder="Setting key"
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value)}
+                    required
+                />
+                <input
+                    type="text"
+                    placeholder="Setting value"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                />
+                <button type="submit">Create Setting</button>
+            </form>
             <table>
                 <thead>
                 <tr>
@@ -56,12 +122,21 @@ function Settings() {
                         <td>
                             <button onClick={() => handleUpdate(key, settings[key])}>
                                 Update
+                            </button>{" "}
+                            <button className="delete-btn" onClick={() => handleDelete(key)}>
+                                Delete
                             </button>
                         </td>
                     </tr>
                 ))}
                 </tbody>
             </table>
+            {DEMO_MODE && (
+                <div style={{marginTop: "24px", textAlign: "center"}}>
+                    <button onClick={handleResetDemo}>Reset demo data</button>
+                    <p>Restores the original sample licenses, API keys, users and settings.</p>
+                </div>
+            )}
         </div>
     );
 }

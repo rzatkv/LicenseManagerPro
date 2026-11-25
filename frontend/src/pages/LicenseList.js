@@ -7,6 +7,7 @@ function LicenseList() {
     const [filter, setFilter] = useState("all");
     const [error, setError] = useState("");
     const [selected, setSelected] = useState(null);
+    const [validateResult, setValidateResult] = useState(null);
     const [newProduct, setNewProduct] = useState("");
     const [newOwnerEmail, setNewOwnerEmail] = useState("");
     const [newExpiresInDays, setNewExpiresInDays] = useState(365);
@@ -28,6 +29,28 @@ function LicenseList() {
 
     const handleFilterChange = (e) => {
         setFilter(e.target.value);
+    };
+
+    const handleRenew = async (id) => {
+        try {
+            const renewed = await post(`/licenses/${id}/renew`, {extend_days: 365});
+            setLicenses(licenses.map((license) => (license.id === id ? renewed : license)));
+            if (selected && selected.id === id) {
+                setSelected(renewed);
+            }
+            setError("");
+        } catch (err) {
+            setError(err.message || "Failed to renew license.");
+        }
+    };
+
+    const handleValidate = async (license) => {
+        try {
+            const result = await post("/licenses/validate", {key: license.key});
+            setValidateResult(result);
+        } catch (err) {
+            setError(err.message || "Failed to validate license.");
+        }
     };
 
     const handleDelete = async (id) => {
@@ -126,8 +149,11 @@ function LicenseList() {
                         <td>{license.status}</td>
                         <td>{license.created_at}</td>
                         <td>
-                            <button className="view-btn" onClick={() => setSelected(license)}>
+                            <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); }}>
                                 View
+                            </button>
+                            <button className="renew-btn" onClick={() => handleRenew(license.id)}>
+                                Renew
                             </button>
                             <button className="delete-btn" onClick={() => handleDelete(license.id)}>
                                 Delete
@@ -148,7 +174,16 @@ function LicenseList() {
                     <p><strong>Activations:</strong> {selected.activations} / {selected.max_activations}</p>
                     <p><strong>Created At:</strong> {selected.created_at}</p>
                     <p><strong>Updated At:</strong> {selected.updated_at}</p>
-                    <button onClick={() => setSelected(null)}>Close</button>
+                    <button onClick={() => handleValidate(selected)}>Validate</button>{" "}
+                    <button onClick={() => handleRenew(selected.id)}>Renew +365 days</button>{" "}
+                    <button onClick={() => { setSelected(null); setValidateResult(null); }}>Close</button>
+                    {validateResult && (
+                        <p className="validate-result">
+                            <strong>Validation:</strong>{" "}
+                            {validateResult.valid ? "Valid" : "Invalid"}
+                            {validateResult.detail ? ` — ${validateResult.detail}` : ""}
+                        </p>
+                    )}
                 </div>
             )}
         </div>

@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from schemas import SystemSettingRequest, SystemSettingResponse
-from services.settings import get_all_settings, get_setting, update_setting
+from services.settings import (
+    delete_setting,
+    get_all_settings,
+    get_setting,
+    update_setting,
+)
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -42,3 +47,14 @@ def update_system_setting(
         raise HTTPException(status_code=400, detail="Key in path and body must match")
     update_setting(db, key, request.value)
     return {"message": f"Setting '{key}' updated successfully"}
+
+
+@router.delete("/{key}", response_model=dict)
+def delete_system_setting(
+    key: str,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
+    """Delete one setting."""
+    delete_setting(db, key)
+    return {"message": f"Setting '{key}' deleted successfully"}

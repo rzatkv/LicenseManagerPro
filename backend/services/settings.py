@@ -29,3 +29,12 @@ def get_all_settings(db: Session) -> dict:
     """Return all settings as a {key: value} dict."""
     settings = db.query(SystemSetting).all()
     return {setting.key: setting.value for setting in settings}
+
+
+def delete_setting(db: Session, key: str) -> None:
+    """Delete a setting, or 404 when it does not exist."""
+    setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
+    db.delete(setting)
+    db.commit()

@@ -11,7 +11,7 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v1";
+const STORAGE_KEY = "lmp-demo-db-v2";
 const ACCESS_RIGHTS = [
     "create_license",
     "edit_license",
@@ -76,8 +76,8 @@ function seed() {
             {id: 3, key: "lmp_demo_M4n5B6v7C8x9Z0a1", access_rights: [...ACCESS_RIGHTS], expires_at: isoDaysFromNow(365), associated_ip: null, associated_domain: "example.com", associated_directory: null, single_use: false, consumed: false, created_at: isoDaysAgo(5)},
         ],
         settings: {
-            app_version: "1.0.0",
-            latest_version: "1.0.0",
+            app_version: "1.2.0",
+            latest_version: "1.2.0",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
         },
@@ -232,7 +232,7 @@ export async function mockRequest(method, endpoint, body) {
             const id = Number(parts[1]);
             const license = db.licenses.find((l) => l.id === id);
             if (!license) fail(404, "License not found");
-            const days = Number(body && body.days) || 365;
+            const days = Number((body && (body.extend_days ?? body.days))) || 365;
             const base = license.expires_at && new Date(license.expires_at) > new Date()
                 ? new Date(license.expires_at)
                 : new Date();
@@ -245,9 +245,10 @@ export async function mockRequest(method, endpoint, body) {
         }
         if (method === "POST" && parts.length === 2 && parts[1] === "validate") {
             const found = db.licenses.find((l) => l.key === (body && body.key));
-            if (!found) return {valid: false, reason: "License not found"};
+            if (!found) return {valid: false, detail: "License key not found", reason: "License key not found", license: null};
             const status = effectiveStatus(found);
-            return {valid: status === "active", license: withEffectiveStatus(found), reason: status === "active" ? null : `License is ${status}`};
+            const detail = status === "active" ? "License is valid" : `License is ${status}`;
+            return {valid: status === "active", detail, reason: detail, license: withEffectiveStatus(found)};
         }
     }
 
@@ -377,6 +378,12 @@ export async function mockRequest(method, endpoint, body) {
                 db.settings[key] = String(body && body.value !== undefined ? body.value : "");
                 save();
                 return {key, value: db.settings[key]};
+            }
+            if (method === "DELETE") {
+                if (!(key in db.settings)) fail(404, "Setting not found");
+                delete db.settings[key];
+                save();
+                return {message: `Setting '${key}' deleted successfully`};
             }
         }
     }
