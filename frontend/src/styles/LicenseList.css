@@ -70,3 +70,12 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
 .dashboard-empty { text-align: center; color: var(--muted); }
 .add-license-form { display: flex; flex-direction: column; gap: 8px; border-radius: 20px; padding: 16px; }
 .add-license-form input, .add-license-form select { width: 100%; box-sizing: border-box; }
+
+/* Activations list inside the license detail panel (v2.2). */
+.activations-section { margin: 12px 0; }
+.activations-section h4 { margin: 0 0 8px; color: var(--text); }
+.activations-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.activations-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px;
+}

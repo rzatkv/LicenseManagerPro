@@ -1,0 +1,4 @@
+.blacklist-form { padding: 16px; margin: 16px 0; }
+.blacklist-form .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.blacklist-form .form-row > * { flex: 1 1 160px; min-width: 0; }
+.blacklist-form .form-row button { flex: 0 0 auto; }

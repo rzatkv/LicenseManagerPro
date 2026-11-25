@@ -1,20 +1,28 @@
 """System info / update routes (admin only).
 
-The update check compares the running version against the "latest_version"
-system setting. POST /update records the pending version as applied. This is
-an honest stub: it does not perform a real self-update (git pull / rebuild);
-see the README.
+GET /check-updates compares the running version against the
+"latest_version" system setting (legacy, settings-based check).
+GET /update-check (v2.2) calls the GitHub releases API live.
+POST /update (v2.2) stages the latest release tarball into ./updates/;
+the actual apply is scripts/update.sh, executed automatically only when
+LMP_ALLOW_SELF_UPDATE=1, otherwise by hand.
 """
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from schemas import CheckUpdatesResponse, MessageResponse, SystemInfoResponse
+from schemas import (
+    CheckUpdatesResponse,
+    StageUpdateResponse,
+    SystemInfoResponse,
+    UpdateCheckResponse,
+)
+from services import updates as update_service
 from services import webhooks as webhook_service
 from services.settings import get_all_settings, update_setting
 from utils.auth import require_admin
@@ -68,17 +76,32 @@ def check_updates(
     }
 
 
-@router.post("/update", response_model=MessageResponse)
+@router.get("/update-check", response_model=UpdateCheckResponse)
+def update_check(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin_or_manager),
+):
+    """Live update check against the GitHub releases API (v2.2)."""
+    return update_service.check_update(db)
+
+
+@router.post("/update", response_model=StageUpdateResponse)
 def apply_update(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    current, latest = _versions(db)
-    if latest == current:
-        return {"message": "System is already up to date"}
-    update_setting(db, "app_version", latest)
-    update_setting(db, "last_updated", date.today().isoformat())
-    return {"message": f"System updated to version {latest}"}
+    """Stage the latest release tarball for update (v2.2).
+
+    The tarball is downloaded into ./updates/ and verified; nothing live
+    is touched. The apply step is scripts/update.sh — run automatically
+    only when LMP_ALLOW_SELF_UPDATE=1, otherwise by hand (see next_step).
+    """
+    try:
+        result = update_service.stage_update()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    update_setting(db, "latest_version", result["version"])
+    return result
 
 
 @router.post("/check-expiring", response_model=dict)

@@ -9,6 +9,7 @@ import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
+import Wizard from "../components/Wizard";
 import "../styles/LicenseList.css";
 
 const PAGE_SIZE = 10;
@@ -30,26 +31,35 @@ function LicenseList() {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [products, setProducts] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [filter, setFilter] = useState("all");
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
+    const [activations, setActivations] = useState([]);
     const [validateResult, setValidateResult] = useState(null);
     const [validateDomain, setValidateDomain] = useState("");
     const [validateIp, setValidateIp] = useState("");
     const [validatePath, setValidatePath] = useState("");
-    const [newProduct, setNewProduct] = useState("");
-    const [newProductId, setNewProductId] = useState("");
-    const [newCycle, setNewCycle] = useState("");
-    const [newOwnerEmail, setNewOwnerEmail] = useState("");
-    const [newExpiresInDays, setNewExpiresInDays] = useState(365);
-    const [newMaxActivations, setNewMaxActivations] = useState(1);
-    const [newDomains, setNewDomains] = useState("");
-    const [newIps, setNewIps] = useState("");
-    const [newInstallPath, setNewInstallPath] = useState("");
     const [pendingDelete, setPendingDelete] = useState(null);
+    const [pendingReissue, setPendingReissue] = useState(null);
     const [searchParams] = useSearchParams();
     const productFilter = searchParams.get("product") || "";
+
+    // Wizard state (create license, 4 steps).
+    const [showWizard, setShowWizard] = useState(false);
+    const [wizardStep, setWizardStep] = useState(0);
+    const [wizardBusy, setWizardBusy] = useState(false);
+    const [wGroupFilter, setWGroupFilter] = useState("");
+    const [wProductId, setWProductId] = useState("");
+    const [wProduct, setWProduct] = useState("");
+    const [wCycle, setWCycle] = useState("");
+    const [wOwnerEmail, setWOwnerEmail] = useState("");
+    const [wExpiresInDays, setWExpiresInDays] = useState(365);
+    const [wMaxActivations, setWMaxActivations] = useState(1);
+    const [wDomains, setWDomains] = useState("");
+    const [wIps, setWIps] = useState("");
+    const [wInstallPath, setWInstallPath] = useState("");
 
     const fetchLicenses = useCallback(async () => {
         setLoading(true);
@@ -76,11 +86,38 @@ function LicenseList() {
         }
     }, []);
 
+    const fetchGroups = useCallback(async () => {
+        try {
+            const data = await get("/product-groups");
+            setGroups(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setGroups([]);
+        }
+    }, []);
+
     useEffect(() => { fetchLicenses(); }, [fetchLicenses]);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
+    useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
-    const selectedProduct = products.find((p) => String(p.id) === String(newProductId));
+    const fetchActivations = useCallback(async (licenseId) => {
+        try {
+            const data = await get(`/licenses/${licenseId}/activations`);
+            setActivations(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setActivations([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (selected) fetchActivations(selected.id);
+        else setActivations([]);
+    }, [selected, fetchActivations]);
+
+    const selectedProduct = products.find((p) => String(p.id) === String(wProductId));
     const cycles = selectedProduct ? (selectedProduct.billing_cycles || []) : [];
+    const wizardProducts = wGroupFilter
+        ? products.filter((p) => String(p.group_id) === String(wGroupFilter))
+        : products;
 
     const handleRenew = async (id) => {
         try {
@@ -89,6 +126,27 @@ function LicenseList() {
             setLicenses(licenses.map((license) => (license.id === id ? renewed : license)));
             if (selected && selected.id === id) setSelected(renewed);
             toast.success(t("licenses.renewed"));
+        } catch (err) {
+            toast.error(err.message || t("common.error"));
+        }
+    };
+
+    const handleReissue = async (id) => {
+        try {
+            const reissued = await post(`/licenses/${id}/reissue`, {});
+            setLicenses(licenses.map((license) => (license.id === id ? reissued : license)));
+            if (selected && selected.id === id) setSelected(reissued);
+            toast.success(t("licenses.reissued"));
+        } catch (err) {
+            toast.error(err.message || t("common.error"));
+        }
+    };
+
+    const handleDeactivate = async (licenseId, activationId) => {
+        try {
+            await del(`/licenses/${licenseId}/activations/${activationId}`);
+            setActivations(activations.filter((a) => a.id !== activationId));
+            toast.success(t("licenses.deactivated"));
         } catch (err) {
             toast.error(err.message || t("common.error"));
         }
@@ -120,42 +178,50 @@ function LicenseList() {
         }
     };
 
-    const handleCreate = async (e) => {
-        e.preventDefault();
+    const resetWizard = () => {
+        setWGroupFilter(""); setWProductId(""); setWProduct(""); setWCycle("");
+        setWOwnerEmail(""); setWExpiresInDays(365); setWMaxActivations(1);
+        setWDomains(""); setWIps(""); setWInstallPath("");
+        setWizardStep(0);
+    };
+
+    const handleWizardCreate = async () => {
+        setWizardBusy(true);
         try {
             let payload;
-            if (newProductId) {
-                if (!newCycle) { toast.error(t("licenses.cycleRequired")); return; }
+            if (wProductId) {
+                if (!wCycle) { toast.error(t("licenses.cycleRequired")); return; }
                 payload = {
-                    product_id: Number(newProductId),
-                    billing_cycle: newCycle,
-                    owner_email: newOwnerEmail || undefined,
-                    max_activations: Number(newMaxActivations) || 1,
-                    allowed_domains: newDomains || undefined,
-                    allowed_ips: newIps || undefined,
-                    install_path: newInstallPath || undefined,
+                    product_id: Number(wProductId),
+                    billing_cycle: wCycle,
+                    owner_email: wOwnerEmail || undefined,
+                    max_activations: Number(wMaxActivations) || 1,
+                    allowed_domains: wDomains || undefined,
+                    allowed_ips: wIps || undefined,
+                    install_path: wInstallPath || undefined,
                 };
             } else {
-                if (!newProduct.trim()) { toast.error(t("licenses.productRequired")); return; }
+                if (!wProduct.trim()) { toast.error(t("licenses.productRequired")); return; }
                 payload = {
-                    product: newProduct,
-                    owner_email: newOwnerEmail || undefined,
-                    expires_in_days: Number(newExpiresInDays) || undefined,
-                    max_activations: Number(newMaxActivations) || 1,
-                    allowed_domains: newDomains || undefined,
-                    allowed_ips: newIps || undefined,
-                    install_path: newInstallPath || undefined,
+                    product: wProduct,
+                    owner_email: wOwnerEmail || undefined,
+                    expires_in_days: Number(wExpiresInDays) || undefined,
+                    max_activations: Number(wMaxActivations) || 1,
+                    allowed_domains: wDomains || undefined,
+                    allowed_ips: wIps || undefined,
+                    install_path: wInstallPath || undefined,
                 };
             }
             const created = await post("/licenses", payload);
             if (page === 1) setLicenses([created, ...licenses].slice(0, PAGE_SIZE));
             setTotal((prev) => prev + 1);
-            setNewProduct(""); setNewProductId(""); setNewCycle("");
-            setNewOwnerEmail(""); setNewExpiresInDays(365); setNewMaxActivations(1);
-            setNewDomains(""); setNewIps(""); setNewInstallPath("");
             toast.success(t("licenses.created"));
+            resetWizard();
+            setShowWizard(false);
         } catch (err) {
             toast.error(err.message || t("common.error"));
+        } finally {
+            setWizardBusy(false);
         }
     };
 
@@ -168,11 +234,27 @@ function LicenseList() {
             || (lic.owner_email || "").toLowerCase().includes(q);
     });
 
+    const wizardCanNext =
+        wizardStep === 0 ? true
+        : wizardStep === 1 ? (wProductId ? wCycle.length > 0 : wProduct.trim().length > 0)
+        : true;
+
+    const reviewRows = [
+        [t("licenses.product"), wProductId ? (selectedProduct ? selectedProduct.name : `#${wProductId}`) : (wProduct || "-")],
+        [t("licenses.billingCycle"), wProductId ? (wCycle ? t(`cycle.${wCycle}`) : "-") : `${wExpiresInDays} ${t("common.days")}`],
+        [t("licenses.owner"), wOwnerEmail || "-"],
+        [t("licenses.maxActivations"), String(wMaxActivations)],
+        [t("licenses.allowedDomains"), wDomains || "-"],
+        [t("licenses.allowedIps"), wIps || "-"],
+        [t("licenses.installPath"), wInstallPath || "-"],
+    ];
+
     return (
         <div className="license-list-container page-enter">
             <h1 className="gradient-text">{t("licenses.title")}</h1>
             {productFilter && <p className="dashboard-empty">{t("products.title")}: {products.find((p) => String(p.id) === productFilter)?.name || productFilter}</p>}
             <div className="toolbar">
+                <button onClick={() => { resetWizard(); setShowWizard(true); }}>{t("licenses.create")}</button>
                 <div className="filter-container">
                     <label htmlFor="filter">{t("licenses.filter")}:</label>
                     <select id="filter" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
@@ -191,33 +273,67 @@ function LicenseList() {
                     <input type="text" className="search-input" placeholder={t("licenses.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
             </div>
-            <form className="add-license-form glass-card" onSubmit={handleCreate} style={{margin: "16px 0"}}>
-                <h3>{t("licenses.create")}</h3>
-                <select value={newProductId} onChange={(e) => { setNewProductId(e.target.value); setNewCycle(""); }}>
-                    <option value="">{t("licenses.noProduct")}</option>
-                    {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.price} {p.currency})</option>)}
-                </select>
-                {newProductId ? (
-                    <select value={newCycle} onChange={(e) => setNewCycle(e.target.value)} required>
-                        <option value="">{t("licenses.billingCycle")}</option>
-                        {cycles.map((c) => <option key={c} value={c}>{t(`cycle.${c}`)}</option>)}
-                    </select>
-                ) : (
-                    <>
-                        <input type="text" placeholder={t("licenses.productName")} value={newProduct} onChange={(e) => setNewProduct(e.target.value)} required />
-                        <input type="number" min="1" placeholder={t("licenses.expiresInDays")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
-                    </>
-                )}
-                <input type="email" placeholder={t("licenses.ownerEmail")} value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} />
-                <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={newMaxActivations} onChange={(e) => setNewMaxActivations(e.target.value)} />
-                <input type="text" placeholder={t("licenses.allowedDomains")} value={newDomains} onChange={(e) => setNewDomains(e.target.value)} />
-                <small className="hint">{t("licenses.allowedDomainsHint")}</small>
-                <input type="text" placeholder={t("licenses.allowedIps")} value={newIps} onChange={(e) => setNewIps(e.target.value)} />
-                <small className="hint">{t("licenses.allowedIpsHint")}</small>
-                <input type="text" placeholder={t("licenses.installPath")} value={newInstallPath} onChange={(e) => setNewInstallPath(e.target.value)} />
-                <small className="hint">{t("licenses.installPathHint")}</small>
-                <button type="submit">{t("licenses.create")}</button>
-            </form>
+
+            {showWizard && (
+                <Wizard
+                    title={t("licenses.create")}
+                    steps={[t("wizard.selectProduct"), t("wizard.customer"), t("wizard.locks"), t("wizard.review")]}
+                    step={wizardStep}
+                    onStepChange={setWizardStep}
+                    canNext={wizardCanNext}
+                    onSubmit={handleWizardCreate}
+                    submitting={wizardBusy}
+                    onCancel={() => { setShowWizard(false); resetWizard(); }}
+                >
+                    {wizardStep === 0 && (
+                        <>
+                            <select value={wGroupFilter} onChange={(e) => { setWGroupFilter(e.target.value); setWProductId(""); setWCycle(""); }} aria-label={t("products.group")}>
+                                <option value="">{t("groups.selectGroup")}</option>
+                                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                            </select>
+                            <select value={wProductId} onChange={(e) => { setWProductId(e.target.value); setWCycle(""); }}>
+                                <option value="">{t("licenses.noProduct")}</option>
+                                {wizardProducts.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.price} {p.currency})</option>)}
+                            </select>
+                            {!wProductId && (
+                                <input type="text" placeholder={t("licenses.productName")} value={wProduct} onChange={(e) => setWProduct(e.target.value)} required />
+                            )}
+                        </>
+                    )}
+                    {wizardStep === 1 && (
+                        <>
+                            {wProductId ? (
+                                <select value={wCycle} onChange={(e) => setWCycle(e.target.value)} required>
+                                    <option value="">{t("licenses.billingCycle")}</option>
+                                    {cycles.map((c) => <option key={c} value={c}>{t(`cycle.${c}`)}</option>)}
+                                </select>
+                            ) : (
+                                <input type="number" min="1" placeholder={t("licenses.expiresInDays")} value={wExpiresInDays} onChange={(e) => setWExpiresInDays(e.target.value)} />
+                            )}
+                            <input type="email" placeholder={t("licenses.ownerEmail")} value={wOwnerEmail} onChange={(e) => setWOwnerEmail(e.target.value)} />
+                            <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={wMaxActivations} onChange={(e) => setWMaxActivations(e.target.value)} />
+                        </>
+                    )}
+                    {wizardStep === 2 && (
+                        <>
+                            <input type="text" placeholder={t("licenses.allowedDomains")} value={wDomains} onChange={(e) => setWDomains(e.target.value)} />
+                            <small className="hint">{t("licenses.allowedDomainsHint")}</small>
+                            <input type="text" placeholder={t("licenses.allowedIps")} value={wIps} onChange={(e) => setWIps(e.target.value)} />
+                            <small className="hint">{t("licenses.allowedIpsHint")}</small>
+                            <input type="text" placeholder={t("licenses.installPath")} value={wInstallPath} onChange={(e) => setWInstallPath(e.target.value)} />
+                            <small className="hint">{t("licenses.installPathHint")}</small>
+                        </>
+                    )}
+                    {wizardStep === 3 && (
+                        <div className="wizard-review">
+                            {reviewRows.map(([label, value]) => (
+                                <div key={label} className="wizard-review-row"><strong>{label}</strong><span>{value}</span></div>
+                            ))}
+                        </div>
+                    )}
+                </Wizard>
+            )}
+
             {loading ? (
                 <TableSkeleton rows={5} />
             ) : visible.length === 0 ? (
@@ -249,15 +365,20 @@ function LicenseList() {
                         <td>{statusPill(license.status, t)}</td>
                         <td className="nowrap">{formatDate(license.created_at, lang)}</td>
                         <td>
-                            <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
-                                {t("common.view")}
-                            </button>
-                            <button className="renew-btn" onClick={() => handleRenew(license.id)}>
-                                {t("common.renew")}
-                            </button>
-                            <button className="delete-btn" onClick={() => setPendingDelete(license.id)}>
-                                {t("common.delete")}
-                            </button>
+                            <div className="row-actions">
+                                <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
+                                    {t("common.view")}
+                                </button>
+                                <button className="renew-btn" onClick={() => handleRenew(license.id)}>
+                                    {t("common.renew")}
+                                </button>
+                                <button onClick={() => setPendingReissue(license.id)}>
+                                    {t("licenses.reissue")}
+                                </button>
+                                <button className="delete-btn" onClick={() => setPendingDelete(license.id)}>
+                                    {t("common.delete")}
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 ))}
@@ -282,6 +403,21 @@ function LicenseList() {
                     <p><strong>{t("licenses.installPath")}:</strong> {selected.install_path || "-"}</p>
                     <p><strong>{t("common.createdAt")}:</strong> {formatDate(selected.created_at, lang)}</p>
                     <p><strong>{t("common.updatedAt")}:</strong> {formatDate(selected.updated_at, lang)}</p>
+                    <div className="activations-section">
+                        <h4>{t("licenses.activationsTitle")}</h4>
+                        {activations.length === 0 ? (
+                            <p className="dashboard-empty">{t("licenses.noActivations")}</p>
+                        ) : (
+                            <ul className="activations-list">
+                                {activations.map((a) => (
+                                    <li key={a.id}>
+                                        <span><strong>{t("licenses.fingerprint")}:</strong> <span className="key-cell">{a.fingerprint}</span>{a.label ? ` — ${a.label}` : ""}</span>
+                                        <button className="delete-btn" onClick={() => handleDeactivate(selected.id, a.id)}>{t("licenses.deactivate")}</button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                     <div className="validate-form">
                         <h4>{t("licenses.validateWith")}</h4>
                         <input type="text" placeholder={t("licenses.domain")} value={validateDomain} onChange={(e) => setValidateDomain(e.target.value)} />
@@ -289,8 +425,11 @@ function LicenseList() {
                         <input type="text" placeholder={t("licenses.installPath")} value={validatePath} onChange={(e) => setValidatePath(e.target.value)} />
                         <button onClick={() => handleValidate(selected)}>{t("common.validate")}</button>
                     </div>
-                    <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>{" "}
-                    <button className="btn-ghost" onClick={() => { setSelected(null); setValidateResult(null); }}>{t("common.close")}</button>
+                    <div className="row-actions">
+                        <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>
+                        <button onClick={() => setPendingReissue(selected.id)}>{t("licenses.reissue")}</button>
+                        <button className="btn-ghost" onClick={() => { setSelected(null); setValidateResult(null); }}>{t("common.close")}</button>
+                    </div>
                     {validateResult && (
                         <p className="validate-result">
                             <strong>{t("licenses.validation")}:</strong>{" "}
@@ -306,6 +445,13 @@ function LicenseList() {
                 message={t("common.confirmDelete")}
                 onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
                 onCancel={() => setPendingDelete(null)}
+            />
+            <ConfirmModal
+                open={pendingReissue !== null}
+                message={t("licenses.reissueConfirm")}
+                confirmLabel={t("licenses.reissue")}
+                onConfirm={() => { const id = pendingReissue; setPendingReissue(null); handleReissue(id); }}
+                onCancel={() => setPendingReissue(null)}
             />
         </div>
     );

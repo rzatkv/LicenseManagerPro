@@ -277,20 +277,54 @@ pre {
 .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
 
 /* Horizontally scrollable table container: a wide table scrolls inside its
-   own box instead of overflowing (and in RTL shifting) the whole page. */
+   own box instead of overflowing (and in RTL shifting) the whole page.
+   Tall tables also scroll vertically inside their card (app-like shell:
+   the page content is the only scroll region, tables cap themselves). */
 .table-wrap {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: calc(100dvh - 300px);
     -webkit-overflow-scrolling: touch;
     border-radius: 20px;
     margin: 10px 0;
 }
 .table-wrap > table { margin: 0; }
 
-/* Long license / API keys wrap cleanly instead of exploding their column. */
+/* Long license / API keys wrap cleanly instead of exploding their column.
+   overflow-wrap (not break-all): a key breaks after its hyphens only,
+   never in the middle of a segment. */
 .key-cell {
-    word-break: break-all;
+    overflow-wrap: break-word;
+    word-break: normal;
     font-family: ui-monospace, 'JetBrains Mono', monospace;
     font-size: 12px;
+}
+
+/* Row actions: one compact horizontal group that never wraps, so table
+   rows stay short instead of growing to 300–500px from stacked buttons. */
+.row-actions {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    align-items: center;
+    white-space: nowrap;
+}
+.row-actions button, .row-actions a {
+    padding: 6px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* <fieldset> defaults to min-width: min-content, which stops it shrinking
+   inside a flex/grid form and clips long checkbox labels in RTL. */
+fieldset { min-width: 0; }
+
+/* Checkbox + label in one flex row: the box sits at the inline-start of its
+   label in both LTR and RTL, never centred above the text. */
+.check-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    min-width: 0;
 }
 
 /* Values that must never split across lines ("15 days", "49 USD"). */
@@ -464,13 +498,16 @@ pre {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.page-enter { animation: pageIn 0.35s ease both; }
+/* No "both" fill mode: the end keyframe equals the natural state, and a
+   retained transform would leave a stacking context behind that can sit
+   above the drawer backdrop and swallow overlay taps. */
+.page-enter { animation: pageIn 0.35s ease; }
 
 @keyframes staggerIn {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.stagger-item { animation: staggerIn 0.45s ease both; }
+.stagger-item { animation: staggerIn 0.45s ease; }
 
 @keyframes shimmer {
     0% { background-position: 200% 0; }
@@ -506,7 +543,8 @@ pre {
     from { opacity: 0; transform: translateX(-14px); }
     to { opacity: 1; transform: translateX(0); }
 }
-.slide-fade { animation: slideFade 0.5s ease both; }
+/* No "both" fill mode here either (see .page-enter above). */
+.slide-fade { animation: slideFade 0.5s ease; }
 
 /* Chart mount animation: bars grow, donut draws in */
 .chart-anim rect { transition: y 0.7s ease, height 0.7s ease; }

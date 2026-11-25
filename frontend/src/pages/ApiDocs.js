@@ -151,12 +151,22 @@ const ENDPOINTS = [
   ["PUT", "/api/products/{id}", "docs.ep.productsUpdate"],
   ["DELETE", "/api/products/{id}", "docs.ep.productsDelete"],
   ["POST", "/api/products/{id}/test-webhook", "docs.ep.productsTestWebhook"],
+  ["GET", "/api/product-groups", "docs.ep.productGroupsList"],
+  ["POST", "/api/product-groups", "docs.ep.productGroupsCreate"],
+  ["GET", "/api/blacklist?type=", "docs.ep.blacklistList"],
+  ["GET", "/api/notifications", "docs.ep.notificationsList"],
+  ["POST", "/api/notifications/{id}/read", "docs.ep.notificationsRead"],
+  ["GET", "/api/downloads", "docs.ep.downloadsList"],
+  ["GET", "/api/downloads/{module_id}", "docs.ep.downloadsGet"],
+  ["GET", "/api/downloads/versions", "docs.ep.downloadsVersions"],
   ["GET", "/api/licenses?filter=&status=&search=", "docs.ep.licensesList"],
   ["POST", "/api/licenses", "docs.ep.licensesCreate"],
   ["GET", "/api/licenses/{id}", "docs.ep.licensesGet"],
   ["PUT", "/api/licenses/{id}", "docs.ep.licensesUpdate"],
   ["DELETE", "/api/licenses/{id}", "docs.ep.licensesDelete"],
   ["POST", "/api/licenses/{id}/renew", "docs.ep.licensesRenew"],
+  ["POST", "/api/licenses/{id}/reissue", "docs.ep.licenseReissue"],
+  ["GET", "/api/licenses/{id}/activations", "docs.ep.licenseActivations"],
   ["POST", "/api/licenses/validate", "docs.ep.licensesValidate"],
   ["GET", "/api/api-keys", "docs.ep.apiKeysList"],
   ["POST", "/api/api-keys", "docs.ep.apiKeysCreate"],
@@ -171,7 +181,8 @@ const ENDPOINTS = [
   ["DELETE", "/api/settings/{key}", "docs.ep.settingsDelete"],
   ["GET", "/api/system/info", "docs.ep.systemInfo"],
   ["GET", "/api/system/check-updates", "docs.ep.systemCheckUpdates"],
-  ["POST", "/api/system/update", "docs.ep.systemUpdate"],
+  ["GET", "/api/system/update-check", "docs.ep.updateCheck"],
+  ["POST", "/api/system/update", "docs.ep.updateApply"],
   ["POST", "/api/system/check-expiring?days=7", "docs.ep.systemCheckExpiring"],
   ["GET", "/api/webhooks/deliveries?product_id=&limit=50", "docs.ep.webhooksDeliveries"],
   ["GET", "/api/languages", "docs.ep.languagesList"],
@@ -179,6 +190,7 @@ const ENDPOINTS = [
   ["PUT", "/api/languages/{code}", "docs.ep.languagesUpdate"],
   ["DELETE", "/api/languages/{code}", "docs.ep.languagesDelete"],
   ["GET", "/api/dashboard/summary", "docs.ep.dashboardSummary"],
+  ["GET", "/api/dashboard/license-trend?days=14", "docs.ep.dashboardTrend"],
   ["GET", "/api/audit-logs?skip=&limit=&entity=&actor=", "docs.ep.auditLogs"],
 ];
 
@@ -257,6 +269,7 @@ api-key: lmp_...
 
       <Section id="whmcs" title={t("docs.whmcs")}>
         <p>{t("docs.whmcsText")}</p>
+        <p>{t("docs.moduleDownload")}</p>
         <h3>{t("docs.hookTitle")}</h3>
         <pre>{WHMCS_HOOK}</pre>
         <h3>{t("docs.moduleTitle")}</h3>

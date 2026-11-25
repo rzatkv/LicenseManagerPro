@@ -1,0 +1,74 @@
+.wizard { padding: 16px; margin: 16px 0; }
+.wizard-title { margin-bottom: 12px; }
+.wizard-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.wizard-step { flex: 1 1 auto; min-width: 0; }
+.wizard-step-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wizard-step-btn:hover:not(:disabled) { box-shadow: none; transform: none; }
+.wizard-step.current .wizard-step-btn {
+  background: var(--accent-gradient);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+.wizard-step.done .wizard-step-btn { color: var(--text); border-color: var(--accent); }
+.wizard-step-dot {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.wizard-step.current .wizard-step-dot { background: rgba(255,255,255,0.25); color: var(--on-accent); }
+.wizard-step.done .wizard-step-dot { background: var(--success); color: var(--on-accent); }
+.wizard-step-label { overflow: hidden; text-overflow: ellipsis; }
+.wizard-body { display: flex; flex-direction: column; gap: 10px; }
+.wizard-body input, .wizard-body select, .wizard-body textarea { width: 100%; }
+.wizard-body .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.wizard-body .form-row > * { flex: 1 1 160px; min-width: 0; }
+.wizard-review { display: flex; flex-direction: column; gap: 6px; }
+.wizard-review-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.wizard-review-row strong { color: var(--muted); font-weight: 600; }
+.wizard-review-row span { text-align: end; overflow-wrap: anywhere; }
+.wizard-nav { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+.wizard-spacer { flex: 1; }
+.wizard-success { padding: 8px 0; }
+.wizard-success .key-cell { font-size: 14px; }
+@media (max-width: 768px) {
+  .wizard-step-label { display: none; }
+  .wizard-step-btn { justify-content: center; padding: 8px; }
+}

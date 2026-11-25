@@ -29,6 +29,8 @@
     color: transparent;
 }
 
+.login-logo { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 12px; }
+
 .form-group {
     margin-bottom: 15px;
     text-align: start;

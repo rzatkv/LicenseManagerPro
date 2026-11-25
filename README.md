@@ -12,6 +12,20 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
+## What's new in v2.2.0
+
+- **Real WHMCS module + WooCommerce plugin (downloadable):** the Downloads page in the admin panel serves both as ZIPs built on the fly (`GET /api/downloads/{whmcs,woocommerce}`), with versions tracked in `modules.json` and an "update available" badge when GitHub has a newer one. The WHMCS server module (`modules/whmcs/`) implements the full lifecycle — CreateAccount (creates the license, stores the key in the service's password field), Suspend/Unsuspend, Terminate, Renew, ChangePackage, TestConnection and an admin Services tab — with `RequiresServer = false` and the API URL + admin credentials configured per product. The WooCommerce plugin (`modules/woocommerce/`) creates one license per mapped line item when an order completes, stores the key in order item meta, shows it in the order details / order email, and adds a My Account → Licenses tab with live status, expiry and per-installation deactivate. Both are built from a competitor study (WHMCS Software Licensing addon + marketplace modules, License Manager for WooCommerce / Gatemi / LicenseKit, Keygen.sh, Cryptlex, LemonSqueezy).
+- **Product groups:** products can be grouped (`/api/product-groups`, CRUD, delete blocked while products reference the group); the Products page has a group filter + group column and a Groups manager (create/edit/delete with a colour picker).
+- **Per-product key generators:** each product defines a key prefix, segment count and segment length (`CPN-XXXX-XXXX-XXXX`); license keys are generated from the product's format.
+- **License reissue + activations:** `POST /api/licenses/{id}/reissue` issues a new key (the old one stops working, honouring the product's max-reissues limit) and licenses track activation instances (fingerprint records with activate/deactivate and a max-activations limit) — visible in the license detail panel and in the WooCommerce My Account tab.
+- **IP/domain blacklist:** admin-only `/api/blacklist` (exact IP, CIDR ranges and exact-or-subdomain matching); a blacklisted IP or domain is rejected by license validate and by API-key check-access with reason `blocked: blacklisted`.
+- **Notification center:** a bell in the topbar with an unread badge + dropdown, plus a Notifications page. Notifications fire on license created, license expiring/expired (from check-expiring), webhook delivery failed and new user created (`GET /api/notifications`, `POST /{id}/read`, `POST /read-all`).
+- **Logo + branding:** a designed SVG logo (key glyph in the magenta → violet gradient) used in the login page, the sidebar and as the favicon. `site_name` and `logo_url` are settings — change them from Settings, including uploading a logo image (stored as a data URL) or resetting to the default.
+- **Self-update (real):** `GET /api/system/update-check` compares the running version with the latest GitHub release live; `POST /api/system/update` downloads and verifies the release tarball into `./updates/` (staged, never overwriting live code) and `scripts/update.sh` applies it, excluding `.env`, `*.db` and `updates/` itself. The backend only runs the script automatically when `LMP_ALLOW_SELF_UPDATE=1`; otherwise the About → Updates card shows the one-command instruction. Module versions are checked against `modules.json` on GitHub (`GET /api/downloads/versions`).
+- **Wizards:** creating a license, a product, a product group or an API key is now a guided multi-step flow (shared `Wizard` component with per-step validation and a review step; the generated API key is shown once, with a copy button). Edit forms stay inline.
+- **App-like shell:** the whole app is `100dvh` — sidebar and topbar fixed, the page content is the only scroll region, long tables scroll inside their own card. The v2.1.1 visual re-check defects are all fixed in this release: the drawer overlay tap now closes the drawer (backdrop moved last in the DOM, z-index raised above the page, tap-on-content closes it, and the lingering `animation-fill-mode: both` transforms that created stray stacking contexts were removed); the Products checkbox groups no longer clip in RTL (`fieldset {min-width: 0}` + wrapping flex rows); table rows are short again (horizontal compact row-action groups); license keys break after hyphens only (`overflow-wrap: break-word` instead of `break-all`); the About version date is localized; the drawer title no longer runs under the × button.
+- **Better dashboard charts:** a 14-day licenses-created area/line chart (dots + hover tooltips, localized day labels) from `GET /dashboard/license-trend`, an "Estimated MRR" stat (active licenses' prices normalized to monthly by billing cycle), value labels on bars, and full product names on the by-product chart (wrapped onto two lines instead of truncated).
+
 ## What's new in v2.1.1
 
 - **RTL fix (the big one):** the layout shell is now fully logical — sidebar docks to the inline-start side (right in Persian, left in English), the mobile drawer breakpoint is 1024px so narrow portrait phones (~886px) get the drawer instead of a squeezed docked sidebar, and `overflow-x: hidden` on the page root stops a wide element from shifting the whole page sideways in RTL.
@@ -67,28 +81,33 @@ LicenseManagerPro/
 │   ├── main.py              # App entrypoint, routers mounted under /api
 │   ├── config.py            # Environment-based configuration
 │   ├── database.py          # SQLAlchemy 2.x engine/session
-│   ├── models.py            # User, ApiKey, ApiUsageLog, License, SystemSetting
+│   ├── models.py            # User, ApiKey, ApiUsageLog, License, SystemSetting, Product, ProductGroup, BlacklistEntry, Notification, LicenseActivation, AuditLog
 │   ├── schemas.py           # Pydantic v2 schemas
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   ├── .env.example
-│   ├── routers/             # auth, api_keys, licenses, users, dashboard, settings, system
-│   ├── services/            # api_keys, licenses, users, settings
+│   ├── routers/             # auth, api_keys, licenses, users, dashboard, settings, system, products, product_groups, blacklist, notifications, downloads
+│   ├── services/            # api_keys, licenses, users, settings, products, product_groups, blacklist, notifications, updates, downloads, webhooks
 │   ├── utils/               # auth (JWT + hashing), email (SMTP, optional)
 │   └── tests/               # pytest suite (temporary SQLite DB)
 ├── frontend/                # React 18 frontend (react-scripts)
 │   ├── package.json
-│   ├── public/index.html
+│   ├── public/index.html    # SVG favicon (logo.svg)
 │   └── src/
 │       ├── App.js           # Routes + ProtectedRoute
 │       ├── config.js        # API_BASE_URL (REACT_APP_API_URL or http://127.0.0.1:8000/api)
 │       ├── index.js         # React 18 createRoot entrypoint
-│       ├── pages/           # Login, Dashboard, Products, Settings, LicenseList, APIKeyList, UserManagement, Languages, ApiDocs, About
-│       ├── components/      # Layout (sidebar + topbar CRM shell)
+│       ├── pages/           # Login, Dashboard, Products, Settings, LicenseList, APIKeyList, UserManagement, Languages, ApiDocs, About, Blacklist, Downloads, Notifications
+│       ├── components/      # Layout (sidebar + topbar CRM shell), Wizard, NotificationsBell
 │       ├── i18n/            # translations.js (en/fa) + LanguageContext
 │       ├── theme.js         # ThemeContext (light/dark/auto)
 │       ├── styles/
 │       └── utils/           # api.js (get/post/put/del), auth.js, updateChecker.js
+├── modules/                 # Downloadable integrations (see Modules)
+│   ├── whmcs/               # WHMCS server module (PHP) + version.json
+│   └── woocommerce/         # WordPress/WooCommerce plugin (PHP) + version.json
+├── scripts/update.sh        # Applies a staged release tarball
+├── modules.json             # Module versions manifest (repo root)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
 └── README.md
 ```
@@ -196,7 +215,34 @@ except where noted.
 - **PUT** `/api/licenses/{id}` — Update a license.
 - **DELETE** `/api/licenses/{id}` — Delete a license.
 - **POST** `/api/licenses/{id}/renew` — Extend expiry (`{"extend_days": 30}`).
+- **POST** `/api/licenses/{id}/reissue` — Issue a new key (the old one stops working; blocked when the product's max-reissues limit is reached).
+- **GET** `/api/licenses/{id}/activations` — List activation instances.
+- **POST** `/api/licenses/{id}/activations` — Register an activation (`{"fingerprint": "...", "label": "..."}`; same fingerprint returns the existing record).
+- **DELETE** `/api/licenses/{id}/activations/{activation_id}` — Remove one activation (frees a slot).
 - **POST** `/api/licenses/validate` — Validate a license key (`{"key": "..."}`).
+
+### Product Groups
+- **GET** `/api/product-groups` — List groups (sorted by `sort_order`).
+- **POST** `/api/product-groups` — Create a group (admin/manager).
+- **PUT** `/api/product-groups/{id}` — Update a group.
+- **DELETE** `/api/product-groups/{id}` — Delete a group (400 while products reference it).
+- Products accept `group_id` on create/update, and `GET /api/products?group_id=` filters by group; `?slug=` looks a product up by exact slug (used by the WHMCS module and the WooCommerce plugin).
+
+### Blacklist (admin only)
+- **GET** `/api/blacklist?type=` — List entries.
+- **POST** `/api/blacklist` — Add an entry (`{"type": "ip"|"domain", "value": "203.0.113.0/24", "reason": "..."}`).
+- **DELETE** `/api/blacklist/{id}` — Remove an entry.
+- Enforcement: license validate and API-key check-access reject a blacklisted IP (exact or CIDR) or domain (exact or subdomain) with reason `blocked: blacklisted`.
+
+### Notifications
+- **GET** `/api/notifications?skip=&limit=` — Unread first, then newest (`{notifications, total, unread}`).
+- **POST** `/api/notifications/{id}/read` — Mark one read.
+- **POST** `/api/notifications/read-all` — Mark all visible notifications read.
+
+### Downloads
+- **GET** `/api/downloads` — List the downloadable modules (`{id, name, version, description, updated_at}`).
+- **GET** `/api/downloads/{module_id}` — Stream the module as a ZIP (404 for unknown id).
+- **GET** `/api/downloads/versions` — Local versions plus the latest versions from the GitHub `modules.json` manifest.
 
 ### Users
 - **GET** `/api/users/me` — The currently authenticated user.
@@ -206,7 +252,8 @@ except where noted.
 - **DELETE** `/api/users/{id}` — Delete a user (admin only; not yourself, not the last admin).
 
 ### Dashboard
-- **GET** `/api/dashboard/summary` — `{apiKeysCount, usersCount, activeLicenses, inactiveLicenses}` (admin only).
+- **GET** `/api/dashboard/summary` — `{apiKeysCount, usersCount, activeLicenses, inactiveLicenses, estimated_mrr}` (admin only). `estimated_mrr` sums active licenses' product prices normalized to monthly by billing cycle (monthly×1, quarterly÷3, semiannual÷6, annual÷12, biennial÷24, lifetime 0).
+- **GET** `/api/dashboard/license-trend?days=14` — `{points: [{date, count}]}` of licenses created per day (admin only).
 
 ### System Settings
 - **GET** `/api/settings` — All settings as a `{key: value}` object.
@@ -216,9 +263,33 @@ except where noted.
 ### System Updates
 - **GET** `/api/system/info` — `{version, lastUpdated}` (admin only).
 - **GET** `/api/system/check-updates` — `{updateAvailable, currentVersion, latestVersion}` (admin only). Compares the running version with the `latest_version` setting.
-- **POST** `/api/system/update` — Record the pending version as applied (admin only).
+- **GET** `/api/system/update-check` — Live check against the GitHub releases API: `{current_version, latest_version, update_available, release_url, release_notes, published_at, error}` (admin/manager). On GitHub API failure it returns `update_available: false` with an error note and never raises.
+- **POST** `/api/system/update` — Download the latest release tarball into `./updates/` (verified as a gzip tarball), record it in the `latest_version` setting, and return `{staged, version, next_step}` (admin only). The actual apply is `scripts/update.sh` — it extracts the tarball over the install directory excluding `.env`, `*.db` and `updates/`, then restarts the `license-manager` systemd unit if one exists. The backend runs the script automatically only when `LMP_ALLOW_SELF_UPDATE=1`; otherwise run the printed command by hand:
 
-> **Note:** the update mechanism is an honest stub — it records the new version in the settings but does not perform a real self-update (no `git pull` / rebuild). Deploying a new version is still a manual step.
+```bash
+bash scripts/update.sh
+```
+
+---
+
+## Modules
+
+The real WHMCS server module and WooCommerce plugin live in `modules/` and are downloadable from the admin panel (**Downloads** page) as ZIPs, or from the GitHub releases. Versions are tracked in `modules.json` at the repo root.
+
+### WHMCS module (`modules/whmcs/`, version 1.0.0)
+
+1. Copy the `modules/` folder from the ZIP into your WHMCS installation root, so the module lands at `modules/servers/licensemanagerpro/licensemanagerpro.php`.
+2. In WHMCS, create or edit a product and select **LicenseManagerPro** as the module (Setup → Products/Services → Products/Services → Module Settings). No server entry is needed (`RequiresServer = false`).
+3. Fill in the module settings: **API URL** (base URL of the License Manager Pro API, no trailing slash), **Admin email / Admin password** (an admin user — the module logs in to get a JWT), **Product slug** (the product in License Manager Pro), **Billing cycle** (one of the product's cycles).
+4. Use **Test Connection** to verify the login. On order payment WHMCS creates the license and stores the key in the service's password field; suspension, unsuspension, termination, renewal and package changes map to the API; the admin Services tab shows key, status, expiry and activations.
+
+### WooCommerce plugin (`modules/woocommerce/`, version 1.0.0)
+
+1. In WordPress admin: **Plugins → Add New → Upload Plugin**, upload the ZIP and activate it (WooCommerce must already be active).
+2. Go to **WooCommerce → License Manager Pro** and fill in the **API URL**, **Admin email / Admin password**, and the **product mapping** (each WooCommerce product → License Manager Pro product slug + billing cycle).
+3. Click **Test connection**. When an order completes, one license is created per mapped line item (never before completion, never twice for the same item); the key is stored in order item meta and shown in the order details, the order email and **My Account → Licenses** (with live status, expiry, activations and a deactivate button per installation).
+
+> **Note:** the PHP modules are not linted in this repo's CI (no PHP in the development VM) — they were reviewed by hand. Test them against a real WHMCS / WordPress install before going live.
 
 ---
 

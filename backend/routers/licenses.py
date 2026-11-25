@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from schemas import (
+    LicenseActivationCreateRequest,
+    LicenseActivationResponse,
     LicenseCreateRequest,
     LicenseRenewRequest,
     LicenseResponse,
@@ -20,6 +22,7 @@ from schemas import (
     MessageResponse,
 )
 from services import licenses as license_service
+from services import notifications as notification_service
 from services import webhooks as webhook_service
 from services.audit import log_audit
 from utils.auth import get_current_user
@@ -61,6 +64,13 @@ def create_license(
         "license",
         license_.id,
         {"key": license_.key, "product": license_.product},
+    )
+    notification_service.notify_admins(
+        db,
+        "License created",
+        f"License {license_.key} for {license_.product} was created.",
+        type_="success",
+        link="/licenses",
     )
     return license_service.serialize_license(license_)
 
@@ -154,3 +164,106 @@ def renew_license(
         {"key": license_.key},
     )
     return license_service.serialize_license(license_)
+
+
+@router.post("/{license_id}/reissue", response_model=LicenseResponse)
+def reissue_license(
+    license_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("licenses:write")),
+):
+    """Reissue a license (v2.2): a fresh key replaces the old one; the old
+    key stops working. Enforces the product's max_reissues."""
+    license_ = license_service.reissue_license(license_id, db)
+    log_audit(
+        db,
+        current_user.email,
+        "license.reissue",
+        "license",
+        license_.id,
+        {"key": license_.key, "reissue_count": license_.reissue_count},
+    )
+    notification_service.notify_admins(
+        db,
+        "License reissued",
+        f"License for {license_.product} was reissued (new key {license_.key}).",
+        type_="info",
+        link="/licenses",
+    )
+    return license_service.serialize_license(license_)
+
+
+@router.get("/{license_id}/activations", response_model=List[LicenseActivationResponse])
+def list_activations(
+    license_id: int,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
+    """Activation instances of a license (v2.2)."""
+    records = license_service.list_activations(license_id, db)
+    return [
+        {
+            "id": r.id,
+            "license_id": r.license_id,
+            "fingerprint": r.fingerprint,
+            "label": r.label,
+            "created_at": r.created_at,
+        }
+        for r in records
+    ]
+
+
+@router.post(
+    "/{license_id}/activations",
+    response_model=LicenseActivationResponse,
+    status_code=201,
+)
+def activate_license(
+    license_id: int,
+    request: LicenseActivationCreateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("licenses:write")),
+):
+    """Register one activation instance (v2.2); same fingerprint twice
+    returns the existing record without using another slot."""
+    record = license_service.activate_license(
+        license_id, db, request.fingerprint, label=request.label
+    )
+    log_audit(
+        db,
+        current_user.email,
+        "license.activate",
+        "license",
+        license_id,
+        {"fingerprint": request.fingerprint},
+    )
+    return {
+        "id": record.id,
+        "license_id": record.license_id,
+        "fingerprint": record.fingerprint,
+        "label": record.label,
+        "created_at": record.created_at,
+    }
+
+
+@router.delete(
+    "/{license_id}/activations/{activation_id}",
+    response_model=MessageResponse,
+)
+def deactivate_activation(
+    license_id: int,
+    activation_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("licenses:write")),
+):
+    """Remove one activation instance, freeing one slot (v2.2)."""
+    license_service.deactivate_activation(license_id, activation_id, db)
+    log_audit(
+        db,
+        current_user.email,
+        "license.deactivate",
+        "license",
+        license_id,
+        {"activation_id": activation_id},
+    )
+    return {"message": "Activation removed successfully"}

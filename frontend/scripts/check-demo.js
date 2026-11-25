@@ -42,13 +42,14 @@ function check(name, cond, extra) {
 }
 
 (async () => {
-  console.log("Demo mock checks (v2.1 flows):");
+  console.log("Demo mock checks (v2.2 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.1.1
+  // 1. Seed versions bumped to 2.2.0
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.1.1", settings.app_version === "2.1.1", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.1.1", settings.latest_version === "2.1.1", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.2.0", settings.app_version === "2.2.0", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.2.0", settings.latest_version === "2.2.0", JSON.stringify(settings.latest_version));
+  check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
   const productsAll = await mockRequest("GET", "/products");
@@ -131,6 +132,76 @@ function check(name, cond, extra) {
   await mockRequest("POST", "/auth/login", {email: "viewer@demo.com"});
   const me = await mockRequest("GET", "/users/me");
   check("demo login maps viewer@demo.com to viewer role", me.email === "viewer@demo.com" && me.role === "viewer", JSON.stringify(me));
+
+  // 19. v2.2: product groups seeded + group filter + delete guard
+  await mockRequest("POST", "/auth/login", {email: "demo@demo.com"});
+  const groups = await mockRequest("GET", "/product-groups");
+  check("seed has 2 product groups", Array.isArray(groups) && groups.length === 2, JSON.stringify(groups && groups.length));
+  const grouped = await mockRequest("GET", "/products?group_id=1");
+  check("products group_id=1 returns 2 products", Array.isArray(grouped) && grouped.length === 2, JSON.stringify(grouped && grouped.length));
+  const slugged = await mockRequest("GET", "/products?slug=cloudpanel-pro");
+  check("products slug lookup returns CloudPanel Pro", Array.isArray(slugged) && slugged.length === 1 && slugged[0].name === "CloudPanel Pro", JSON.stringify(slugged && slugged.length));
+  let guardHit = false;
+  try { await mockRequest("DELETE", "/product-groups/1"); } catch (e) { guardHit = e.status === 400; }
+  check("deleting a group with products is rejected (400)", guardHit);
+  const newGroup = await mockRequest("POST", "/product-groups", {name: "Test Group"});
+  check("product group create works", newGroup && newGroup.slug === "test-group", JSON.stringify(newGroup && newGroup.slug));
+  await mockRequest("DELETE", `/product-groups/${newGroup.id}`);
+  check("empty product group deletes", true);
+
+  // 20. v2.2: dashboard MRR + 14-day trend
+  const summary = await mockRequest("GET", "/dashboard/summary");
+  check("dashboard summary has estimated_mrr", typeof summary.estimated_mrr === "number" && summary.estimated_mrr > 0, JSON.stringify(summary.estimated_mrr));
+  const trend = await mockRequest("GET", "/dashboard/license-trend?days=14");
+  check("license trend returns 14 points summing to 5", trend.points && trend.points.length === 14 && trend.points.reduce((a, p) => a + p.count, 0) === 5, JSON.stringify(trend.points && trend.points.reduce((a, p) => a + p.count, 0)));
+
+  // 21. v2.2: notifications seeded (3) + license/user creates appended two
+  // more in checks 13 and 16, so 5 total / 4 unread at this point.
+  const notes = await mockRequest("GET", "/notifications?limit=10");
+  check("notifications seeded + appended (5 total, 4 unread)", notes.total === 5 && notes.unread === 4, JSON.stringify(notes.total));
+  await mockRequest("POST", "/licenses", {product_id: 1, billing_cycle: "annual"});
+  const notes2 = await mockRequest("GET", "/notifications?limit=10");
+  check("license create appends a notification", notes2.total === 6 && notes2.unread === 5, JSON.stringify(notes2.total));
+  const readAll = await mockRequest("POST", "/notifications/read-all", {});
+  check("read-all marks all read", readAll.message === "5 notification(s) marked as read", JSON.stringify(readAll.message));
+
+  // 22. v2.2: blacklist blocks validate, CIDR included
+  await mockRequest("POST", "/blacklist", {type: "ip", value: "203.0.113.0/24", reason: "demo"});
+  const licList = await mockRequest("GET", "/licenses?filter=all");
+  const blocked = await mockRequest("POST", "/licenses/validate", {key: licList[0].key, ip: "203.0.113.99"});
+  check("blacklisted CIDR IP fails validation", blocked.valid === false && blocked.detail === "blocked: blacklisted", JSON.stringify(blocked));
+  const clean = await mockRequest("POST", "/licenses/validate", {key: licList[0].key, ip: "198.51.100.7"});
+  check("clean IP still validates", clean.valid === true, JSON.stringify(clean.valid));
+  const bl = await mockRequest("GET", "/blacklist?type=ip");
+  check("blacklist list returns the entry", Array.isArray(bl) && bl.length === 1, JSON.stringify(bl && bl.length));
+
+  // 23. v2.2: downloads + versions
+  const downloads = await mockRequest("GET", "/downloads");
+  check("downloads lists whmcs + woocommerce", Array.isArray(downloads) && downloads.length === 2 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "woocommerce"), JSON.stringify(downloads && downloads.length));
+  const versions = await mockRequest("GET", "/downloads/versions");
+  check("downloads versions returns both modules at 1.0.0", versions.whmcs && versions.whmcs.local === "1.0.0" && versions.whmcs.latest === "1.0.0" && versions.woocommerce && versions.woocommerce.local === "1.0.0", JSON.stringify(versions));
+
+  // 24. v2.2: update-check (demo is up to date) + staged update shape
+  const upd = await mockRequest("GET", "/system/update-check");
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.2.0", JSON.stringify(upd));
+  const staged = await mockRequest("POST", "/system/update", {});
+  check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
+
+  // 25. v2.2: reissue + activations (product 3 has max_reissues 1)
+  const lic3 = (await mockRequest("GET", "/licenses?filter=all")).find((l) => l.product_id === 3);
+  const oldKey = lic3.key;
+  const reissued = await mockRequest("POST", `/licenses/${lic3.id}/reissue`, {});
+  check("reissue replaces the key and bumps reissue_count", reissued.key !== oldKey && reissued.reissue_count === 1, JSON.stringify(reissued.reissue_count));
+  let reissueBlocked = false;
+  try { await mockRequest("POST", `/licenses/${lic3.id}/reissue`, {}); } catch (e) { reissueBlocked = e.status === 400; }
+  check("second reissue is blocked by max_reissues=1", reissueBlocked);
+  const act = await mockRequest("POST", `/licenses/${lic3.id}/activations`, {fingerprint: "fp-check-demo-1", label: "demo-box"});
+  check("activation created", act && act.fingerprint === "fp-check-demo-1", JSON.stringify(act && act.fingerprint));
+  const acts = await mockRequest("GET", `/licenses/${lic3.id}/activations`);
+  check("activations list returns the record", Array.isArray(acts) && acts.length >= 1, JSON.stringify(acts && acts.length));
+  await mockRequest("DELETE", `/licenses/${lic3.id}/activations/${act.id}`);
+  const actsAfter = await mockRequest("GET", `/licenses/${lic3.id}/activations`);
+  check("activation delete frees the slot", Array.isArray(actsAfter) && !actsAfter.some((a) => a.id === act.id), JSON.stringify(actsAfter && actsAfter.length));
 
   console.log(`\n${passed} passed, ${failed} failed.`);
   process.exit(failed ? 1 : 0);

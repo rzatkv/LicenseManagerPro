@@ -103,6 +103,98 @@ class ApiKeyListResponse(BaseModel):
     api_keys: List[ApiKeyResponse]
 
 
+# --- Product groups (v2.2) ------------------------------------------------
+
+
+class ProductGroupCreateRequest(BaseModel):
+    name: str
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    color: str = "#7B6CFF"
+    sort_order: int = 0
+
+
+class ProductGroupUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class ProductGroupResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    description: Optional[str] = None
+    color: str
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Blacklist (v2.2) -----------------------------------------------------
+
+
+class BlacklistCreateRequest(BaseModel):
+    type: str = Field(..., description="ip or domain")
+    value: str
+    reason: Optional[str] = None
+
+
+class BlacklistResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    value: str
+    reason: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+
+# --- Notifications (v2.2) -------------------------------------------------
+
+
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: Optional[int] = None
+    title: str
+    message: str
+    type: str
+    link: Optional[str] = None
+    is_read: bool
+    created_at: datetime
+
+
+class NotificationsListResponse(BaseModel):
+    total: int
+    unread: int
+    notifications: List[NotificationResponse]
+
+
+# --- License activations + reissue (v2.2) ---------------------------------
+
+
+class LicenseActivationCreateRequest(BaseModel):
+    fingerprint: str = Field(..., description="Machine/install fingerprint (domain, IP or install path)")
+    label: Optional[str] = None
+
+
+class LicenseActivationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    license_id: int
+    fingerprint: str
+    label: Optional[str] = None
+    created_at: datetime
+
+
 # --- Products (v2.0) ------------------------------------------------------
 
 BILLING_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"]
@@ -119,6 +211,11 @@ class ProductCreateRequest(BaseModel):
     webhook_url: Optional[str] = None
     webhook_events: List[str] = Field(default_factory=list)
     webhook_secret: Optional[str] = None
+    group_id: Optional[int] = None
+    key_prefix: Optional[str] = None
+    key_segments: int = Field(default=4, ge=1, le=8)
+    key_segment_length: int = Field(default=4, ge=2, le=8)
+    max_reissues: Optional[int] = Field(default=None, ge=0)
 
 
 class ProductUpdateRequest(BaseModel):
@@ -132,6 +229,11 @@ class ProductUpdateRequest(BaseModel):
     webhook_url: Optional[str] = None
     webhook_events: Optional[List[str]] = None
     webhook_secret: Optional[str] = None
+    group_id: Optional[int] = None
+    key_prefix: Optional[str] = None
+    key_segments: Optional[int] = Field(default=None, ge=1, le=8)
+    key_segment_length: Optional[int] = Field(default=None, ge=2, le=8)
+    max_reissues: Optional[int] = Field(default=None, ge=0)
 
 
 class ProductResponse(BaseModel):
@@ -148,6 +250,11 @@ class ProductResponse(BaseModel):
     webhook_url: Optional[str] = None
     webhook_events: List[str] = Field(default_factory=list)
     webhook_secret: Optional[str] = None
+    group_id: Optional[int] = None
+    key_prefix: Optional[str] = None
+    key_segments: int = 4
+    key_segment_length: int = 4
+    max_reissues: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
@@ -283,6 +390,7 @@ class LicenseResponse(BaseModel):
     expires_at: Optional[datetime] = None
     max_activations: int
     activations: int
+    reissue_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -312,6 +420,17 @@ class DashboardSummaryResponse(BaseModel):
     usersCount: int
     activeLicenses: int
     inactiveLicenses: int
+    estimated_mrr: float = 0.0
+
+
+class DashboardTrendPoint(BaseModel):
+    date: str
+    count: int
+
+
+class DashboardTrendResponse(BaseModel):
+    days: int
+    points: List[DashboardTrendPoint]
 
 
 class SystemInfoResponse(BaseModel):
@@ -323,6 +442,45 @@ class CheckUpdatesResponse(BaseModel):
     updateAvailable: bool
     currentVersion: str
     latestVersion: str
+
+
+class UpdateCheckResponse(BaseModel):
+    """Live GitHub release check (v2.2)."""
+
+    current_version: str
+    latest_version: Optional[str] = None
+    update_available: bool = False
+    release_url: Optional[str] = None
+    release_notes: Optional[str] = None
+    published_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class StageUpdateResponse(BaseModel):
+    """Result of staging a release tarball (v2.2)."""
+
+    staged: bool
+    version: Optional[str] = None
+    file: Optional[str] = None
+    next_step: str
+    auto_applied: bool = False
+
+
+class DownloadItemResponse(BaseModel):
+    """One downloadable integration module (v2.2)."""
+
+    id: str
+    name: str
+    version: str
+    description: str
+    download_url: str
+
+
+class ModuleVersionsResponse(BaseModel):
+    """Local vs latest (GitHub manifest) module versions (v2.2)."""
+
+    whmcs: dict = Field(default_factory=dict)
+    woocommerce: dict = Field(default_factory=dict)
 
 
 class MessageResponse(BaseModel):

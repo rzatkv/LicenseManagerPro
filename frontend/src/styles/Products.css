@@ -16,3 +16,16 @@
 .products-container table .view-btn, .products-container table .edit-btn { padding: 5px 10px; border-radius: 999px; cursor: pointer; }
 .products-container table .view-btn { background: var(--success); color: var(--on-accent); border: none; }
 .products-container table .delete-btn { padding: 5px 10px; background: var(--danger); color: var(--on-accent); border: none; border-radius: 999px; cursor: pointer; }
+
+/* Product groups manager card (v2.2). */
+.groups-card { padding: 16px; margin: 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.groups-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.groups-list li {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; border-radius: 14px; background: var(--surface-2);
+}
+.group-color-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+.group-name { font-weight: 700; }
+.group-slug { color: var(--muted); font-size: 13px; }
+.group-count { color: var(--muted); font-size: 13px; margin-inline-start: auto; }
+.groups-card input[type="color"] { padding: 2px; width: 64px; height: 40px; cursor: pointer; }

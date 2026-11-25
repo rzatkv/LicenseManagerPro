@@ -1,7 +1,7 @@
 import React, {useEffect, useState, useCallback, useMemo} from "react";
 import {Link, useNavigate} from "react-router-dom";
 import {get, post} from "../utils/api";
-import {formatDate, formatMonthShort} from "../utils/format";
+import {formatDate, formatDayShort, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {SkeletonCard} from "../components/Skeleton";
@@ -72,24 +72,90 @@ function BarChart({data, title, color}) {
     }, []);
     const max = Math.max(1, ...data.map((d) => d.value));
     const width = 320;
-    const height = 180;
+    const height = 190;
     const barW = Math.min(40, (width - 20) / Math.max(1, data.length) - 8);
+    // Long labels wrap onto two lines instead of being truncated ("CloudPanel P…").
+    const splitLabel = (label) => {
+        if (label.length <= 10) return [label];
+        const mid = Math.floor(label.length / 2);
+        const cut = label.indexOf(" ", Math.max(0, mid - 3)) || label.lastIndexOf(" ", mid);
+        const at = (cut > 0 ? cut : label.lastIndexOf(" ", mid));
+        if (at <= 0) return [label];
+        return [label.slice(0, at), label.slice(at + 1)];
+    };
     return (
         <div className="chart-card">
             <h3>{title}</h3>
             <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
                 {data.map((d, i) => {
-                    const h = mounted ? (d.value / max) * (height - 50) : 0;
+                    const h = mounted ? (d.value / max) * (height - 60) : 0;
                     const x = 10 + i * ((width - 20) / Math.max(1, data.length)) + (((width - 20) / Math.max(1, data.length)) - barW) / 2;
+                    const lines = splitLabel(d.label);
                     return (
                         <g key={d.label}>
-                            <rect x={x} y={height - 30 - h} width={barW} height={h} rx="3" fill={color} />
-                            <text x={x + barW / 2} y={height - 34 - h} textAnchor="middle" fill="var(--text)" fontSize="11">{d.value}</text>
-                            <text x={x + barW / 2} y={height - 12} textAnchor="middle" fill="var(--muted)" fontSize="10">{d.label}</text>
+                            <rect x={x} y={height - 36 - h} width={barW} height={h} rx="3" fill={color} />
+                            <text x={x + barW / 2} y={height - 40 - h} textAnchor="middle" fill="var(--text)" fontSize="11">{d.value}</text>
+                            {lines.map((line, li) => (
+                                <text key={li} x={x + barW / 2} y={height - 18 + li * 11} textAnchor="middle" fill="var(--muted)" fontSize="9">{line}</text>
+                            ))}
                         </g>
                     );
                 })}
             </svg>
+        </div>
+    );
+}
+
+/** 14-day area/line chart of licenses created per day (v2.2). */
+function TrendChart({points, title, lang}) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
+    const width = 640;
+    const height = 200;
+    const padL = 28;
+    const padR = 10;
+    const padT = 14;
+    const padB = 30;
+    const max = Math.max(1, ...points.map((p) => p.count));
+    const n = Math.max(1, points.length);
+    const x = (i) => padL + (i * (width - padL - padR)) / Math.max(1, n - 1);
+    const y = (v) => padT + (1 - v / max) * (height - padT - padB);
+    const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${(mounted ? y(p.count) : y(0)).toFixed(1)}`).join(" ");
+    const area = `${line} L${x(n - 1).toFixed(1)},${height - padB} L${x(0).toFixed(1)},${height - padB} Z`;
+    return (
+        <div className="chart-card chart-card-wide">
+            <h3>{title}</h3>
+            {points.length === 0 ? <p className="dashboard-empty">—</p> : (
+                <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+                        </linearGradient>
+                    </defs>
+                    {[0, 0.5, 1].map((f) => (
+                        <g key={f}>
+                            <line x1={padL} x2={width - padR} y1={y(max * f)} y2={y(max * f)} stroke="var(--border)" strokeWidth="1" />
+                            <text x={padL - 4} y={y(max * f) + 3} textAnchor="end" fill="var(--muted)" fontSize="9">{Math.round(max * f)}</text>
+                        </g>
+                    ))}
+                    <path d={area} fill="url(#trend-fill)" />
+                    <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    {points.map((p, i) => (
+                        <circle key={p.date} cx={x(i)} cy={mounted ? y(p.count) : y(0)} r="3.5" fill="var(--accent)" stroke="var(--surface)" strokeWidth="1.5">
+                            <title>{`${formatDayShort(new Date(p.date), lang)}: ${p.count}`}</title>
+                        </circle>
+                    ))}
+                    {points.map((p, i) => (i % 2 === 0 ? (
+                        <text key={p.date} x={x(i)} y={height - 12} textAnchor="middle" fill="var(--muted)" fontSize="9">
+                            {formatDayShort(new Date(p.date), lang)}
+                        </text>
+                    ) : null))}
+                </svg>
+            )}
         </div>
     );
 }
@@ -101,6 +167,7 @@ function Dashboard() {
     const [licenses, setLicenses] = useState([]);
     const [apiKeys, setApiKeys] = useState([]);
     const [users, setUsers] = useState([]);
+    const [trend, setTrend] = useState([]);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
@@ -122,16 +189,18 @@ function Dashboard() {
     const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [summaryData, licensesData, keysData, usersData] = await Promise.all([
+            const [summaryData, licensesData, keysData, usersData, trendData] = await Promise.all([
                 get("/dashboard/summary"),
                 get("/licenses?filter=all"),
                 get("/api-keys"),
                 get("/users"),
+                get("/dashboard/license-trend?days=14"),
             ]);
             setSummary(summaryData);
             setLicenses(licensesData);
             setApiKeys(keysData.api_keys || []);
             setUsers(usersData);
+            setTrend(trendData && Array.isArray(trendData.points) ? trendData.points : []);
             setError("");
         } catch (err) {
             if (err.status === 401) { navigate("/"); return; }
@@ -185,7 +254,9 @@ function Dashboard() {
             const name = lic.product || "-";
             map[name] = (map[name] || 0) + 1;
         }
-        return Object.entries(map).map(([label, value]) => ({label: label.length > 12 ? label.slice(0, 12) + "…" : label, value}))
+        // Full names: BarChart wraps long labels onto two lines instead of
+        // truncating them ("CloudPanel P…").
+        return Object.entries(map).map(([label, value]) => ({label, value}))
             .sort((a, b) => b.value - a.value).slice(0, 6);
     }, [licenses]);
 
@@ -243,6 +314,7 @@ function Dashboard() {
                     {label: t("dashboard.users"), value: summary.usersCount},
                     {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
                     {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
+                    {label: t("dashboard.estimatedMrr"), value: Number(summary.estimated_mrr || 0).toFixed(2)},
                 ].map((box, i) => (
                     <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
                         <h2>{box.label}</h2>
@@ -255,6 +327,7 @@ function Dashboard() {
                 <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />
                 <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />
                 <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />
+                <TrendChart points={trend} title={t("dashboard.trendTitle")} lang={lang} />
             </div>
 
             <div className="dashboard-actions">

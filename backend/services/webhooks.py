@@ -24,6 +24,7 @@ MAX_RESPONSE_BODY_CHARS = 1000
 EVENT_LICENSE_CREATED = "license.created"
 EVENT_LICENSE_RENEWED = "license.renewed"
 EVENT_LICENSE_REVOKED = "license.revoked"
+EVENT_LICENSE_REISSUED = "license.reissued"
 EVENT_LICENSE_VALIDATED_FAILED = "license.validated_failed"
 EVENT_LICENSE_EXPIRING = "license.expiring"
 EVENT_LICENSE_EXPIRED = "license.expired"
@@ -109,6 +110,19 @@ def dispatch_webhook(
         logger.warning("Could not record webhook delivery for event %s", event)
         return None
     db.refresh(delivery)
+    if not success:
+        # A failed delivery is also an in-app notification (v2.2) so the
+        # admin sees it without digging through the deliveries table.
+        from services import notifications as notification_service
+
+        notification_service.notify_admins(
+            db,
+            "Webhook delivery failed",
+            f"{event} to {product.webhook_url} failed"
+            + (f" (HTTP {status_code})" if status_code else ""),
+            type_="error",
+            link="/products",
+        )
     return delivery
 
 
@@ -161,8 +175,28 @@ def check_expiring_licenses(db: Session, days: int = 7) -> dict:
             delivery = notify_license_event(db, license_, EVENT_LICENSE_EXPIRED)
             if delivery is not None:
                 expired_notified += 1
+            # In-app notification too (v2.2): one per license.
+            from services import notifications as notification_service
+
+            notification_service.notify_admins(
+                db,
+                "License expired",
+                f"License {license_.key} for {license_.product} has expired.",
+                type_="warning",
+                link="/licenses",
+            )
         elif license_.expires_at <= window_end:
             delivery = notify_license_event(db, license_, EVENT_LICENSE_EXPIRING)
             if delivery is not None:
                 expiring_notified += 1
+            from services import notifications as notification_service
+
+            days_left = (license_.expires_at - now).days
+            notification_service.notify_admins(
+                db,
+                "License expiring soon",
+                f"License {license_.key} for {license_.product} expires in {days_left} day(s).",
+                type_="warning",
+                link="/licenses",
+            )
     return {"expiring_notified": expiring_notified, "expired_notified": expired_notified}

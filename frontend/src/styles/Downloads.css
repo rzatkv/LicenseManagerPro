@@ -1,0 +1,8 @@
+.downloads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+.download-card { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.download-card h2 { margin-bottom: 4px; }
+.download-card p { margin: 0; color: var(--muted); }
+.download-version { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.download-install { font-size: 13px; }
+.download-demo-note { font-size: 13px; color: var(--warning); }
+.download-card button { align-self: flex-start; margin-top: 8px; }

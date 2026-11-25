@@ -1,6 +1,7 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {login as loginRequest} from "../utils/auth";
+import {get} from "../utils/api";
 import {DEMO_MODE} from "../config";
 import {useLanguage} from "../i18n";
 import {useTheme} from "../theme";
@@ -12,7 +13,24 @@ function Login() {
     const [email, setEmail] = useState(DEMO_MODE ? "demo@demo.com" : "");
     const [password, setPassword] = useState(DEMO_MODE ? "demo1234" : "");
     const [error, setError] = useState("");
+    const [siteName, setSiteName] = useState("License Manager Pro");
+    const [logoUrl, setLogoUrl] = useState("./logo.svg");
     const navigate = useNavigate();
+
+    // Branding: best-effort only — the settings endpoint needs auth, so
+    // before login this fails quietly in real mode and the defaults render.
+    // (In demo mode the mock answers without auth.)
+    useEffect(() => {
+        let cancelled = false;
+        get("/settings")
+            .then((data) => {
+                if (cancelled || !data) return;
+                if (data.site_name) setSiteName(data.site_name);
+                if (data.logo_url) setLogoUrl(data.logo_url);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -40,7 +58,8 @@ function Login() {
                 </select>
             </div>
             <form className="login-form" onSubmit={handleLogin}>
-                <h1>{t("login.title")}</h1>
+                <img src={logoUrl} alt={siteName} className="login-logo" />
+                <h1>{siteName}</h1>
                 <p className="login-subtitle">{t("login.subtitle")}</p>
                 {DEMO_MODE && (
                     <div className="demo-notice" style={{marginBottom: 12}}>

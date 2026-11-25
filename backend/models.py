@@ -52,6 +52,18 @@ class Product(Base):
     webhook_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     webhook_events: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     webhook_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Product group (v2.2); NULL means "ungrouped".
+    group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("product_groups.id", ondelete="SET NULL"), nullable=True
+    )
+    # Per-product key generator (v2.2, from competitor research): keys are
+    # "<prefix>-XXXX-XXXX-..." with key_segments chunks of
+    # key_segment_length chars. Empty prefix keeps the legacy "XXXX-..." form.
+    key_prefix: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    key_segments: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
+    key_segment_length: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
+    # Max times a license of this product may be reissued (v2.2); NULL = unlimited.
+    max_reissues: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
@@ -63,6 +75,89 @@ class Product(Base):
     webhook_deliveries: Mapped[list["WebhookDelivery"]] = relationship(
         "WebhookDelivery", back_populates="product"
     )
+    group: Mapped["ProductGroup | None"] = relationship(
+        "ProductGroup", back_populates="products"
+    )
+
+
+class ProductGroup(Base):
+    """A group of products (v2.2), e.g. "Hosting", "SaaS tools"."""
+
+    __tablename__ = "product_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    color: Mapped[str] = mapped_column(String(10), default="#7B6CFF", nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    products: Mapped[list["Product"]] = relationship(
+        "Product", back_populates="group"
+    )
+
+
+class BlacklistEntry(Base):
+    """A blocked IP (exact or CIDR) or domain (exact or subdomain) (v2.2).
+
+    Blacklisted values can never validate a license or pass an API-key
+    check, whatever else they present.
+    """
+
+    __tablename__ = "blacklist"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)  # "ip" | "domain"
+    value: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class Notification(Base):
+    """An in-app notification (v2.2).
+
+    user_id NULL means "all admins"; otherwise the notification belongs to
+    one user. The bell in the topbar shows unread notifications.
+    """
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    type: Mapped[str] = mapped_column(
+        String(20), default="info", nullable=False
+    )  # info / success / warning / error
+    link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class LicenseActivation(Base):
+    """One activation instance of a license (v2.2, Keygen-style).
+
+    A fingerprint identifies one machine/install (domain, IP or install
+    path, whichever the client sends). Deactivating one instance frees one
+    activation slot without touching the others.
+    """
+
+    __tablename__ = "license_activations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    license_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("licenses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    fingerprint: Mapped[str] = mapped_column(String(512), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
 
 class WebhookDelivery(Base):
@@ -166,6 +261,8 @@ class License(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     max_activations: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     activations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Times this license has been reissued (v2.2).
+    reissue_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
@@ -173,6 +270,9 @@ class License(Base):
 
     product_obj: Mapped[Product | None] = relationship(
         "Product", back_populates="licenses"
+    )
+    activation_records: Mapped[list["LicenseActivation"]] = relationship(
+        "LicenseActivation", cascade="all, delete-orphan"
     )
 
     @property

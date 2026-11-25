@@ -145,6 +145,8 @@
   flex: 1; min-width: 260px; max-width: 340px;
 }
 .chart-card h3 { text-align: center; font-size: 15px; margin-bottom: 12px; color: var(--text); }
+/* The 14-day trend chart spans the full row. */
+.chart-card-wide { flex: 1 1 100%; max-width: 1000px; }
 .chart-body { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .chart-legend { list-style: none; padding: 0; margin: 0; font-size: 13px; color: var(--text); }
 .chart-legend li { margin: 4px 0; display: flex; align-items: center; gap: 6px; }

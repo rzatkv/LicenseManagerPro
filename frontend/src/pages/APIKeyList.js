@@ -8,6 +8,7 @@ import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
+import Wizard from "../components/Wizard";
 import "../styles/APIKeyList.css";
 
 const PAGE_SIZE = 10;
@@ -41,6 +42,11 @@ function APIKeyList() {
     const [newSingleUse, setNewSingleUse] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
+    // Wizard state (create only; edit stays inline).
+    const [showWizard, setShowWizard] = useState(false);
+    const [wizardStep, setWizardStep] = useState(0);
+    const [wizardBusy, setWizardBusy] = useState(false);
+    const [createdKey, setCreatedKey] = useState(null);
 
     const fetchApiKeys = useCallback(async () => {
         setLoading(true);
@@ -89,6 +95,18 @@ function APIKeyList() {
         setEditingId(null);
     };
 
+    const resetWizard = () => {
+        setNewKey("");
+        setNewRights(["get_license_info"]);
+        setNewExpiresInDays("");
+        setNewIp("");
+        setNewDomain("");
+        setNewDirectory("");
+        setNewSingleUse(false);
+        setWizardStep(0);
+        setCreatedKey(null);
+    };
+
     const handleEdit = (key) => {
         setEditingId(key.id);
         setNewKey(key.key);
@@ -101,23 +119,28 @@ function APIKeyList() {
         setNewSingleUse(!!key.single_use);
     };
 
-    const handleCreate = async (e) => {
+    const handleUpdate = async (e) => {
         e.preventDefault();
         try {
-            if (editingId !== null) {
-                const updated = await put(`/api-keys/${editingId}`, {
-                    access_rights: newRights,
-                    expires_in_days: newExpiresInDays ? Number(newExpiresInDays) : undefined,
-                    associated_ip: newIp || undefined,
-                    associated_domain: newDomain || undefined,
-                    associated_directory: newDirectory || undefined,
-                    single_use: newSingleUse,
-                });
-                setApiKeys(apiKeys.map((key) => (key.id === editingId ? updated : key)));
-                toast.success(t("apikeys.updated"));
-                resetForm();
-                return;
-            }
+            const updated = await put(`/api-keys/${editingId}`, {
+                access_rights: newRights,
+                expires_in_days: newExpiresInDays ? Number(newExpiresInDays) : undefined,
+                associated_ip: newIp || undefined,
+                associated_domain: newDomain || undefined,
+                associated_directory: newDirectory || undefined,
+                single_use: newSingleUse,
+            });
+            setApiKeys(apiKeys.map((key) => (key.id === editingId ? updated : key)));
+            toast.success(t("apikeys.updated"));
+            resetForm();
+        } catch (err) {
+            toast.error(err.message || t("common.error"));
+        }
+    };
+
+    const handleWizardCreate = async () => {
+        setWizardBusy(true);
+        try {
             const created = await post("/api-keys", {
                 key: newKey || undefined,
                 access_rights: newRights,
@@ -129,10 +152,12 @@ function APIKeyList() {
             });
             if (page === 1) setApiKeys([created, ...apiKeys].slice(0, PAGE_SIZE));
             setTotal((prev) => prev + 1);
+            setCreatedKey(created.key);
             toast.success(t("apikeys.created"));
-            resetForm();
         } catch (err) {
             toast.error(err.message || t("common.error"));
+        } finally {
+            setWizardBusy(false);
         }
     };
 
@@ -144,70 +169,104 @@ function APIKeyList() {
             || (key.access_rights || []).join(" ").toLowerCase().includes(q);
     });
 
+    const wizardCanNext = wizardStep === 0 ? newRights.length > 0 : true;
+    const reviewRows = [
+        [t("apikeys.accessRights"), newRights.join(", ") || "-"],
+        [t("apikeys.key"), newKey || t("apikeys.keyPlaceholder")],
+        [t("apikeys.expires"), newExpiresInDays ? `${newExpiresInDays} ${t("common.days")}` : t("common.never")],
+        [t("apikeys.restrictIp"), newIp || "-"],
+        [t("apikeys.restrictDomain"), newDomain || "-"],
+        [t("apikeys.restrictDirectory"), newDirectory || "-"],
+        [t("apikeys.singleUse"), newSingleUse ? t("common.yes") : t("common.no")],
+    ];
+
     return (
         <div className="api-key-list-container page-enter">
             <h1 className="gradient-text">{t("apikeys.title")}</h1>
-            <form className="add-api-key-form glass-card" onSubmit={handleCreate} style={{margin: "16px 0"}}>
-                <h3>{editingId !== null ? `${t("apikeys.edit")} #${editingId}` : t("apikeys.create")}</h3>
-                <input
-                    type="text"
-                    placeholder={editingId !== null ? t("apikeys.keyLocked") : t("apikeys.keyPlaceholder")}
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value)}
-                    disabled={editingId !== null}
-                />
-                <div>
-                    {ALL_ACCESS_RIGHTS.map((right) => (
-                        <label key={right} className="check-label">
-                            <input
-                                type="checkbox"
-                                checked={newRights.includes(right)}
-                                onChange={() => toggleRight(right)}
-                            />{" "}
-                            {right}
-                        </label>
-                    ))}
-                </div>
-                <input
-                    type="number"
-                    min="1"
-                    placeholder={editingId !== null ? t("apikeys.expiresEdit") : t("apikeys.expiresPlaceholder")}
-                    value={newExpiresInDays}
-                    onChange={(e) => setNewExpiresInDays(e.target.value)}
-                />
-                <input
-                    type="text"
-                    placeholder={t("apikeys.restrictIp")}
-                    value={newIp}
-                    onChange={(e) => setNewIp(e.target.value)}
-                />
-                <input
-                    type="text"
-                    placeholder={t("apikeys.restrictDomain")}
-                    value={newDomain}
-                    onChange={(e) => setNewDomain(e.target.value)}
-                />
-                <input
-                    type="text"
-                    placeholder={t("apikeys.restrictDirectory")}
-                    value={newDirectory}
-                    onChange={(e) => setNewDirectory(e.target.value)}
-                />
-                <label className="check-label">
-                    <input
-                        type="checkbox"
-                        checked={newSingleUse}
-                        onChange={(e) => setNewSingleUse(e.target.checked)}
-                    />{" "}
-                    {t("apikeys.singleUseLabel")}
-                </label>
-                <button type="submit">{editingId !== null ? t("apikeys.saveChanges") : t("apikeys.create")}</button>
-                {editingId !== null && (
-                    <button type="button" className="btn-ghost" onClick={resetForm} style={{marginInlineStart: "8px"}}>
-                        {t("common.cancel")}
-                    </button>
-                )}
-            </form>
+            <div className="toolbar">
+                <button onClick={() => { resetWizard(); setShowWizard(true); }}>{t("apikeys.create")}</button>
+            </div>
+
+            {showWizard && (
+                <Wizard
+                    title={t("apikeys.create")}
+                    steps={[t("wizard.rights"), t("wizard.restrictions"), t("wizard.review")]}
+                    step={wizardStep}
+                    onStepChange={setWizardStep}
+                    canNext={wizardCanNext}
+                    onSubmit={handleWizardCreate}
+                    submitting={wizardBusy}
+                    onCancel={() => { setShowWizard(false); resetWizard(); }}
+                    success={createdKey ? (
+                        <>
+                            <p>{t("wizard.yourKey")}</p>
+                            <p className="key-cell">{createdKey} <CopyButton text={createdKey} /></p>
+                            <button onClick={() => { setShowWizard(false); resetWizard(); }}>{t("common.close")}</button>
+                        </>
+                    ) : null}
+                >
+                    {wizardStep === 0 && (
+                        <fieldset>
+                            <legend>{t("apikeys.accessRights")}</legend>
+                            <div className="check-group">
+                                {ALL_ACCESS_RIGHTS.map((right) => (
+                                    <label key={right} className="check-label">
+                                        <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /> {right}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+                    )}
+                    {wizardStep === 1 && (
+                        <>
+                            <input type="text" placeholder={t("apikeys.keyPlaceholder")} value={newKey} onChange={(e) => setNewKey(e.target.value)} />
+                            <input type="number" min="1" placeholder={t("apikeys.expiresPlaceholder")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
+                            <input type="text" placeholder={t("apikeys.restrictIp")} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
+                            <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
+                            <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
+                            <label className="check-label">
+                                <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /> {t("apikeys.singleUseLabel")}
+                            </label>
+                        </>
+                    )}
+                    {wizardStep === 2 && (
+                        <div className="wizard-review">
+                            {reviewRows.map(([label, value]) => (
+                                <div key={label} className="wizard-review-row"><strong>{label}</strong><span>{value}</span></div>
+                            ))}
+                        </div>
+                    )}
+                </Wizard>
+            )}
+
+            {editingId !== null && (
+                <form className="add-api-key-form glass-card" onSubmit={handleUpdate} style={{margin: "16px 0"}}>
+                    <h3>{`${t("apikeys.edit")} #${editingId}`}</h3>
+                    <input type="text" placeholder={t("apikeys.keyLocked")} value={newKey} disabled />
+                    <fieldset>
+                        <legend>{t("apikeys.accessRights")}</legend>
+                        <div className="check-group">
+                            {ALL_ACCESS_RIGHTS.map((right) => (
+                                <label key={right} className="check-label">
+                                    <input type="checkbox" checked={newRights.includes(right)} onChange={() => toggleRight(right)} /> {right}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+                    <input type="number" min="1" placeholder={t("apikeys.expiresEdit")} value={newExpiresInDays} onChange={(e) => setNewExpiresInDays(e.target.value)} />
+                    <input type="text" placeholder={t("apikeys.restrictIp")} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
+                    <input type="text" placeholder={t("apikeys.restrictDomain")} value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
+                    <input type="text" placeholder={t("apikeys.restrictDirectory")} value={newDirectory} onChange={(e) => setNewDirectory(e.target.value)} />
+                    <label className="check-label">
+                        <input type="checkbox" checked={newSingleUse} onChange={(e) => setNewSingleUse(e.target.checked)} /> {t("apikeys.singleUseLabel")}
+                    </label>
+                    <div className="form-row">
+                        <button type="submit">{t("apikeys.saveChanges")}</button>
+                        <button type="button" className="btn-ghost" onClick={resetForm}>{t("common.cancel")}</button>
+                    </div>
+                </form>
+            )}
+
             <div className="toolbar">
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
@@ -243,12 +302,14 @@ function APIKeyList() {
                             <td className="nowrap">{key.expires_at ? formatDate(key.expires_at, lang) : t("common.never")}</td>
                             <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
                             <td>
-                                <button className="edit-btn" onClick={() => handleEdit(key)}>
-                                    {t("common.edit")}
-                                </button>{" "}
-                                <button className="delete-btn" onClick={() => setPendingDelete(key.id)}>
-                                    {t("common.delete")}
-                                </button>
+                                <div className="row-actions">
+                                    <button className="edit-btn" onClick={() => handleEdit(key)}>
+                                        {t("common.edit")}
+                                    </button>
+                                    <button className="delete-btn" onClick={() => setPendingDelete(key.id)}>
+                                        {t("common.delete")}
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}

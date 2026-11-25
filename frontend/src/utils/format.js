@@ -40,3 +40,8 @@ export function formatDateTime(value, lang) {
 export function formatMonthShort(date, lang) {
     return date.toLocaleDateString(localeFor(lang), {month: "short"});
 }
+
+// Short day label for the 14-day trend chart, e.g. "Nov 25" / "۴ آذر".
+export function formatDayShort(date, lang) {
+    return date.toLocaleDateString(localeFor(lang), {month: "short", day: "numeric"});
+}

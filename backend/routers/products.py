@@ -28,11 +28,15 @@ _write = require_permission("products:write")
 def list_products(
     response: Response,
     status: Optional[str] = Query(default=None),
+    group_id: Optional[int] = Query(default=None),
+    slug: Optional[str] = Query(default=None, description="Exact product slug lookup"),
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    products = product_service.list_products(db, status=status)
+    products = product_service.list_products(
+        db, status=status, group_id=group_id, slug=slug
+    )
     return paginate_list(
         [product_service.serialize_product(p) for p in products], response, page
     )

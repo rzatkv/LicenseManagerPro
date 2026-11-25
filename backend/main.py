@@ -17,9 +17,13 @@ from routers import (
     api_keys,
     audit_logs,
     auth,
+    blacklist,
     dashboard,
+    downloads,
     languages,
     licenses,
+    notifications,
+    product_groups,
     products,
     settings,
     system,
@@ -125,6 +129,10 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["API Keys"])
 app.include_router(licenses.router, prefix="/api/licenses", tags=["Licenses"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
+app.include_router(product_groups.router, prefix="/api/product-groups", tags=["Product Groups"])
+app.include_router(blacklist.router, prefix="/api/blacklist", tags=["Blacklist"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(downloads.router, prefix="/api/downloads", tags=["Downloads"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(languages.router, prefix="/api/languages", tags=["Languages"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])

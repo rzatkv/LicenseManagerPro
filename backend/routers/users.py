@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from schemas import MessageResponse, UserCreateRequest, UserResponse, UserUpdateRequest
+from services import notifications as notification_service
 from services import users as user_service
 from services.audit import log_audit
 from utils.auth import get_current_user, require_admin
@@ -46,6 +47,13 @@ def create_user(
         "user",
         user.id,
         {"email": user.email, "role": user.role},
+    )
+    notification_service.notify_admins(
+        db,
+        "New user created",
+        f"User {user.email} was created with role {user.role}.",
+        type_="info",
+        link="/users",
     )
     return user
 

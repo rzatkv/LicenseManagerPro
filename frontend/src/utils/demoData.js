@@ -1,7 +1,7 @@
 import {DEMO_MODE} from "../config";
 
 /**
- * Demo backend: an in-browser mock of the real FastAPI API (v2.0).
+ * Demo backend: an in-browser mock of the real FastAPI API (v2.2).
  *
  * Active only when the app is built with REACT_APP_DEMO_MODE=true
  * (the GitHub Pages demo). Data lives in localStorage so creates and
@@ -11,7 +11,11 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v5";
+const STORAGE_KEY = "lmp-demo-db-v6";
+const MODULES = [
+    {id: "whmcs", name: "WHMCS Module", version: "1.0.0", description: "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS."},
+    {id: "woocommerce", name: "WooCommerce Plugin", version: "1.0.0", description: "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer."},
+];
 const ACCESS_RIGHTS = [
     "create_license",
     "edit_license",
@@ -68,12 +72,17 @@ const randomToken = (length) => {
     return out;
 };
 
-const randomLicenseKey = () => {
+const randomLicenseKey = (product) => {
+    // Honour the product's key format (prefix / segments / segment length).
+    const segments = (product && product.key_segments) || 4;
+    const length = (product && product.key_segment_length) || 4;
     const group = () =>
-        Array.from({length: 4}, () =>
+        Array.from({length}, () =>
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
         ).join("");
-    return `LIC-${group()}-${group()}-${group()}`;
+    const parts = Array.from({length: segments}, group);
+    const prefix = product && product.key_prefix ? `${product.key_prefix}-` : "LIC-";
+    return prefix + parts.join("-");
 };
 
 const splitList = (value) => {
@@ -84,16 +93,20 @@ const splitList = (value) => {
 
 function seed() {
     const now = new Date().toISOString();
+    const productGroups = [
+        {id: 1, name: "Server Tools", slug: "server-tools", description: "Control panels and server software.", color: "#7B6CFF", sort_order: 0, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+        {id: 2, name: "Business Apps", slug: "business-apps", description: "CRM, helpdesk and office tools.", color: "#C1165E", sort_order: 1, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+    ];
     const products = [
-        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
-        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
-        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
+        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
+        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
+        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
     ];
     const lic = (id, productId, product, owner, status, expires, created, extra) => ({
-        id, key: randomLicenseKey(), product, product_id: productId,
+        id, key: randomLicenseKey(products.find((p) => p.id === productId)), product, product_id: productId,
         billing_cycle: productId === 1 ? "annual" : productId === 2 ? "monthly" : "annual",
         owner_email: owner, status, expires_at: expires, max_activations: 5, activations: 1,
-        allowed_domains: [], allowed_ips: [], install_path: null,
+        allowed_domains: [], allowed_ips: [], install_path: null, reissue_count: 0,
         created_at: created, updated_at: created, ...(extra || {}),
     });
     return {
@@ -144,11 +157,23 @@ function seed() {
             {id: 2, product_id: 1, event: "license.renewed", url: "https://example.com/hooks/lmp", status_code: 200, success: true, created_at: isoDaysAgo(2)},
         ],
         settings: {
-            app_version: "2.1.1",
-            latest_version: "2.1.1",
+            app_version: "2.2.0",
+            latest_version: "2.2.0",
             last_updated: new Date().toISOString().slice(0, 10),
             daily_request_limit: "100",
+            site_name: "License Manager Pro",
+            logo_url: "./logo.svg",
         },
+        product_groups: productGroups,
+        notifications: [
+            {id: 1, user_id: null, title: "Welcome to v2.2", message: "Download the real WHMCS and WooCommerce modules from the Downloads page.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
+        ],
+        blacklist: [],
+        activations: [
+            {id: 1, license_id: 1, fingerprint: "fp-demo-acme-01", label: "acme-web-01", created_at: isoDaysAgo(10)},
+        ],
         audit_logs: [
             {id: 1, actor_email: "demo@demo.com", action: "license.create", entity: "license", entity_id: 8, details: {key: "LIC-XXXX-XXXX-XXXX", product: "CRM Suite"}, created_at: isoDaysAgo(1)},
             {id: 2, actor_email: "manager@demo.com", action: "product.update", entity: "product", entity_id: 1, details: {name: "CloudPanel Pro"}, created_at: isoDaysAgo(2)},
@@ -162,6 +187,10 @@ function seed() {
         nextProductId: 4,
         nextDeliveryId: 3,
         nextAuditLogId: 6,
+        nextGroupId: 3,
+        nextNotificationId: 4,
+        nextBlacklistId: 1,
+        nextActivationId: 2,
     };
 }
 
@@ -185,6 +214,13 @@ function loadDb() {
                     parsed.nextDeliveryId = fresh.nextDeliveryId;
                     parsed.currentUserId = parsed.currentUserId || 1;
                 }
+                // v2.2 collections: backfill when a pre-v2.2 DB is loaded.
+                if (!parsed.product_groups) { parsed.product_groups = fresh.product_groups; parsed.nextGroupId = fresh.nextGroupId; }
+                if (!parsed.notifications) { parsed.notifications = fresh.notifications; parsed.nextNotificationId = fresh.nextNotificationId; }
+                if (!parsed.blacklist) { parsed.blacklist = []; parsed.nextBlacklistId = 1; }
+                if (!parsed.activations) { parsed.activations = []; parsed.nextActivationId = 1; }
+                if (!parsed.settings.site_name) parsed.settings.site_name = "License Manager Pro";
+                if (!parsed.settings.logo_url) parsed.settings.logo_url = "./logo.svg";
                 return parsed;
             }
         }
@@ -271,6 +307,62 @@ function logAudit(action, entity, entityId, details) {
     });
 }
 
+// Notification helper (mirrors the backend notify() service): broadcast
+// (user_id null) reaches every admin; a user_id targets one user.
+function notify(title, message, type, link, userId) {
+    if (!Array.isArray(db.notifications)) db.notifications = [];
+    if (!db.nextNotificationId) db.nextNotificationId = db.notifications.length + 1;
+    db.notifications.unshift({
+        id: db.nextNotificationId++,
+        user_id: userId == null ? null : userId,
+        title,
+        message,
+        type: type || "info",
+        link: link || null,
+        is_read: false,
+        created_at: new Date().toISOString(),
+    });
+}
+
+// Blacklist matching (mirrors the backend): domain exact-or-subdomain,
+// IP exact-or-CIDR.
+function isBlacklisted(ip, domain) {
+    const list = db.blacklist || [];
+    for (const entry of list) {
+        if (entry.type === "domain" && domain) {
+            const d = domain.toLowerCase();
+            const v = entry.value.toLowerCase();
+            if (d === v || d.endsWith(`.${v}`)) return true;
+        }
+        if (entry.type === "ip" && ip) {
+            if (entry.value === ip) return true;
+            const m = entry.value.match(/^(\d+\.\d+\.\d+\.\d+)\/(\d+)$/);
+            if (m) {
+                const bits = Number(m[2]);
+                const toInt = (s) => s.split(".").reduce((a, o) => (a << 8) + Number(o), 0) >>> 0;
+                const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+                if ((toInt(ip) & mask) === (toInt(m[1]) & mask)) return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Estimated MRR (mirrors the backend): sum over active licenses of their
+// product's price normalized to monthly by billing cycle.
+function estimatedMrr() {
+    const months = {monthly: 1, quarterly: 3, semiannual: 6, annual: 12, biennial: 24, lifetime: 0};
+    let total = 0;
+    for (const lic of db.licenses) {
+        if (effectiveStatus(lic) !== "active") continue;
+        const product = db.products.find((p) => p.id === lic.product_id);
+        if (!product || !product.price) continue;
+        const m = months[lic.billing_cycle] || 0;
+        if (m > 0) total += product.price / m;
+    }
+    return Math.round(total * 100) / 100;
+}
+
 // ?skip&limit pagination shared by the list endpoints. When neither param
 // is present the full list is returned (backward compat for get()).
 // When present, returns {items, total} like the real API's X-Total-Count.
@@ -309,16 +401,38 @@ export async function mockRequest(method, endpoint, body) {
             usersCount: db.users.length,
             activeLicenses: active,
             inactiveLicenses: db.licenses.length - active,
+            estimated_mrr: estimatedMrr(),
         };
+    }
+    if (method === "GET" && path === "/dashboard/license-trend") {
+        const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
+        const points = [];
+        const today = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+            const next = new Date(d);
+            next.setDate(next.getDate() + 1);
+            const count = db.licenses.filter((l) => {
+                const c = new Date(l.created_at);
+                return c >= d && c < next;
+            }).length;
+            points.push({date: d.toISOString().slice(0, 10), count});
+        }
+        return {points};
     }
 
     // ---- Products -----------------------------------------------------------
     if (parts[0] === "products") {
         if (method === "GET" && parts.length === 1) {
-            return paginate(db.products.map((p) => ({
+            let list = db.products.map((p) => ({
                 ...p,
                 license_count: db.licenses.filter((l) => l.product_id === p.id).length,
-            })), query);
+            }));
+            const groupId = query.get("group_id");
+            if (groupId != null) list = list.filter((p) => String(p.group_id) === String(groupId));
+            const slug = query.get("slug");
+            if (slug != null) list = list.filter((p) => p.slug === slug);
+            return paginate(list, query);
         }
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin", "manager"]);
@@ -336,6 +450,11 @@ export async function mockRequest(method, endpoint, body) {
                 webhook_url: body.webhook_url || null,
                 webhook_events: (body.webhook_events || []).filter((e) => WEBHOOK_EVENTS.includes(e)),
                 webhook_secret: body.webhook_secret || null,
+                group_id: body.group_id != null ? Number(body.group_id) : null,
+                key_prefix: body.key_prefix || null,
+                key_segments: Number(body.key_segments) || 4,
+                key_segment_length: Number(body.key_segment_length) || 4,
+                max_reissues: Number(body.max_reissues) || 0,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
@@ -380,6 +499,152 @@ export async function mockRequest(method, endpoint, body) {
                 save();
                 return {message: "Product deleted"};
             }
+        }
+    }
+
+    // ---- Product groups -----------------------------------------------------
+    if (parts[0] === "product-groups") {
+        if (method === "GET" && parts.length === 1) {
+            return paginate([...db.product_groups].sort((a, b) => (a.sort_order - b.sort_order) || a.id - b.id), query);
+        }
+        if (method === "POST" && parts.length === 1) {
+            requireRole(["admin", "manager"]);
+            if (!body || !body.name) fail(400, "Group name is required");
+            const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            if (db.product_groups.some((g) => g.slug === slug)) fail(400, "Group slug already exists");
+            if (body.color && !/^#[0-9a-fA-F]{6}$/.test(body.color)) fail(400, "color must be a #RRGGBB hex value");
+            const created = {
+                id: db.nextGroupId++,
+                name: body.name,
+                slug,
+                description: body.description || null,
+                color: body.color || "#7B6CFF",
+                sort_order: Number(body.sort_order) || 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            db.product_groups.push(created);
+            save();
+            return {...created};
+        }
+        if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+            const id = Number(parts[1]);
+            const group = db.product_groups.find((g) => g.id === id);
+            if (!group) fail(404, "Product group not found");
+            if (method === "GET") return {...group};
+            if (method === "PUT") {
+                requireRole(["admin", "manager"]);
+                if (body && body.slug && body.slug !== group.slug && db.product_groups.some((g) => g.slug === body.slug)) {
+                    fail(400, "Group slug already exists");
+                }
+                Object.assign(group, body || {}, {updated_at: new Date().toISOString()});
+                save();
+                return {...group};
+            }
+            if (method === "DELETE") {
+                requireRole(["admin", "manager"]);
+                if (db.products.some((p) => p.group_id === id)) {
+                    fail(400, "Cannot delete group: products still belong to this group");
+                }
+                db.product_groups = db.product_groups.filter((g) => g.id !== id);
+                save();
+                return {message: "Product group deleted"};
+            }
+        }
+    }
+
+    // ---- Blacklist ----------------------------------------------------------
+    if (parts[0] === "blacklist") {
+        if (method === "GET" && parts.length === 1) {
+            requireRole(["admin"]);
+            let list = [...db.blacklist];
+            const type = query.get("type");
+            if (type) list = list.filter((e) => e.type === type);
+            return paginate(list, query);
+        }
+        if (method === "POST" && parts.length === 1) {
+            requireRole(["admin"]);
+            if (!body || !["ip", "domain"].includes(body.type)) fail(400, "type must be 'ip' or 'domain'");
+            if (!body.value) fail(400, "value is required");
+            if (db.blacklist.some((e) => e.type === body.type && e.value === body.value)) {
+                fail(400, "This value is already blacklisted");
+            }
+            if (body.type === "ip" && !/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(body.value)) {
+                fail(400, "Invalid IP address or CIDR");
+            }
+            if (body.type === "domain" && !body.value.includes(".")) {
+                fail(400, "Domain must contain a dot");
+            }
+            const created = {
+                id: db.nextBlacklistId++,
+                type: body.type,
+                value: body.value,
+                reason: body.reason || null,
+                created_at: new Date().toISOString(),
+                created_by: currentUser() ? currentUser().email : null,
+            };
+            db.blacklist.push(created);
+            save();
+            return {...created};
+        }
+        if (parts.length === 2 && /^\d+$/.test(parts[1]) && method === "DELETE") {
+            requireRole(["admin"]);
+            const id = Number(parts[1]);
+            if (!db.blacklist.some((e) => e.id === id)) fail(404, "Blacklist entry not found");
+            db.blacklist = db.blacklist.filter((e) => e.id !== id);
+            save();
+            return {message: "Blacklist entry deleted"};
+        }
+    }
+
+    // ---- Notifications ------------------------------------------------------
+    if (parts[0] === "notifications") {
+        const user = currentUser();
+        const visible = (db.notifications || []).filter(
+            (n) => user.role === "admin" || n.user_id === null || n.user_id === user.id
+        );
+        if (method === "GET" && parts.length === 1) {
+            const sorted = [...visible].sort((a, b) => (a.is_read - b.is_read) || (new Date(b.created_at) - new Date(a.created_at)));
+            const paged = paginate(sorted, query);
+            if (Array.isArray(paged)) {
+                return {notifications: paged, total: paged.length, unread: paged.filter((n) => !n.is_read).length};
+            }
+            return {notifications: paged.items, total: paged.total, unread: sorted.filter((n) => !n.is_read).length};
+        }
+        if (method === "POST" && parts.length === 2 && parts[1] === "read-all") {
+            let count = 0;
+            for (const n of visible) {
+                if (!n.is_read) { n.is_read = true; count += 1; }
+            }
+            save();
+            return {message: `${count} notification(s) marked as read`};
+        }
+        if (method === "POST" && parts.length === 3 && parts[2] === "read" && /^\d+$/.test(parts[1])) {
+            const id = Number(parts[1]);
+            const note = visible.find((n) => n.id === id);
+            if (!note) fail(404, "Notification not found");
+            note.is_read = true;
+            save();
+            return {...note};
+        }
+    }
+
+    // ---- Downloads ----------------------------------------------------------
+    if (parts[0] === "downloads") {
+        if (method === "GET" && parts.length === 1) {
+            return MODULES.map((m) => ({...m, updated_at: db.settings.last_updated}));
+        }
+        if (method === "GET" && parts.length === 2 && parts[1] === "versions") {
+            const out = {};
+            for (const m of MODULES) {
+                out[m.id] = {local: m.version, latest: m.version, update_available: false};
+            }
+            return out;
+        }
+        if (method === "GET" && parts.length === 2) {
+            // The in-browser mock cannot build a ZIP; the Downloads page
+            // links to the GitHub releases page in demo mode instead.
+            fail(404, "Download available in the self-hosted app");
         }
     }
 
@@ -431,7 +696,7 @@ export async function mockRequest(method, endpoint, body) {
             }
             const created = {
                 id: db.nextLicenseId++,
-                key: (body && body.key) || randomLicenseKey(),
+                key: (body && body.key) || randomLicenseKey(product),
                 product: product ? product.name : body.product,
                 product_id: productId,
                 billing_cycle: cycle,
@@ -443,11 +708,13 @@ export async function mockRequest(method, endpoint, body) {
                 allowed_domains: splitList(body && body.allowed_domains),
                 allowed_ips: splitList(body && body.allowed_ips),
                 install_path: (body && body.install_path) || null,
+                reissue_count: 0,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
             db.licenses.unshift(created);
             logAudit("license.create", "license", created.id, {product: created.product, owner_email: created.owner_email});
+            notify("License created", `License ${created.key} (${created.product}) was created.`, "success", "/licenses");
             if (product && product.webhook_url) recordDelivery(product.id, "license.created", product.webhook_url);
             save();
             return {...created};
@@ -504,9 +771,70 @@ export async function mockRequest(method, endpoint, body) {
             save();
             return withEffectiveStatus(license);
         }
+        if (method === "POST" && parts.length === 3 && parts[2] === "reissue" && /^\d+$/.test(parts[1])) {
+            requireRole(["admin", "manager", "support"]);
+            const id = Number(parts[1]);
+            const license = db.licenses.find((l) => l.id === id);
+            if (!license) fail(404, "License not found");
+            const product = license.product_id ? db.products.find((p) => p.id === license.product_id) : null;
+            const maxReissues = product ? (product.max_reissues || 0) : 0;
+            if ((license.reissue_count || 0) >= maxReissues) {
+                fail(400, "This license has reached its maximum number of reissues");
+            }
+            license.key = randomLicenseKey(product);
+            license.reissue_count = (license.reissue_count || 0) + 1;
+            license.updated_at = new Date().toISOString();
+            logAudit("license.reissue", "license", id, {product: license.product});
+            notify("License reissued", `License ${license.key} (${license.product}) was reissued.`, "info", "/licenses");
+            save();
+            return withEffectiveStatus(license);
+        }
+        if (parts.length === 3 && parts[2] === "activations" && /^\d+$/.test(parts[1])) {
+            const licenseId = Number(parts[1]);
+            const license = db.licenses.find((l) => l.id === licenseId);
+            if (!license) fail(404, "License not found");
+            if (method === "GET") {
+                return (db.activations || []).filter((a) => a.license_id === licenseId);
+            }
+            if (method === "POST") {
+                requireRole(["admin", "manager", "support"]);
+                const fp = body && body.fingerprint;
+                if (!fp) fail(400, "fingerprint is required");
+                const existing = (db.activations || []).find((a) => a.license_id === licenseId && a.fingerprint === fp);
+                if (existing) return {...existing};
+                const count = (db.activations || []).filter((a) => a.license_id === licenseId).length;
+                if (count >= (license.max_activations || 1)) fail(400, "Maximum activations reached for this license");
+                const created = {
+                    id: db.nextActivationId++,
+                    license_id: licenseId,
+                    fingerprint: fp,
+                    label: (body && body.label) || null,
+                    created_at: new Date().toISOString(),
+                };
+                db.activations.push(created);
+                license.activations = count + 1;
+                save();
+                return {...created};
+            }
+        }
+        if (method === "DELETE" && parts.length === 4 && parts[2] === "activations" && /^\d+$/.test(parts[1]) && /^\d+$/.test(parts[3])) {
+            requireRole(["admin", "manager", "support"]);
+            const licenseId = Number(parts[1]);
+            const activationId = Number(parts[3]);
+            const found = (db.activations || []).find((a) => a.id === activationId && a.license_id === licenseId);
+            if (!found) fail(404, "Activation not found");
+            db.activations = db.activations.filter((a) => a.id !== activationId);
+            const license = db.licenses.find((l) => l.id === licenseId);
+            if (license) license.activations = Math.max(0, (license.activations || 1) - 1);
+            save();
+            return {message: "Activation removed"};
+        }
         if (method === "POST" && parts.length === 2 && parts[1] === "validate") {
             const found = db.licenses.find((l) => l.key === (body && body.key));
             if (!found) return {valid: false, detail: "License key not found", reason: "License key not found", license: null};
+            if (isBlacklisted(body && body.ip, body && body.domain)) {
+                return {valid: false, detail: "blocked: blacklisted", reason: "blocked: blacklisted", license: withEffectiveStatus(found)};
+            }
             const failWith = (reason) => {
                 const product = found.product_id ? db.products.find((p) => p.id === found.product_id) : null;
                 if (product && product.webhook_url) recordDelivery(product.id, "license.validated_failed", product.webhook_url);
@@ -536,6 +864,10 @@ export async function mockRequest(method, endpoint, body) {
             return {api_keys: paged.items, total: paged.total};
         }
         if (method === "GET" && parts.length === 2 && parts[1] === "check-access") {
+            const domain = query.get("domain");
+            if (isBlacklisted(null, domain)) {
+                fail(403, "blocked: blacklisted");
+            }
             return {valid: true, access_rights: ["get_license_info"], message: "Demo key is valid"};
         }
         if (method === "POST" && parts.length === 1) {
@@ -614,6 +946,7 @@ export async function mockRequest(method, endpoint, body) {
             };
             db.users.push(created);
             logAudit("user.create", "user", created.id, {email: created.email, role: created.role});
+            notify("User created", `User ${created.email} (${created.role}) was created.`, "info", "/users");
             save();
             return {...created};
         }
@@ -731,12 +1064,26 @@ export async function mockRequest(method, endpoint, body) {
     if (method === "GET" && path === "/system/check-updates") {
         return {updateAvailable: db.settings.latest_version !== db.settings.app_version};
     }
+    if (method === "GET" && path === "/system/update-check") {
+        // The demo has no newer release: it is always up to date.
+        return {
+            current_version: db.settings.app_version,
+            latest_version: db.settings.latest_version,
+            update_available: db.settings.latest_version !== db.settings.app_version,
+            release_url: "https://github.com/rzatkv/LicenseManagerPro/releases/latest",
+            release_notes: null,
+            published_at: null,
+            error: null,
+        };
+    }
     if (method === "POST" && path === "/system/update") {
         requireRole(["admin", "manager"]);
+        // Demo staging: no tarball is really downloaded; report the staged
+        // state so the About page flow can be exercised.
         db.settings.app_version = db.settings.latest_version;
         db.settings.last_updated = new Date().toISOString().slice(0, 10);
         save();
-        return {message: "System updated successfully", version: db.settings.app_version};
+        return {staged: true, version: db.settings.app_version, next_step: "bash scripts/update.sh"};
     }
     if (method === "POST" && path === "/system/check-expiring") {
         requireRole(["admin", "manager"]);

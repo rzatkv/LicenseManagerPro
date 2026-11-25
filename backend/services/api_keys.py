@@ -60,8 +60,14 @@ def validate_api_key_usage(
 
     Raises 403 for an unknown, expired, already-consumed single-use key, or
     a key used from a disallowed IP/domain/directory; 429 when the daily
-    request limit for the key is reached.
+    request limit for the key is reached. A blacklisted IP or domain
+    (v2.2) is rejected before anything else is looked at.
     """
+    from services import blacklist as blacklist_service
+
+    blocked = blacklist_service.is_blacklisted(db, ip=client_ip, domain=domain)
+    if blocked:
+        raise HTTPException(status_code=403, detail="blocked: blacklisted")
     entry = db.query(ApiKey).filter(ApiKey.key == api_key).first()
     if not entry:
         raise HTTPException(status_code=403, detail="Invalid API Key")

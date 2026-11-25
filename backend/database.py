@@ -126,6 +126,10 @@ def seed_settings(db):
         "latest_version": APP_VERSION,
         "last_updated": date.today().isoformat(),
         "daily_request_limit": str(DAILY_REQUEST_LIMIT),
+        # Branding (v2.2): the site name and logo shown in the sidebar and
+        # on the login page; both are editable from Settings.
+        "site_name": "License Manager Pro",
+        "logo_url": "./logo.svg",
     }
     for key, value in defaults.items():
         existing = db.query(SystemSetting).filter(SystemSetting.key == key).first()

@@ -77,6 +77,11 @@ def serialize_product(product: Product) -> dict:
         "webhook_url": product.webhook_url,
         "webhook_events": events,
         "webhook_secret": product.webhook_secret,
+        "group_id": product.group_id,
+        "key_prefix": product.key_prefix,
+        "key_segments": product.key_segments,
+        "key_segment_length": product.key_segment_length,
+        "max_reissues": product.max_reissues,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
     }
@@ -89,7 +94,12 @@ def get_product(product_id: int, db: Session) -> Product:
     return product
 
 
-def list_products(db: Session, status: Optional[str] = None):
+def list_products(
+    db: Session,
+    status: Optional[str] = None,
+    group_id: Optional[int] = None,
+    slug: Optional[str] = None,
+):
     query = db.query(Product)
     if status is not None:
         if status not in PRODUCT_STATUSES:
@@ -98,6 +108,11 @@ def list_products(db: Session, status: Optional[str] = None):
                 detail=f"Invalid status: {status} (expected one of {PRODUCT_STATUSES})",
             )
         query = query.filter(Product.status == status)
+    if group_id is not None:
+        query = query.filter(Product.group_id == group_id)
+    if slug is not None:
+        # Exact slug lookup (used by the WHMCS module / WooCommerce plugin).
+        query = query.filter(Product.slug == slug)
     return query.order_by(Product.id).all()
 
 
@@ -111,6 +126,13 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
     slug = request.slug or slugify(request.name)
     if db.query(Product).filter(Product.slug == slug).first():
         raise HTTPException(status_code=400, detail=f"Product slug '{slug}' already exists")
+    if request.group_id is not None:
+        from models import ProductGroup
+
+        if not db.query(ProductGroup).filter(ProductGroup.id == request.group_id).first():
+            raise HTTPException(
+                status_code=400, detail=f"Product group {request.group_id} not found"
+            )
     product = Product(
         name=request.name,
         slug=slug,
@@ -122,6 +144,11 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
         webhook_url=request.webhook_url,
         webhook_events=json.dumps(request.webhook_events or []),
         webhook_secret=request.webhook_secret,
+        group_id=request.group_id,
+        key_prefix=(request.key_prefix or "").strip() or None,
+        key_segments=request.key_segments,
+        key_segment_length=request.key_segment_length,
+        max_reissues=request.max_reissues,
     )
     db.add(product)
     db.commit()
@@ -162,6 +189,29 @@ def update_product(product_id: int, request: ProductUpdateRequest, db: Session) 
         product.webhook_events = json.dumps(request.webhook_events)
     if request.webhook_secret is not None:
         product.webhook_secret = request.webhook_secret
+    # Nullable fields: an explicitly-sent null clears the value (e.g. a
+    # product can be ungrouped). model_fields_set tells "sent" from "omitted".
+    fields_set = request.model_fields_set
+    if "group_id" in fields_set:
+        if request.group_id is not None:
+            from models import ProductGroup
+
+            if not db.query(ProductGroup).filter(
+                ProductGroup.id == request.group_id
+            ).first():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Product group {request.group_id} not found",
+                )
+        product.group_id = request.group_id
+    if "key_prefix" in fields_set:
+        product.key_prefix = (request.key_prefix or "").strip() or None
+    if request.key_segments is not None:
+        product.key_segments = request.key_segments
+    if request.key_segment_length is not None:
+        product.key_segment_length = request.key_segment_length
+    if "max_reissues" in fields_set:
+        product.max_reissues = request.max_reissues
     db.commit()
     db.refresh(product)
     return product

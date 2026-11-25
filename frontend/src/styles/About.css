@@ -36,3 +36,12 @@
     border-radius: 999px;
     cursor: pointer;
 }
+
+/* Updates card (v2.2): live GitHub check + staged update. */
+.updates-card { padding: 20px; margin: 20px auto; max-width: 640px; text-align: start; }
+.updates-card h2 { text-align: center; margin-bottom: 12px; }
+.updates-card p { color: var(--muted); }
+.updates-card details { margin: 10px 0; }
+.updates-card summary { cursor: pointer; font-weight: 600; }
+.updates-card pre { margin: 8px 0; }
+.staged-note { margin-top: 12px; }

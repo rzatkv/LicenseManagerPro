@@ -33,7 +33,21 @@ CORS_ORIGINS = [
 ]
 
 # Current application version, shown by GET /api/system/info.
-APP_VERSION = os.getenv("APP_VERSION", "2.1.1")
+APP_VERSION = os.getenv("APP_VERSION", "2.2.0")
+
+# GitHub repo used by the self-update check (GET /api/system/update-check)
+# and the module version manifest (GET /api/downloads/versions).
+GITHUB_REPO = os.getenv("GITHUB_REPO", "rzatkv/LicenseManagerPro")
+
+# GitHub API hosts (overridable for tests: point them at a local stub
+# server so the smoke test never touches the real GitHub API).
+GITHUB_API_BASE_URL = os.getenv("GITHUB_API_BASE_URL", "https://api.github.com")
+GITHUB_RAW_BASE_URL = os.getenv("GITHUB_RAW_BASE_URL", "https://raw.githubusercontent.com")
+
+# Self-update safety switch: the backend stages a release tarball on
+# POST /api/system/update, but only EXECUTES scripts/update.sh when this
+# is "1". Default off: the admin applies the staged update manually.
+LMP_ALLOW_SELF_UPDATE = os.getenv("LMP_ALLOW_SELF_UPDATE", "0") == "1"
 
 # Rate limits (requests per minute, per client IP) for the hand-rolled
 # sliding-window limiter in utils/rate_limit.py.

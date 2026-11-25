@@ -39,11 +39,26 @@ def _join_csv(values) -> Optional[str]:
     return ",".join(cleaned) if cleaned else None
 
 
-def generate_license_key() -> str:
-    """Generate a random license key in XXXX-XXXX-XXXX-XXXX form."""
+def generate_license_key(product: Optional[Product] = None) -> str:
+    """Generate a random license key.
+
+    Default form is XXXX-XXXX-XXXX-XXXX. When the product defines a key
+    format (v2.2), the key is "<prefix>-XXXX-..." with the product's
+    segment count and segment length.
+    """
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    raw = "".join(secrets.choice(alphabet) for _ in range(16))
-    return "-".join(raw[i : i + 4] for i in range(0, 16, 4))
+    segments = 4
+    length = 4
+    prefix = None
+    if product is not None:
+        segments = max(1, min(8, product.key_segments or 4))
+        length = max(2, min(8, product.key_segment_length or 4))
+        prefix = (product.key_prefix or "").strip() or None
+    raw = "".join(secrets.choice(alphabet) for _ in range(segments * length))
+    chunks = [raw[i : i + length] for i in range(0, len(raw), length)]
+    if prefix:
+        chunks.insert(0, prefix)
+    return "-".join(chunks)
 
 
 def serialize_license(license_: License) -> dict:
@@ -62,6 +77,7 @@ def serialize_license(license_: License) -> dict:
         "expires_at": license_.expires_at,
         "max_activations": license_.max_activations,
         "activations": license_.activations,
+        "reissue_count": license_.reissue_count,
         "created_at": license_.created_at,
         "updated_at": license_.updated_at,
     }
@@ -84,9 +100,15 @@ def create_license(request: LicenseCreateRequest, db: Session) -> License:
     product_id = request.product_id
     billing_cycle = request.billing_cycle
     expires_at = None
+    product = None
     if product_id is not None:
         # Product-linked license: expiry comes from the billing cycle.
         product = product_service.get_product(product_id, db)
+        if request.key is None:
+            # No explicit key: regenerate with the product's key format.
+            key_value = generate_license_key(product)
+            while db.query(License).filter(License.key == key_value).first():
+                key_value = generate_license_key(product)
         if not billing_cycle:
             raise HTTPException(
                 status_code=400,
@@ -317,6 +339,111 @@ def renew_license(
     return license_
 
 
+def reissue_license(license_id: int, db: Session) -> License:
+    """Reissue a license (v2.2, WHMCS-style): a fresh key replaces the old
+    one on the same license row; the old key stops working immediately.
+    Enforces the product's max_reissues (NULL = unlimited)."""
+    from services import products as product_service
+    from services import webhooks as webhook_service
+
+    license_ = get_license(license_id, db)
+    product = None
+    if license_.product_id is not None:
+        product = product_service.get_product(license_.product_id, db)
+        if product.max_reissues is not None and license_.reissue_count >= product.max_reissues:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Reissue limit reached ({product.max_reissues} for this product)",
+            )
+    new_key = generate_license_key(product)
+    while db.query(License).filter(License.key == new_key).first():
+        new_key = generate_license_key(product)
+    license_.key = new_key
+    license_.reissue_count += 1
+    if license_.status == "revoked":
+        license_.status = "active"
+    db.commit()
+    db.refresh(license_)
+    webhook_service.notify_license_event(
+        db, license_, webhook_service.EVENT_LICENSE_REISSUED
+    )
+    return license_
+
+
+def list_activations(license_id: int, db: Session) -> list:
+    from models import LicenseActivation
+
+    get_license(license_id, db)
+    return (
+        db.query(LicenseActivation)
+        .filter(LicenseActivation.license_id == license_id)
+        .order_by(LicenseActivation.created_at.desc())
+        .all()
+    )
+
+
+def activate_license(
+    license_id: int, db: Session, fingerprint: str, label: Optional[str] = None
+):
+    """Register one activation instance (v2.2, Keygen-style).
+
+    Re-activating the same fingerprint returns the existing record (no
+    extra slot used). A new fingerprint consumes one slot; when the
+    license's max_activations is reached, 400 is returned.
+    """
+    from models import LicenseActivation
+
+    license_ = get_license(license_id, db)
+    if license_.effective_status != "active":
+        raise HTTPException(
+            status_code=400,
+            detail=f"License is {license_.effective_status}",
+        )
+    fingerprint = (fingerprint or "").strip()
+    if not fingerprint:
+        raise HTTPException(status_code=400, detail="fingerprint is required")
+    existing = (
+        db.query(LicenseActivation)
+        .filter(
+            LicenseActivation.license_id == license_id,
+            LicenseActivation.fingerprint == fingerprint,
+        )
+        .first()
+    )
+    if existing:
+        return existing
+    if license_.activations >= license_.max_activations:
+        raise HTTPException(status_code=400, detail="Activation limit reached")
+    record = LicenseActivation(
+        license_id=license_id, fingerprint=fingerprint, label=label
+    )
+    license_.activations += 1
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def deactivate_activation(license_id: int, activation_id: int, db: Session) -> None:
+    """Remove one activation instance, freeing one slot."""
+    from models import LicenseActivation
+
+    license_ = get_license(license_id, db)
+    record = (
+        db.query(LicenseActivation)
+        .filter(
+            LicenseActivation.id == activation_id,
+            LicenseActivation.license_id == license_id,
+        )
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Activation not found")
+    db.delete(record)
+    license_.activations = max(0, license_.activations - 1)
+    db.commit()
+
+
 def _domain_matches(requested: str, allowed: str) -> bool:
     """Case-insensitive exact or subdomain match."""
     requested = requested.strip().lower()
@@ -332,7 +459,13 @@ def validate_license(
     install_path: Optional[str] = None,
 ) -> tuple[bool, str, Optional[License]]:
     """Check a license key: exists, active, not expired, activations left,
-    and (when set) domain/IP/install-path locks."""
+    and (when set) domain/IP/install-path locks. A blacklisted IP or
+    domain (v2.2) is rejected before anything else is looked at."""
+    from services import blacklist as blacklist_service
+
+    blocked = blacklist_service.is_blacklisted(db, ip=ip, domain=domain)
+    if blocked:
+        return False, "blocked: blacklisted", None
     license_ = db.query(License).filter(License.key == key).first()
     if not license_:
         return False, "License key not found", None

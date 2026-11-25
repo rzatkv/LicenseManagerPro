@@ -11,6 +11,9 @@ import Products from "./pages/Products";
 import Languages from "./pages/Languages";
 import ApiDocs from "./pages/ApiDocs";
 import AuditLogs from "./pages/AuditLogs";
+import Blacklist from "./pages/Blacklist";
+import Downloads from "./pages/Downloads";
+import Notifications from "./pages/Notifications";
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import {ToastProvider} from "./components/Toast";
@@ -44,6 +47,9 @@ function App() {
                             <Route path="/docs" element={<ApiDocs/>}/>
                             <Route path="/settings" element={<Settings/>}/>
                             <Route path="/about" element={<About/>}/>
+                            <Route path="/blacklist" element={<Blacklist/>}/>
+                            <Route path="/downloads" element={<Downloads/>}/>
+                            <Route path="/notifications" element={<Notifications/>}/>
                         </Route>
                     </Routes>
                 </Router>
