@@ -31,7 +31,10 @@
 /* Fixed to the viewport (position computed in JS, clamped inside it):
    absolute positioning against the bell overflowed off-screen whenever
    the topbar wrapped and the bell sat near a viewport edge. The inline
-   style sets left/top/width; this width is the fallback before it lands. */
+   style sets left/top/width; this width is the fallback before it lands.
+   Fully OPAQUE (solid surface, no blur): the glass-card translucency
+   let page content bleed through the panel and washed out the header
+   text (white-on-white in the v2.2.1 check). */
 .notif-panel {
   position: fixed;
   width: min(360px, calc(100vw - 24px));
@@ -41,8 +44,19 @@
   padding: 12px;
   z-index: 300;
   animation: fadeIn 0.2s ease;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text);
 }
-.notif-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.notif-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
+/* Header text in the theme text colour, never clipped: the strong takes
+   the free space and the button never shrinks. */
+.notif-panel-head strong { color: var(--text); font-size: 15px; min-width: 0; }
+.notif-mark-all { flex-shrink: 0; white-space: nowrap; }
 .notif-mark-all {
   background: transparent;
   color: var(--accent);
@@ -73,8 +87,11 @@
 .notif-dot.notif-warning { background: var(--warning); }
 .notif-dot.notif-error { background: var(--danger); }
 .notif-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.notif-title { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
-.notif-message { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+/* break-word (not anywhere): `anywhere` lets the browser break a word
+   character by character in a narrow cell — the same stacking bug as
+   the v2.2.1 checkbox labels. */
+.notif-title { font-weight: 700; font-size: 14px; overflow-wrap: break-word; }
+.notif-message { font-size: 13px; color: var(--muted); overflow-wrap: break-word; }
 .notif-time { font-size: 12px; color: var(--muted-2); }
 .notif-view-all {
   margin-top: 8px;

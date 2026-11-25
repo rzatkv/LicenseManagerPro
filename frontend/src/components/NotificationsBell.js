@@ -111,7 +111,7 @@ function NotificationsBell() {
                 {unread > 0 && <span className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
             </button>
             {open && (
-                <div className="notif-panel glass-card" role="menu" style={panelStyle || undefined}>
+                <div className="notif-panel" role="menu" style={panelStyle || undefined}>
                     <div className="notif-panel-head">
                         <strong>{t("notifications.title")}</strong>
                         <button type="button" className="notif-mark-all" onClick={markAllRead}>

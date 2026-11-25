@@ -61,11 +61,27 @@ table .delete-btn {
     cursor: pointer;
 }
 table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
-.hint { color: var(--muted); font-size: 12px; display: block; }
+.hint { color: var(--muted); font-size: 12px; display: block; overflow-wrap: break-word; }
+/* Licenses table on narrow screens: SPLIT, don't squeeze. The key
+   truncates with ellipsis (the full key is one tap away via the copy
+   button) instead of wrapping over five lines, the ID / created
+   columns hide, and the rest of the record — cycle, created, owner,
+   activations — lives in the animated details popup (the eye button).
+   Nothing here shrinks padding or buttons: rows keep their
+   comfortable height and the actions stay 32px. */
+.license-list-container table .key-cell { white-space: nowrap; }
+.key-cell-text { display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+/* Icon buttons inside the table must keep their 32px size: the table
+   .view-btn/.renew-btn/.delete-btn rules above set text-button
+   padding, and would otherwise override .row-actions .icon-btn. */
+.license-list-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
+.license-list-container table .row-actions .icon-btn svg { display: block; }
+@media (max-width: 1024px) {
+  .license-list-container .col-id, .license-list-container .col-created { display: none; }
+}
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }
 .validate-form input { flex: 1; min-width: 140px; }
-.license-detail { border-radius: 20px; padding: 16px; color: var(--text); }
 .validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
 .dashboard-empty { text-align: center; color: var(--muted); }
 .add-license-form { display: flex; flex-direction: column; gap: 8px; border-radius: 20px; padding: 16px; }

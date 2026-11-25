@@ -10,9 +10,20 @@ import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
+import Modal from "../components/Modal";
 import "../styles/LicenseList.css";
 
 const PAGE_SIZE = 10;
+
+// Compact action icons: four text buttons made the actions cell wider
+// than a phone viewport and the rows ~250px tall; 32px icon buttons
+// keep the cell narrow (same treatment as the Products table).
+const ICONS = {
+  view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  renew: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg>,
+  reissue: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2M15 6l3 3M18 3l3 3"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
 
 function statusPill(status, t) {
     const label = t(`common.${status}`) !== `common.${status}` ? t(`common.${status}`) : status;
@@ -346,12 +357,21 @@ function LicenseList() {
                     )}
                     {wizardStep === 2 && (
                         <>
-                            <input type="text" placeholder={t("licenses.allowedDomains")} value={wDomains} onChange={(e) => setWDomains(e.target.value)} />
-                            <small className="hint">{t("licenses.allowedDomainsHint")}</small>
-                            <input type="text" placeholder={t("licenses.allowedIps")} value={wIps} onChange={(e) => setWIps(e.target.value)} />
-                            <small className="hint">{t("licenses.allowedIpsHint")}</small>
-                            <input type="text" placeholder={t("licenses.installPath")} value={wInstallPath} onChange={(e) => setWInstallPath(e.target.value)} />
-                            <small className="hint">{t("licenses.installPathHint")}</small>
+                            <label className="field-label">
+                                <span>{t("licenses.allowedDomains")}</span>
+                                <input type="text" placeholder={t("licenses.allowedDomains")} value={wDomains} onChange={(e) => setWDomains(e.target.value)} />
+                                <small className="hint">{t("licenses.allowedDomainsHint")}</small>
+                            </label>
+                            <label className="field-label">
+                                <span>{t("licenses.allowedIps")}</span>
+                                <input type="text" placeholder={t("licenses.allowedIps")} value={wIps} onChange={(e) => setWIps(e.target.value)} />
+                                <small className="hint">{t("licenses.allowedIpsHint")}</small>
+                            </label>
+                            <label className="field-label">
+                                <span>{t("licenses.installPath")}</span>
+                                <input type="text" placeholder={t("licenses.installPath")} value={wInstallPath} onChange={(e) => setWInstallPath(e.target.value)} />
+                                <small className="hint">{t("licenses.installPathHint")}</small>
+                            </label>
                         </>
                     )}
                     {wizardStep === 3 && (
@@ -374,39 +394,39 @@ function LicenseList() {
             <table>
                 <thead>
                 <tr>
-                    <th>ID</th>
+                    <th className="col-id">ID</th>
                     <th>{t("licenses.key")}</th>
                     <th>{t("licenses.product")}</th>
                     <th>{t("licenses.billingCycle")}</th>
                     <th>{t("common.status")}</th>
-                    <th>{t("common.createdAt")}</th>
+                    <th className="col-created">{t("common.createdAt")}</th>
                     <th>{t("common.actions")}</th>
                 </tr>
                 </thead>
                 <tbody>
                 {visible.map((license, i) => (
                     <tr key={license.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
-                        <td>{license.id}</td>
+                        <td className="col-id">{license.id}</td>
                         <td className="key-cell">
-                            {license.key} <CopyButton text={license.key} />
+                            <span className="key-cell-text">{license.key}</span> <CopyButton text={license.key} />
                         </td>
                         <td>{license.product}</td>
                         <td>{license.billing_cycle ? <span className="badge">{t(`cycle.${license.billing_cycle}`)}</span> : "-"}</td>
                         <td>{statusPill(license.status, t)}</td>
-                        <td className="nowrap">{formatDate(license.created_at, lang)}</td>
+                        <td className="nowrap col-created">{formatDate(license.created_at, lang)}</td>
                         <td>
                             <div className="row-actions">
-                                <button className="view-btn" onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
-                                    {t("common.view")}
+                                <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
+                                    {ICONS.view}
                                 </button>
-                                <button className="renew-btn" onClick={() => handleRenew(license.id)}>
-                                    {t("common.renew")}
+                                <button className="renew-btn icon-btn" title={t("common.renew")} aria-label={t("common.renew")} onClick={() => handleRenew(license.id)}>
+                                    {ICONS.renew}
                                 </button>
-                                <button onClick={() => setPendingReissue(license.id)}>
-                                    {t("licenses.reissue")}
+                                <button className="icon-btn" title={t("licenses.reissue")} aria-label={t("licenses.reissue")} onClick={() => setPendingReissue(license.id)}>
+                                    {ICONS.reissue}
                                 </button>
-                                <button className="delete-btn" onClick={() => setPendingDelete(license.id)}>
-                                    {t("common.delete")}
+                                <button className="delete-btn icon-btn" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(license.id)}>
+                                    {ICONS.delete}
                                 </button>
                             </div>
                         </td>
@@ -419,8 +439,7 @@ function LicenseList() {
             </>
             )}
             {selected && (
-                <div className="license-detail glass-card" style={{marginTop: "16px"}}>
-                    <h3>{t("licenses.licenseDetail")} #{selected.id}</h3>
+                <Modal title={`${t("licenses.licenseDetail")} #${selected.id}`} onClose={() => { setSelected(null); setValidateResult(null); }}>
                     <p><strong>{t("licenses.key")}:</strong> {selected.key} <CopyButton text={selected.key} /></p>
                     <p><strong>{t("licenses.product")}:</strong> {selected.product}</p>
                     <p><strong>{t("licenses.billingCycle")}:</strong> {selected.billing_cycle ? t(`cycle.${selected.billing_cycle}`) : "-"}</p>
@@ -458,7 +477,6 @@ function LicenseList() {
                     <div className="row-actions">
                         <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>
                         <button onClick={() => setPendingReissue(selected.id)}>{t("licenses.reissue")}</button>
-                        <button className="btn-ghost" onClick={() => { setSelected(null); setValidateResult(null); }}>{t("common.close")}</button>
                     </div>
                     {validateResult && (
                         <p className="validate-result">
@@ -468,7 +486,7 @@ function LicenseList() {
                             {validateResult.reason && validateResult.reason !== validateResult.detail ? ` (${validateResult.reason})` : ""}
                         </p>
                     )}
-                </div>
+                </Modal>
             )}
             <ConfirmModal
                 open={pendingDelete !== null}

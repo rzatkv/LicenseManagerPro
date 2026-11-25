@@ -118,7 +118,7 @@ function TrendChart({points, title, lang}) {
     const padL = 28;
     const padR = 10;
     const padT = 14;
-    const padB = 30;
+    const padB = 38;
     const max = Math.max(1, ...points.map((p) => p.count));
     const n = Math.max(1, points.length);
     const x = (i) => padL + (i * (width - padL - padR)) / Math.max(1, n - 1);
@@ -142,7 +142,7 @@ function TrendChart({points, title, lang}) {
                     {ticks.map((v) => (
                         <g key={v}>
                             <line x1={padL} x2={width - padR} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth="1" />
-                            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fill="var(--muted)" fontSize="9">{v}</text>
+                            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fill="var(--muted)" fontSize="10">{v}</text>
                         </g>
                     ))}
                     <path d={area} fill="url(#trend-fill)" />
@@ -152,8 +152,10 @@ function TrendChart({points, title, lang}) {
                             <title>{`${formatDayShort(new Date(p.date), lang)}: ${p.count}`}</title>
                         </circle>
                     ))}
-                    {points.map((p, i) => (i % 2 === 0 ? (
-                        <text key={p.date} x={x(i)} y={height - 12} textAnchor="middle" fill="var(--muted)" fontSize="9">
+                    {/* Every third day only, at 11px: 14 labels at 9px were
+                        tiny and cramped in Persian ("۴ آذر" etc.). */}
+                    {points.map((p, i) => (i % 3 === 0 ? (
+                        <text key={p.date} x={x(i)} y={height - 14} textAnchor="middle" fill="var(--muted)" fontSize="11">
                             {formatDayShort(new Date(p.date), lang)}
                         </text>
                     ) : null))}

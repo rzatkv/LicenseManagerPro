@@ -252,7 +252,19 @@ pre {
     color: var(--text);
     border: 1px solid var(--border);
     box-shadow: none;
+    /* Links and labels styled as ghost buttons (<a>/<label
+       class="btn-ghost">) get no padding from the `button` base rule,
+       so their text sat on the border edge and looked clipped (the
+       "Manage groups" link in Persian). The class carries its own
+       padding, so it renders the same on any element. */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    text-decoration: none;
+    white-space: nowrap;
 }
+.btn-ghost:hover { text-decoration: none; }
 .btn-ghost:hover:not(:disabled) { box-shadow: var(--shadow); filter: none; }
 .btn-danger { background: var(--danger); }
 .btn-danger:hover:not(:disabled) { box-shadow: 0 8px 20px rgba(239, 68, 68, 0.35); }
@@ -341,12 +353,20 @@ pre {
 }
 .check-field-title { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
 
-/* Checkbox + label in one flex row: the box sits at the inline-start of its
-   label in both LTR and RTL, never centred above the text. */
+/* Checkbox items in a grid with a REAL minimum column width (170px):
+   v2.2.1 used a flex-wrap row where each label was a flex item with
+   min-width: 0 and its text had `anywhere` wrapping — in the
+   wizard's narrow cells the item shrank below its min-content width
+   and `anywhere` wrapping let the browser break the word character by
+   character, so every label rendered as a vertical single-character
+   stack with ~450px rows (worse than the v2.2.0 clipping it replaced).
+   A grid column can never shrink below its minmax() floor, and
+   break-word only breaks a word when that word alone overflows its
+   own line — it never stacks one character per line. */
 .check-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 8px;
     min-width: 0;
 }
 
@@ -354,24 +374,22 @@ pre {
 .nowrap { white-space: nowrap; }
 
 /* Checkbox + label in one flex row: the box sits at the inline-start of its
-   label in both LTR and RTL, never centred above the text. The label itself
-   must be allowed to shrink (min-width: 0) and its text must be allowed to
-   break (overflow-wrap: anywhere) — otherwise a single long unbreakable
-   word ("license.validated_failed") forces the whole row wider than the
-   form and it overflows in RTL. */
+   label in both LTR and RTL, never centred above the text. The text may
+   break (overflow-wrap: break-word) only when a single word is wider than
+   its grid cell — NEVER `anywhere`: that lets the browser break at any
+   character, which is what stacked every label one letter per line in
+   v2.2.1. A 170px cell already fits "license.validated_failed" whole. */
 .check-label {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 6px;
-    margin: 4px 0;
-    margin-inline-end: 12px;
     font-size: 14px;
     color: var(--text);
     cursor: pointer;
     min-width: 0;
 }
 .check-label input[type="checkbox"] { margin: 0; flex-shrink: 0; }
-.check-label-text { overflow-wrap: anywhere; min-width: 0; }
+.check-label-text { overflow-wrap: break-word; min-width: 0; }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }

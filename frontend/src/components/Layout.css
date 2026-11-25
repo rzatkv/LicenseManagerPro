@@ -4,7 +4,7 @@
    via .table-wrap in index.css. */
 .layout { display: flex; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--text); }
 .layout-sidebar {
-  width: 248px; flex-shrink: 0;
+  width: 280px; flex-shrink: 0;
   background: var(--glass);
   border-inline-end: 1px solid var(--glass-border);
   padding: 16px 12px; position: sticky; top: 0; height: 100dvh; overflow-y: auto;
@@ -23,14 +23,18 @@
 }
 /* Gradient text lives on the span only (not the container): putting
    background-clip: text on the container made the logo participate in
-   the clipped text flow and overlap the name. The span is a real flex
-   item with min-width: 0, so a long site name ellipsizes instead of
-   overflowing the 248px sidebar (the v2.2.0 bug: the span's default
-   min-width: auto kept its full min-content width). */
+   the clipped text flow and overlap the name. The name WRAPS onto two
+   lines instead of truncating: v2.2.1's min-width: 0 + ellipsis only
+   changed the overlap into truncation ("License Ma…" / "…anager Pro")
+   because "License Manager Pro" at 19px never fits a 248px sidebar
+   next to a 34px logo and the × button. The wider (280px) sidebar plus
+   wrapping renders the full name in both languages, and a long
+   custom site_name wraps gracefully too. */
 .layout-brand span {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  line-height: 1.25;
+  font-size: 18px;
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;

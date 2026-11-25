@@ -70,8 +70,12 @@
   background: var(--surface-2);
   font-size: 14px;
 }
-.wizard-review-row strong { color: var(--muted); font-weight: 600; }
-.wizard-review-row span { text-align: end; overflow-wrap: anywhere; }
+.wizard-review-row strong { color: var(--muted); font-weight: 600; flex-shrink: 0; }
+.wizard-review-row span { text-align: end; overflow-wrap: break-word; min-width: 0; }
+/* Hints inside a field label wrap inside the card, never overflow it
+   (the install-path hint was cut off at the card's right edge). */
+.field-label .hint { overflow-wrap: break-word; min-width: 0; }
+.field-label > * { min-width: 0; }
 .wizard-nav { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
 .wizard-spacer { flex: 1; }
 .wizard-success { padding: 8px 0; }

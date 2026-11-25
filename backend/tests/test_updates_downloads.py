@@ -59,7 +59,7 @@ def test_update_check_newer_available(client, auth_headers, monkeypatch):
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["current_version"] == "2.2.1"
+    assert data["current_version"] == "2.2.2"
     assert data["latest_version"] == "2.3.0"
     assert data["update_available"] is True
     assert "2.3.0" in data["release_url"]
@@ -67,11 +67,11 @@ def test_update_check_newer_available(client, auth_headers, monkeypatch):
 
 
 def test_update_check_already_latest(client, auth_headers, monkeypatch):
-    _mock_client(monkeypatch, release={**RELEASE_230, "tag_name": "v2.2.1"})
+    _mock_client(monkeypatch, release={**RELEASE_230, "tag_name": "v2.2.2"})
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["update_available"] is False
-    assert response.json()["latest_version"] == "2.2.1"
+    assert response.json()["latest_version"] == "2.2.2"
 
 
 def test_update_check_github_failure(client, auth_headers, monkeypatch):

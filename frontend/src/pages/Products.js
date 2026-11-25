@@ -10,6 +10,7 @@ import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
+import Modal from "../components/Modal";
 import "../styles/Products.css";
 
 // Compact action icons (defect 3): five text buttons made the actions cell
@@ -44,7 +45,7 @@ function Products() {
   const [groupFilter, setGroupFilter] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
+  const [detailsId, setDetailsId] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [testResult, setTestResult] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -91,8 +92,10 @@ function Products() {
   }, []);
 
   useEffect(() => {
-    if (selectedId) fetchDeliveries(selectedId);
-  }, [selectedId, fetchDeliveries]);
+    if (detailsId) fetchDeliveries(detailsId);
+  }, [detailsId, fetchDeliveries]);
+
+  const detailsProduct = products.find((p) => p.id === detailsId) || null;
 
   const groupName = (id) => {
     if (!id) return t("products.noGroup");
@@ -177,7 +180,7 @@ function Products() {
       await del(`/products/${id}`);
       setProducts(products.filter((p) => p.id !== id));
       setTotal((prev) => Math.max(0, prev - 1));
-      if (selectedId === id) { setSelectedId(null); setDeliveries([]); }
+      if (detailsId === id) { setDetailsId(null); setDeliveries([]); }
       toast.success(t("products.deleted"));
     } catch (err) {
       toast.error(err.message || t("common.error"));
@@ -391,32 +394,32 @@ function Products() {
           <thead>
             <tr>
               <th>{t("products.name")}</th>
-              <th>{t("products.slug")}</th>
-              <th>{t("products.group")}</th>
+              <th className="col-slug">{t("products.slug")}</th>
+              <th className="col-group">{t("products.group")}</th>
               <th>{t("products.price")}</th>
-              <th>{t("products.cycles")}</th>
+              <th className="col-cycles">{t("products.cycles")}</th>
               <th>{t("products.status")}</th>
-              <th>{t("products.webhook")}</th>
-              <th>{t("products.licenseCount")}</th>
+              <th className="col-webhook">{t("products.webhook")}</th>
+              <th className="col-count">{t("products.licenseCount")}</th>
               <th>{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((p, i) => (
-              <tr key={p.id} className={`${selectedId === p.id ? "selected-row " : ""}stagger-item`} style={{animationDelay: `${i * 40}ms`}}>
+              <tr key={p.id} className="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
                 <td className="cell-ellipsis cell-name">{p.name}</td>
-                <td className="cell-ellipsis cell-slug">{p.slug}</td>
-                <td>{groupName(p.group_id)}</td>
+                <td className="cell-ellipsis cell-slug col-slug">{p.slug}</td>
+                <td className="col-group">{groupName(p.group_id)}</td>
                 <td className="nowrap">{p.price} {p.currency}</td>
-                <td><span className="cycle-chips">{(p.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></td>
+                <td className="col-cycles"><span className="cycle-chips">{(p.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
-                <td>
+                <td className="col-webhook">
                   {p.webhook_url ? (<>{t("products.webhookConfigured")} <CopyButton text={p.webhook_url} /></>) : t("products.notConfigured")}
                 </td>
-                <td>{p.license_count ?? "-"}</td>
+                <td className="col-count">{p.license_count ?? "-"}</td>
                 <td>
                   <div className="row-actions">
-                    <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setSelectedId(p.id)}>{ICONS.view}</button>
+                    <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setDetailsId(p.id)}>{ICONS.view}</button>
                     <button className="edit-btn icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => handleEdit(p)}>{ICONS.edit}</button>
                     {p.webhook_url && <button className="icon-btn" title={t("products.testWebhook")} aria-label={t("products.testWebhook")} onClick={() => handleTestWebhook(p.id)}>{ICONS.test}</button>}
                     <Link className="icon-btn" title={t("products.viewLicenses")} aria-label={t("products.viewLicenses")} to={`/licenses?product=${p.id}`}>{ICONS.licenses}</Link>
@@ -438,9 +441,19 @@ function Products() {
         </p>
       )}
 
-      {selectedId && (
-        <div className="dashboard-section">
-          <h2>{t("products.deliveries")}</h2>
+      {detailsProduct && (
+        <Modal title={detailsProduct.name} onClose={() => setDetailsId(null)}>
+          <div className="detail-row"><strong>{t("products.slug")}</strong><span>{detailsProduct.slug || "-"}</span></div>
+          <div className="detail-row"><strong>{t("products.group")}</strong><span>{groupName(detailsProduct.group_id)}</span></div>
+          <div className="detail-row"><strong>{t("products.description")}</strong><span>{detailsProduct.description || "-"}</span></div>
+          <div className="detail-row"><strong>{t("products.price")}</strong><span className="nowrap">{detailsProduct.price} {detailsProduct.currency}</span></div>
+          <div className="detail-row"><strong>{t("products.cycles")}</strong><span className="detail-chips">{(detailsProduct.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></div>
+          <div className="detail-row"><strong>{t("products.status")}</strong><span>{detailsProduct.status === "active" ? t("common.active") : t("common.inactive")}</span></div>
+          <div className="detail-row"><strong>{t("products.webhookUrl")}</strong><span>{detailsProduct.webhook_url || t("products.notConfigured")}</span></div>
+          <div className="detail-row"><strong>{t("products.webhookEvents")}</strong><span>{(detailsProduct.webhook_events || []).join(", ") || "-"}</span></div>
+          <div className="detail-row"><strong>{t("products.licenseCount")}</strong><span>{detailsProduct.license_count ?? "-"}</span></div>
+          <div className="detail-row"><strong>{t("products.keyFormat")}</strong><span>{detailsProduct.key_prefix ? `${detailsProduct.key_prefix}-XXXX × ${detailsProduct.key_segments}` : t("products.notConfigured")}</span></div>
+          <h4>{t("products.deliveries")}</h4>
           {deliveries.length === 0 ? (
             <p className="dashboard-empty">{t("products.noDeliveries")}</p>
           ) : (
@@ -467,7 +480,7 @@ function Products() {
             </table>
             </div>
           )}
-        </div>
+        </Modal>
       )}
       <ConfirmModal
         open={pendingDelete !== null}

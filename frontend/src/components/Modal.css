@@ -1,0 +1,47 @@
+/* Details popup: wider than the confirm dialog, fully opaque (solid
+   surface, no glass translucency — page content must never bleed
+   through), body scrolls internally so the card never exceeds the
+   viewport. Entrance: the shared modalIn scale/fade. */
+.modal-card-details {
+    width: min(600px, 100%);
+    max-height: 85dvh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.modal-details-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-shrink: 0; }
+.modal-card-details .modal-details-head h2 { margin: 0; min-width: 0; overflow-wrap: break-word; }
+.modal-close {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 20px;
+    line-height: 1;
+    box-shadow: none;
+}
+.modal-close:hover:not(:disabled) { transform: none; box-shadow: var(--shadow); filter: none; }
+.modal-details-body { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.modal-details-body h4 { margin: 8px 0 0; color: var(--text); }
+/* Label/value rows inside a details popup: comfortable spacing, values
+   wrap instead of being squeezed. */
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    font-size: 14px;
+}
+.detail-row strong { color: var(--muted); font-weight: 600; flex-shrink: 0; }
+.detail-row span { text-align: end; overflow-wrap: break-word; min-width: 0; }
+.detail-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }

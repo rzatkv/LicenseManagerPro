@@ -7,12 +7,20 @@
 /* One-line name/slug cells with ellipsis: wrapping names and slugs
    stretched the rows to 230–330px on a phone viewport. */
 .cell-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-name { max-width: 180px; }
+.cell-name { max-width: 200px; }
 .cell-slug { max-width: 140px; }
 /* Billing-cycle pills in one compact horizontal wrap (not a vertical
    stack): small chips, no margins, 3px gaps. */
 .cycle-chips { display: inline-flex; flex-wrap: wrap; gap: 3px; }
 .badge-sm { font-size: 11px; padding: 1px 7px; margin: 0; }
+/* Narrow screens (phone drawer widths): SPLIT, don't squeeze. Only the
+   essential columns stay — name, price, status, actions. Slug, group,
+   cycles, webhook and license count live in the animated details popup
+   (the eye button opens it). Nothing here shrinks padding or buttons:
+   rows keep their comfortable height and the actions stay 32px. */
+@media (max-width: 1024px) {
+  .products-container .col-slug, .products-container .col-group, .products-container .col-cycles, .products-container .col-webhook, .products-container .col-count { display: none; }
+}
 /* Icon buttons inside the table must keep their 32px size: the table
    .view-btn/.delete-btn rules below set text-button padding, and their
    higher specificity would otherwise override .row-actions .icon-btn. */
@@ -21,7 +29,6 @@
 /* .check-label lives in index.css (shared): inline-flex, checkbox at the
    inline-start of its label in both LTR and RTL. */
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
-.selected-row { outline: 2px solid var(--accent); }
 .update-message { color: var(--success); text-align: center; }
 .validate-result { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
 .dashboard-empty { text-align: center; color: var(--muted); }

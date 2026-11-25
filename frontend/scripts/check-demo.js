@@ -45,10 +45,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v2.2 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.2.1
+  // 1. Seed versions bumped to 2.2.2
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.2.1", settings.app_version === "2.2.1", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.2.1", settings.latest_version === "2.2.1", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.2.2", settings.app_version === "2.2.2", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.2.2", settings.latest_version === "2.2.2", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -183,7 +183,7 @@ function check(name, cond, extra) {
 
   // 24. v2.2: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.2.1", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.2.2", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
