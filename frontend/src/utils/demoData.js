@@ -11,8 +11,8 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v11";
-const APP_VERSION = "2.3.2";
+const STORAGE_KEY = "lmp-demo-db-v12";
+const APP_VERSION = "2.3.3";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
 // One module per platform (v2.3): the Downloads page links DIRECTLY to
 // the GitHub release asset, so the module version always matches the

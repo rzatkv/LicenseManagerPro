@@ -58,6 +58,16 @@ export function LanguageProvider({children}) {
     }
   }, []);
 
+  // Load the language list once, here in the provider — not only in
+  // Layout (v2.3.3): the login page uses the same LanguageMenu as the
+  // header, but Layout mounts only AFTER login, so a fresh login page
+  // showed just the two built-ins while the header showed the custom
+  // languages too (e.g. the seeded "Deutsch (sample)"). Same
+  // component, same options, on both sides of login now. The fetch is
+  // best-effort: on a real backend without auth it fails quietly and
+  // the built-ins stay.
+  useEffect(() => { fetchLanguages(); }, [fetchLanguages]);
+
   const t = useCallback(
     (key) => {
       const dict = BUILTIN[lang] || BUILTIN.en;

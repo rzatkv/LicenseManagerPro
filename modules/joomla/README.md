@@ -1,6 +1,6 @@
 # License Manager Pro — Joomla Component (`com_licensemanagerpro`)
 
-Version 2.3.2 — for License Manager Pro 2.3.0+.
+Version 2.3.3 — for License Manager Pro 2.3.0+.
 
 A Joomla 4/5 native MVC component. Administrators mint, renew,
 activate/deactivate, revoke and validate licenses against a License
@@ -18,9 +18,9 @@ branded cards with a copy button.
 
 ## Install
 
-1. Download `com_licensemanagerpro-2.3.2.zip` from the License
+1. Download `com_licensemanagerpro-2.3.3.zip` from the License
    Manager Pro admin panel (**Downloads** page) or from the GitHub
-   release for v2.3.2.
+   release for v2.3.3.
 2. In Joomla: **System → Install → Extensions → Upload Package
    File**, and upload the ZIP. (Packaging layout: the ZIP root holds
    `licensemanagerpro.xml` plus the `site/` and `administrator/`
@@ -155,7 +155,7 @@ logged-in user, and the signed-requests toggle.
 
 ```
 com_licensemanagerpro/
-  licensemanagerpro.xml            install manifest (Joomla 4/5, v2.3.2)
+  licensemanagerpro.xml            install manifest (Joomla 4/5, v2.3.3)
   administrator/
     config.xml                     component config (mirrors the manifest)
     services/provider.php          DI bootstrap (MVC + dispatcher factories)

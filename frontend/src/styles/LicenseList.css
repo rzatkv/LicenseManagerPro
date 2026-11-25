@@ -96,13 +96,22 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
    product column to 0px (measured live-DOM at 500/400px). SPLIT
    harder: product joins the details popup, only the eye stays in the
    row — renew, reissue and delete live in the popup (see
-   LicenseList.js). The key is flexible, status 88px, actions 56px. */
+   LicenseList.js). The key is flexible, actions 56px.
+   Phone-range consistency (v2.3.3): the WHOLE phone range (≤640px)
+   shows exactly Key + Actions. The old ≤480px rule hid Status only
+   below 480px, so a phone at 479px vs 481px rendered a different
+   table — and 480px sits inside real phone CSS widths (360–480px),
+   which is how the same phone showed a different column set on
+   different visits. Status joins the details popup here too (the
+   modal already shows the full key + copy + status), so the key gets
+   the whole row and never truncates at any phone width. */
 @media (max-width: 640px) {
   .license-list-container { padding: 12px; }
   .license-list-container .col-product { display: none; }
   .license-list-container table th:nth-child(2) { width: auto; }
-  .license-list-container table th:nth-child(5) { width: 88px; }
   .license-list-container table th:nth-child(7) { width: 56px; }
+  .license-list-container table th:nth-child(5),
+  .license-list-container table td:nth-child(5) { display: none; }
   /* The 56px actions column is narrower than its header label:
      "Actions" (~50px at 14px) + 10px cell padding overflowed the cell
      and the .table-wrap clipped the final "s" at the table's right
@@ -115,15 +124,6 @@ table .delete-btn:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
   /* No room for the row copy button in a phone key cell; the full key
      + copy live in the details popup. */
   .license-list-container table .key-cell .copy-btn { display: none; }
-}
-/* Very narrow phones (≤480px — the real phone viewport is ~360px CSS):
-   the 24-character key needs 166px + cell padding and the status pill
-   (88px) + actions (56px) leave too little. Status joins the details
-   popup (the modal already shows the full key + copy + status), so the
-   key gets the whole row and never truncates. */
-@media (max-width: 480px) {
-  .license-list-container table th:nth-child(5),
-  .license-list-container table td:nth-child(5) { display: none; }
 }
 .validate-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 .validate-form h4 { width: 100%; margin: 0; color: var(--text); }

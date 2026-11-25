@@ -6,13 +6,13 @@ products, shows each logged-in user their licenses on a "My Licenses"
 page, lets users mint a license on demand, and lets an admin mint a
 license for any customer email from Settings.
 
-Version: **2.3.2** (matches the installed License Manager Pro app version).
+Version: **2.3.3** (matches the installed License Manager Pro app version).
 
 ## Requirements
 
 - WordPress 6.0+
 - PHP 8.0+
-- A running License Manager Pro 2.3.2 installation reachable over HTTPS
+- A running License Manager Pro 2.3.3 installation reachable over HTTPS
 
 ## Install
 

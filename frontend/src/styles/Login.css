@@ -123,11 +123,18 @@
 
 @media (max-width: 768px) {
     .login-layout { flex-direction: column; gap: 20px; padding: 16px; }
-    .login-hero { max-width: 340px; text-align: center; }
+    /* Hero stays start-aligned on phones (v2.3.3): the old centered
+       hero put the 64px logo tile in the middle of the page, directly
+       under the top-corner language dropdown — the open dropdown's
+       corner overlapped the tile's corner by 18–64px (measured
+       live-DOM at 320–400px, both languages). Start alignment puts
+       the logo at the inline-start side, opposite the dropdown, so
+       the open menu can never reach it at any width, language or
+       theme. The dots follow the same alignment. */
+    .login-hero { max-width: 340px; }
     .login-hero-logo { width: 64px; height: 64px; margin-bottom: 12px; }
     .login-hero-slides { min-height: 72px; }
     .login-hero-slide { font-size: 19px; }
-    .login-hero-dots { justify-content: center; }
     .login-orb-1 { width: 260px; height: 260px; }
     .login-orb-2 { width: 220px; height: 220px; }
 }

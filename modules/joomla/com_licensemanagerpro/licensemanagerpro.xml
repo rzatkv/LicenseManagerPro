@@ -5,7 +5,7 @@
     <creationDate>2026-11-25</creationDate>
     <copyright>(C) 2026 LicenseManagerPro</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>2.3.2</version>
+    <version>2.3.3</version>
     <description>COM_LICENSMANAGERPRO_XML_DESCRIPTION</description>
     <namespace path="src">Licensemanagerpro\Component\Licensemanagerpro</namespace>
 

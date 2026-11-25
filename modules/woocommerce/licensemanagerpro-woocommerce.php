@@ -3,7 +3,7 @@
  * Plugin Name: License Manager Pro — WooCommerce
  * Plugin URI: https://github.com/rzatkv/LicenseManagerPro
  * Description: Creates a License Manager Pro license when a WooCommerce order completes, and shows the key to the customer in the order, the order email and My Account → Licenses.
- * Version: 2.3.2
+ * Version: 2.3.3
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: License Manager Pro
@@ -31,7 +31,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LMP_WC_VERSION', '2.3.2');
+define('LMP_WC_VERSION', '2.3.3');
 define('LMP_WC_PATH', plugin_dir_path(__FILE__));
 
 require_once LMP_WC_PATH . 'includes/class-lmp-api.php';

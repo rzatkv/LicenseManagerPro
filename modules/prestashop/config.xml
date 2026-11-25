@@ -2,7 +2,7 @@
 <module>
   <name>licensemanagerpro</name>
   <displayName><![CDATA[License Manager Pro]]></displayName>
-  <version><![CDATA[2.3.2]]></version>
+  <version><![CDATA[2.3.3]]></version>
   <description><![CDATA[Issues License Manager Pro licenses for your products when orders are paid, and lets customers view their licenses from their account.]]></description>
   <author><![CDATA[LicenseManagerPro]]></author>
   <tab><![CDATA[administration]]></tab>

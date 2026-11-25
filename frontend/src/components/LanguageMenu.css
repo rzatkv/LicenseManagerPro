@@ -15,6 +15,9 @@
 .language-menu-dropdown {
   position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
   min-width: 176px; max-width: calc(100vw - 32px);
+  /* A long custom-language list must not run off the viewport (or
+     down over the login hero): cap the height and scroll inside. */
+  max-height: min(60vh, 320px); overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;

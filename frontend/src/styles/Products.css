@@ -42,11 +42,18 @@
    (measured live-DOM). SPLIT harder instead: price joins the details
    popup, only the eye button stays in the row — edit, test,
    view-licenses and delete live in the popup (see Products.js).
-   Status 88px + actions 56px leave Name the whole remaining width. */
+   Actions 56px leave Name the whole remaining width.
+   Phone-range consistency (v2.3.3): the WHOLE phone range (≤640px)
+   shows exactly Name + Actions. The old ≤480px rule hid Status only
+   below 480px, so a phone at 479px vs 481px rendered a different
+   table — and 480px sits inside real phone CSS widths (360–480px).
+   Status joins the details popup here too (the modal already shows
+   it), so the name gets the whole row at any phone width. */
 @media (max-width: 640px) {
   .products-container { padding: 12px; }
   .products-container .col-price { display: none; }
-  .products-container table th:nth-child(6) { width: 88px; }
+  .products-container table th:nth-child(6),
+  .products-container table td:nth-child(6) { display: none; }
   .products-container table th:nth-child(9) { width: 56px; }
   /* The 56px actions column is narrower than its header label:
      "Actions" (~50px at 14px) + 10px cell padding overflowed the cell
@@ -54,14 +61,6 @@
      edge (measured live-DOM at 400/360px). A 12px label + 4px inline
      padding fits with room to spare in both languages. */
   .products-container table th:nth-child(9) { font-size: 12px; padding-inline: 4px; }
-}
-/* Very narrow phones (≤480px — the real phone viewport is ~360px CSS):
-   even with 12px container padding the status pill (88px) + actions
-   (56px) leave too little for the name. Status joins the details
-   popup (the modal already shows it), so the name gets the whole row. */
-@media (max-width: 480px) {
-  .products-container table th:nth-child(6),
-  .products-container table td:nth-child(6) { display: none; }
 }
 /* Icon buttons inside the table must keep their 32px size: the table
    .view-btn/.delete-btn rules below set text-button padding, and their
