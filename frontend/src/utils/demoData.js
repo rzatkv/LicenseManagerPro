@@ -11,8 +11,8 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v15";
-const APP_VERSION = "3.0.1";
+const STORAGE_KEY = "lmp-demo-db-v16";
+const APP_VERSION = "3.0.2";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -149,7 +149,7 @@ function seed() {
         products,
         licenses: [
             lic(1, 1, "CloudPanel Pro", "acme@example.com", "active", isoDaysFromNow(200), isoDaysAgo(30), {billing_cycle: "annual", allowed_domains: ["acme.example.com"], activations: 3, max_activations: 10, notes: "Enterprise customer — renew early."}),
-            lic(2, 1, "CloudPanel Pro", "studio@example.com", "active", isoDaysFromNow(30), isoDaysAgo(20), {billing_cycle: "quarterly", allowed_domains: ["studio.example.com"], allowed_ips: ["203.0.113.10"]}),
+            lic(2, 1, "CloudPanel Pro", "studio@example.com", "active", isoDaysFromNow(30), isoDaysAgo(20), {billing_cycle: "quarterly", allowed_domains: ["studio.example.com"], allowed_ips: ["203.0.213.10"]}),
             lic(3, 2, "CRM Suite", "acme@example.com", "inactive", isoDaysAgo(10), isoDaysAgo(45), {billing_cycle: "monthly"}),
             lic(4, 3, "HelpDesk", "billing@example.com", "active", isoDaysFromNow(365), now, {billing_cycle: "annual", install_path: "/var/www/html"}),
             lic(5, 2, "CRM Suite", "studio@example.com", "active", isoDaysFromNow(120), isoDaysAgo(3), {billing_cycle: "semiannual", activations: 2}),
@@ -213,7 +213,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.1", message: "Phone fixes: wizards and 2FA open as popups, dashboard charts and widgets fixed, tables fit without swiping — see the Downloads page.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.2", message: "Scroll fix: pages scroll when content does not fit, and every tab strip wraps — nothing is cut off or unreachable anymore — see the Downloads page.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -1998,7 +1998,13 @@ export async function mockRequest(method, endpoint, body) {
     }
     if (method === "GET" && path === "/system/info") {
         // v3.0: version comes from code (APP_VERSION), never from settings.
-        return {version: APP_VERSION, lastUpdated: db.settings.last_updated, panel_domain: db.settings.panel_domain || ""};
+        // v3.0.2: full stack. DEMO values only — the real stack versions
+        // this project targets (Python 3.12, FastAPI 0.165.0, SQLAlchemy
+        // 2.0.36, Pydantic 2.14.4, MySQL 8), shown as demo data, never
+        // presented as a live measurement of the machine serving the demo.
+        return {version: APP_VERSION, lastUpdated: db.settings.last_updated, panel_domain: db.settings.panel_domain || "",
+            python_version: "3.12", fastapi_version: "0.165.0", sqlalchemy_version: "2.0.36", pydantic_version: "2.14.4",
+            database_engine: "mysql", database_version: "8.0.36", os: "Linux x86_64"};
     }
     if (method === "GET" && path === "/system/check-updates") {
         return {updateAvailable: db.settings.latest_version !== APP_VERSION, currentVersion: APP_VERSION, latestVersion: db.settings.latest_version};

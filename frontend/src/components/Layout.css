@@ -87,19 +87,35 @@
 .layout-backdrop { display: none; }
 /* Mobile bottom nav: hidden on desktop/tablet, shown ≤768px (see below). */
 .layout-bottomnav { display: none; }
-/* The content area is the only scroll region of the app shell — and in
-   v3.0.0 it must NOT scroll at all: every page is a flex column that
-   fills this region (see .page-enter below), and tall content scrolls
-   inside its own block (table-wrap / tabpanel / grid). So this is a
-   flex column with overflow hidden, not an overflow-y:auto scroller:
-   a page that overflows would otherwise silently re-introduce page
-   scroll. Measured by the all-routes Playwright sweep (952 combos). */
-.layout-content { flex: 1; min-height: 0; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; }
+/* The content area is the only scroll region of the app shell. v3.0.0
+   tried to make it NOT scroll at all (every page a flex column that
+   fills this region, tall content scrolling inside its own block), and
+   the all-routes sweep measured document overflow (0) — but that was
+   blind to the real failure: content taller than the viewport was
+   CLIPPED with no scroll container, so it was unreachable (v3.0.2:
+   the user's own phone showed the dashboard quick-action buttons
+   half-cut with no way to reach them). The user corrected the rule:
+   zero-scroll stays the DESIGN GOAL (keep splitting content into
+   tabs, pagination, wizards and popups so pages fit), but scrolling
+   is the mandatory safety net — clipped unreachable content is never
+   acceptable. So this IS an overflow-y:auto scroller now; it only
+   activates when content overflows, and pages that fit stay
+   scroll-free exactly as before. */
+.layout-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 16px 20px; display: flex; flex-direction: column; }
 /* Layout wraps every page in .page-enter (animation wrapper, height
    auto). It must fill the content region and be a flex column too, or
    a page's height:100% / flex:1 resolves to auto and the shrink never
-   engages (same trap as ApiDocs' :has rule, now fixed globally). */
-.layout-content > .page-enter { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+   engages (same trap as ApiDocs' :has rule, now fixed globally).
+   v3.0.2: min-height is AUTO, not 0 — with min-height: 0 this wrapper
+   shrank to the region height and tall page content spilled out of it
+   with overflow visible, which does NOT extend .layout-content's
+   scrollHeight: the outer scroller reported overflowY=0 while
+   settings/profile/downloads were clipped up to 571px below the fold
+   with scrollTop stuck at 0 (measured, all-routes sweep). The
+   automatic minimum (content height) makes the wrapper grow with its
+   page, so the outer scroller actually reaches the last element;
+   short pages still fill the region via flex-grow. */
+.layout-content > .page-enter { flex: 1; min-height: auto; min-width: 0; display: flex; flex-direction: column; }
 /* Drawer breakpoint is 1024px (not 768px): narrow portrait phones report
    widths around 886px, and at those widths the docked sidebar squeezes the
    content — they must get the drawer + hamburger instead. */

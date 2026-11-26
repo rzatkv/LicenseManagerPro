@@ -33,7 +33,7 @@ CORS_ORIGINS = [
 ]
 
 # Current application version, shown by GET /api/system/info.
-APP_VERSION = os.getenv("APP_VERSION", "3.0.1")
+APP_VERSION = os.getenv("APP_VERSION", "3.0.2")
 
 # GitHub repo used by the self-update check (GET /api/system/update-check)
 # and the module version manifest (GET /api/downloads/versions).

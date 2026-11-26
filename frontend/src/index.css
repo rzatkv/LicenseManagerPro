@@ -286,7 +286,7 @@ pre {
     pointer-events: none;
     display: inline-flex;
 }
-.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0; flex-shrink: 0; }
 
 /* Horizontally scrollable table container: a wide table scrolls inside its
    own box instead of overflowing (and in RTL shifting) the whole page.
@@ -586,11 +586,14 @@ pre {
 .modal-card.modal-card-closing { animation: modalOut 0.2s ease forwards; }
 
 /* Shared small tab strip (v3.0): channel tabs inside Audit Logs, sub-tabs
-   inside Settings, tabs on About / API Docs. Horizontally scrollable on
-   narrow screens — the strip scrolls, the page never does. */
-.mini-tabs { display: flex; gap: 6px; margin: 0 auto 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-.mini-tabs::-webkit-scrollbar { display: none; }
-.mini-tab { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+   inside Settings, tabs on About / API Docs, mini-tabs inside the
+   dashboard tabs. v3.0.2: the strip WRAPS at all widths. It used to be
+   overflow-x:auto with a hidden scrollbar, so on a real phone the last
+   pill sat half outside the screen with no affordance (the ApiDocs
+   "API keys" pill was cut off mid-word). A second row is cheaper than
+   an unreadable tab. */
+.mini-tabs { display: flex; gap: 6px; margin: 0 auto 16px; flex-wrap: wrap; overflow-x: visible; padding-bottom: 2px; min-width: 0; flex-shrink: 0; }
+.mini-tab { flex: 0 1 auto; min-width: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: normal; text-align: center; line-height: 1.35; }
 .mini-tab:hover { color: var(--text); }
 .mini-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
 

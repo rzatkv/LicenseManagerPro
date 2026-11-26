@@ -8,7 +8,11 @@ the actual apply is scripts/update.sh, executed automatically only when
 LMP_ALLOW_SELF_UPDATE=1, otherwise by hand.
 """
 from datetime import date
+import platform
 
+import fastapi
+import pydantic
+import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -76,11 +80,43 @@ def get_system_info(
     _actor=Depends(require_actor(jwt_perm="*", module_scope="system:read")),
 ):
     settings = get_all_settings(db)
+    engine_name, db_version = _database_version(db)
     return {
         "version": APP_VERSION,
         "lastUpdated": settings.get("last_updated", date.today().isoformat()),
         "panel_domain": settings.get("panel_domain", ""),
+        # v3.0.2: full stack, all live runtime values — never hardcoded.
+        # Library versions come from the imported packages themselves.
+        "python_version": platform.python_version(),
+        "fastapi_version": getattr(fastapi, "__version__", "unknown"),
+        "sqlalchemy_version": getattr(sqlalchemy, "__version__", "unknown"),
+        "pydantic_version": getattr(pydantic, "VERSION", "unknown"),
+        "database_engine": engine_name,
+        "database_version": db_version,
+        "os": f"{platform.system()} {platform.release()} {platform.machine()}".strip(),
     }
+
+
+def _database_version(db: Session) -> tuple[str, str]:
+    """(engine name, server version) live from the session.
+
+    MySQL answers SELECT VERSION(); the test suite runs on SQLite,
+    which answers SELECT sqlite_version(). Any failure degrades to
+    "unknown" — version detection must never break /system/info.
+    No secrets are involved: engine name + version string only.
+    """
+    try:
+        engine_name = db.bind.dialect.name if db.bind is not None else "unknown"
+    except Exception:
+        engine_name = "unknown"
+    try:
+        if engine_name == "sqlite":
+            version = db.execute(text("SELECT sqlite_version()")).scalar()
+        else:
+            version = db.execute(text("SELECT VERSION()")).scalar()
+        return engine_name, str(version) if version else "unknown"
+    except Exception:
+        return engine_name, "unknown"
 
 
 @router.get("/check-updates", response_model=CheckUpdatesResponse)

@@ -201,16 +201,25 @@
 .slider-dot:hover { transform: none; box-shadow: none; }
 .slider-dot.active { background: var(--accent); }
 
-/* v3.0 tabbed dashboard: the page never scrolls — content is split into
-   tabs, one tab visible at a time. The header row holds the title plus
-   the gear (widget visibility) and customize controls. */
+/* v3.0 tabbed dashboard: content is split into tabs, one tab visible
+   at a time. Zero-scroll is the design goal (tabs, not a long page),
+   but the page may scroll as a safety net when a tab's content does
+   not fit — clipped unreachable content is never acceptable
+   (Layout.css, v3.0.2). The header row holds the title plus the gear
+   (widget visibility) and customize controls. */
 .dashboard-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1000px; margin: 0 auto 12px; }
 .dashboard-title { font-size: 24px; font-weight: 800; }
 .dashboard-header-actions { display: flex; align-items: center; gap: 8px; }
 .dashboard-gear-btn { font-size: 18px; line-height: 1; padding: 8px 10px; }
-.dashboard-tabs { display: flex; gap: 6px; max-width: 1000px; margin: 0 auto 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-.dashboard-tabs::-webkit-scrollbar { display: none; }
-.dashboard-tab { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+/* v3.0.2: the strip wraps at ALL widths — it used to be overflow-x:auto
+   with a hidden scrollbar above 640px, so on a landscape phone (~800px)
+   tabs were cut off at the strip edge with no affordance (the user
+   reported exactly that). Wrapping costs a second row on narrow
+   screens, but a tab you cannot see is worse than a taller strip —
+   and the page scrolls now (Layout.css), so the strip never has to
+   stay one row. */
+.dashboard-tabs { display: flex; flex-wrap: wrap; gap: 6px; max-width: 1000px; margin: 0 auto 16px; overflow-x: visible; padding-bottom: 2px; min-width: 0; flex-shrink: 0; }
+.dashboard-tab { flex: 0 1 auto; min-width: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: normal; text-align: center; line-height: 1.35; }
 .dashboard-tab:hover { color: var(--text); }
 .dashboard-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
 .dashboard-tab-panel { animation: tabIn 0.25s ease; }
@@ -292,10 +301,9 @@
     .summary-box h2 { margin: 0 0 4px; font-size: 14px; }
     .summary-box p { font-size: 20px; }
     .dashboard-section table th, .dashboard-section table td { padding: 6px 4px; font-size: 14px; }
-    /* v3.0.1: all 10 tabs visible without horizontal swiping — the strip
-       used to be overflow-x:auto with a hidden scrollbar, so tabs were
-       cut off at the phone edge with no affordance. Wrap to rows with
-       tighter padding/font instead. */
-    .dashboard-tabs { flex-wrap: wrap; overflow-x: visible; gap: 4px; }
+    /* v3.0.1: tighter padding/font on phones. The wrap itself lives
+       in the base .dashboard-tabs rule since v3.0.2 (it used to be
+       ≤640px-only, so landscape phones cut tabs off). */
+    .dashboard-tabs { gap: 4px; }
     .dashboard-tab { padding: 7px 10px; font-size: 13px; }
 }

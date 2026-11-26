@@ -6,7 +6,7 @@ def test_settings_crud(client, auth_headers):
     assert response.status_code == 200
     settings = response.json()
     assert settings["daily_request_limit"] == "100"
-    assert settings["app_version"] == "3.0.1"
+    assert settings["app_version"] == "3.0.2"
 
     response = client.put(
         "/api/settings/daily_request_limit",
@@ -121,8 +121,25 @@ def test_dashboard_summary(client, auth_headers):
 def test_system_info_and_check_updates(client, auth_headers):
     response = client.get("/api/system/info", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["version"] == "3.0.1"
+    assert response.json()["version"] == "3.0.2"
     assert response.json()["lastUpdated"]
+    # v3.0.2: full stack — every field present and non-empty, all live
+    # runtime values (the test suite runs on SQLite, so the engine is
+    # sqlite and the server version is the SQLite version string).
+    info = response.json()
+    for field in (
+        "python_version",
+        "fastapi_version",
+        "sqlalchemy_version",
+        "pydantic_version",
+        "database_engine",
+        "database_version",
+        "os",
+    ):
+        assert info[field], field
+    assert info["database_engine"] == "sqlite"
+    assert info["python_version"].startswith("3.")
+    assert info["os"].startswith("Linux")
 
     response = client.get("/api/system/check-updates", headers=auth_headers)
     assert response.status_code == 200
@@ -135,12 +152,12 @@ def test_system_info_and_check_updates(client, auth_headers):
 
     db = SessionLocal()
     try:
-        update_setting(db, "latest_version", "3.0.2")
+        update_setting(db, "latest_version", "3.0.3")
     finally:
         db.close()
     response = client.get("/api/system/check-updates", headers=auth_headers)
     assert response.json()["updateAvailable"] is True
-    assert response.json()["latestVersion"] == "3.0.2"
+    assert response.json()["latestVersion"] == "3.0.3"
 
 
 def test_system_update_when_up_to_date(client, auth_headers, monkeypatch):
@@ -154,11 +171,11 @@ def test_system_update_when_up_to_date(client, auth_headers, monkeypatch):
         return httpx.Response(
             200,
             json={
-                "tag_name": "v3.0.1",
-                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.1",
+                "tag_name": "v3.0.2",
+                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.2",
                 "body": "no changes",
                 "published_at": "2026-11-25T00:00:00Z",
-                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.1",
+                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.2",
             },
         )
 

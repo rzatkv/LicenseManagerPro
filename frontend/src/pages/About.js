@@ -40,6 +40,7 @@ function About() {
     const {toast} = useToast();
     const [version, setVersion] = useState("");
     const [lastUpdated, setLastUpdated] = useState("");
+    const [systemInfo, setSystemInfo] = useState(null);
     const [check, setCheck] = useState(null);
     const [checking, setChecking] = useState(false);
     const [tab, setTab] = useState("whatsNew");
@@ -50,6 +51,7 @@ function About() {
                 const data = await get("/system/info");
                 setVersion(data.version);
                 setLastUpdated(data.lastUpdated);
+                setSystemInfo(data);
             } catch (err) {
                 console.error("Failed to fetch application info.");
             }
@@ -118,6 +120,34 @@ function About() {
                             <div>
                                 <dt>{t("about.version")}</dt>
                                 <dd>{version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.pythonVersion")}</dt>
+                                <dd>{systemInfo?.python_version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.fastapiVersion")}</dt>
+                                <dd>{systemInfo?.fastapi_version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.sqlalchemyVersion")}</dt>
+                                <dd>{systemInfo?.sqlalchemy_version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.pydanticVersion")}</dt>
+                                <dd>{systemInfo?.pydantic_version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.databaseEngine")}</dt>
+                                <dd>{systemInfo?.database_engine || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.databaseVersion")}</dt>
+                                <dd>{systemInfo?.database_version || "-"}</dd>
+                            </div>
+                            <div>
+                                <dt>{t("about.os")}</dt>
+                                <dd>{systemInfo?.os || "-"}</dd>
                             </div>
                             <div>
                                 <dt>API</dt>

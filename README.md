@@ -17,22 +17,16 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.1
+## What's new in v3.0.2
 
-Phone-fix round for the ten items the v3.0.0 real-phone check found — no new features, everything below was already supposed to work:
+Scroll-fix round for the two things the user reported from his own phone right after the v3.0.1 check — no new features:
 
-- **Create wizards are popups now:** the Licenses (4-step), Products (4-step), Product Groups (2-step) and API Keys (3-step) create wizards opened as inline cards that pushed the whole table down the page. Each now renders inside the same animated Modal as View/Edit — steps navigable inside the popup, no page push-down.
-- **No modal can trap you on a phone:** the Settings → Languages editor opened taller than the screen — title + × above the viewport, × covered by the Settings tab row, closable only with Escape (which a phone has none). Root cause: the fixed backdrop was anchored to the nearest ancestor with a backdrop-filter/transform (the glass Settings sections), not the viewport. All modals (details + confirm) are now portaled to document.body, cards cap at 90dvh with internal scroll and a non-scrolling header, so the × is always visible. Every modal was audited at 360px.
-- **Notifications open a details popup:** tapping a card navigated away (#/downloads, #/licenses) instead of showing the notification. Now a details popup (same pattern as Audit Logs) with mark-read on open and an explicit "Open linked page" button inside.
-- **2FA setup is a popup:** enabling 2FA expanded an inline section (QR + code + Confirm/Cancel) that pushed the profile card down. It now opens in the animated Modal.
-- **All 10 dashboard tabs fit on phones:** the tab strip was overflow-x:auto with a hidden scrollbar — tabs cut off at the phone edge with no affordance. At ≤640px the strip wraps to rows with tighter padding/font; all ten tabs are visible without swiping.
-- **Dashboard charts are visible on phones again:** the trend chart (and activations, per-month, by-product) rendered 0×0 at 360px — the widget was display:flex in a row, the range control ate ~262px of the 296px widget and the chart got 34px minus padding. Widgets are now column direction: chart full-width on top, range below. All four ranged charts render at 360/768/1280px.
-- **Dashboard Custom actually rearranges widgets:** two failures — on Overview/Services/Sending Custom showed no controls at all, and on Trends/Status/Monthly ↑/↓ changed the saved order but nothing visible moved (each tab showed only the single selected mini-tab widget, and mini-tab order was hardcoded). Now Custom stacks all widgets of the current tab with controls, ↑/↓ swaps within the tab so the move is always visible, mini-tab order follows the saved order, Services/Sending cards are real widgets with controls, and tabs with no widgets say so honestly instead of silently doing nothing. Touch drag never worked on phones (HTML5 drag-and-drop has no touch support) — ↑/↓ buttons are the phone mechanism.
-- **Tables fit without swiping:** Users, API Keys and Audit Logs showed their Actions column off-screen at 360px (up to 900px out), reachable only by swiping the table sideways. Same split as Licenses/Products (v2.3.3): at ≤640px only the essential columns + Actions show — Users shows Email + Actions (role/active move into the new View/Edit popup), API Keys shows Key + Actions (rights/expiry/single-use move into the new details popup, which carries Edit/Rotate/Delete), Audit Logs shows Action + Actions (everything else moves into the details popup, which gains a Delete button). Actions is always visible, no sideways swipe.
-- **Users finally have View/Edit:** rows had no View/Edit action at all — only the inline role dropdown, Active switch and Delete. The eye button opens a View/Edit popup (details + role/permissions editing inside it).
-- **Stale demo text fixed:** the demo seed notification still said "Welcome to v2.3".
-- **Version bump:** 3.0.1 everywhere, demo storage key `lmp-demo-db-v15`, `smoke_test_301.py`, mock next-release v3.0.2, all 10 module ZIPs rebuilt at 3.0.1 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
-
+- **Pages scroll when content does not fit:** the app shell (`Layout.css`) had `.layout-content { overflow: hidden }` by design, and the sweep measured document overflow (0) — blind to the real failure: anything taller than the viewport was clipped with no scroll container, so the dashboard quick-action buttons sat half-cut and unreachable. The user corrected the v3.0.0 rule: zero-scroll stays the DESIGN GOAL (keep splitting content into tabs, pagination, wizards and popups so pages fit), but scrolling is the mandatory safety net — clipped unreachable content is never acceptable. `.layout-content` is now `overflow-y: auto` (with `-webkit-overflow-scrolling: touch`); it only activates on overflow, and pages that fit stay scroll-free exactly as before.
+- **Dashboard tabs wrap at every width:** the strip wrapped only ≤640px; above that it was `overflow-x: auto` with a hidden scrollbar, so on a landscape phone (~800px) tabs were cut off at the strip edge with no affordance. The strip now wraps unconditionally — a second row is cheaper than a tab you cannot see.
+- **API Docs tabs wrap too:** `.docs-tabs` was single-row scrollable with a hidden scrollbar at every width, and the second-row "API keys — the X-API-Key mechanism" pill sat half outside the screen, cut off mid-word. Both docs tab rows wrap now (the docs page's own inner vertical scroller is untouched).
+- **Every tab strip audited:** `.mini-tabs` (Audit Logs channels, dashboard sub-tabs, Settings sub-tabs, About, API Docs — 17 usages) wraps unconditionally now; `.settings-tabs` and the Notifications toolbar already wrapped and were verified to stay that way. No tab strip anywhere may clip with a hidden scrollbar at 360–1920px or in landscape.
+- **Bottom-nav clearance verified:** after scroll was enabled, the last content on every page — especially the dashboard Overview quick-action buttons — was checked to be fully reachable by scrolling to the bottom at 360×700 and 800×360 landscape, with the 64px bottom padding intact.
+- **Version bump:** 3.0.2 everywhere, demo storage key `lmp-demo-db-v16`, `smoke_test_302.py`, mock next-release v3.0.3, all 10 module ZIPs rebuilt at 3.0.2 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 ## Key Features
 - **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit. Module-scoped keys (time-limited, optional HMAC signing + IP allowlist) are the only way modules connect.
 - **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, edit in a popup, renew, reissue, validate (public endpoint), and track activations. Notes on products and licenses (toggleable).
@@ -97,7 +91,7 @@ LicenseManagerPro/
 │   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
 ├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
-├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.0; v3.0.1 lives above)
+├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.1; v3.0.2 lives above)
 └── README.md
 ```
 
@@ -307,7 +301,7 @@ Ten platform modules live in `modules/`, one per platform, each with `version.js
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.1).
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.2).
 
 ```bash
 cd backend

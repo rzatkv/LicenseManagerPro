@@ -505,6 +505,15 @@ class SystemInfoResponse(BaseModel):
     lastUpdated: str
     # v3.0: the admin-configured panel domain ("" when unset).
     panel_domain: str = ""
+    # v3.0.2: full stack, all live runtime values (see
+    # routers/system.py get_system_info) — never hardcoded.
+    python_version: str = "unknown"
+    fastapi_version: str = "unknown"
+    sqlalchemy_version: str = "unknown"
+    pydantic_version: str = "unknown"
+    database_engine: str = "unknown"
+    database_version: str = "unknown"
+    os: str = "unknown"
 
 
 class MaintenanceStatusResponse(BaseModel):
