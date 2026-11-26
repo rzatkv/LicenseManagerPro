@@ -14,18 +14,21 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from config import APP_VERSION
 from database import get_db
 from models import User
 from schemas import (
     CheckUpdatesResponse,
+    MaintenanceStatusResponse,
     StageUpdateResponse,
     SystemInfoResponse,
     UpdateCheckResponse,
 )
 from services import updates as update_service
 from services import webhooks as webhook_service
+from services import service_status as service_status_service
 from services.audit import log_audit
-from services.settings import get_all_settings, update_setting
+from services.settings import get_all_settings, get_setting_default, update_setting
 from utils.auth import require_admin
 from utils.module_auth import require_actor
 from utils.permissions import require_admin_or_manager
@@ -47,10 +50,22 @@ def readiness(db: Session = Depends(get_db)):
 
 
 def _versions(db: Session) -> tuple[str, str]:
+    # v3.0: the RUNNING version always comes from code (config.APP_VERSION),
+    # never from a user-editable setting; the LATEST version is the one
+    # the update check itself discovered and stored (system-managed).
     settings = get_all_settings(db)
-    current = settings.get("app_version", "1.0.0")
+    current = APP_VERSION
     latest = settings.get("latest_version", current)
     return current, latest
+
+
+@router.get("/maintenance", response_model=MaintenanceStatusResponse)
+def get_maintenance_status(db: Session = Depends(get_db)):
+    """Public maintenance status for the login page (no auth): whether
+    maintenance mode is on and the custom message to show."""
+    enabled = get_setting_default(db, "maintenance_mode", "off") == "on"
+    message = get_setting_default(db, "maintenance_message", "")
+    return {"enabled": enabled, "message": message}
 
 
 @router.get("/info", response_model=SystemInfoResponse)
@@ -62,8 +77,9 @@ def get_system_info(
 ):
     settings = get_all_settings(db)
     return {
-        "version": settings.get("app_version", "1.0.0"),
+        "version": APP_VERSION,
         "lastUpdated": settings.get("last_updated", date.today().isoformat()),
+        "panel_domain": settings.get("panel_domain", ""),
     }
 
 
@@ -78,6 +94,82 @@ def check_updates(
         "currentVersion": current,
         "latestVersion": latest,
     }
+
+
+@router.get("/sending-stats")
+def sending_stats(
+    days: int = Query(default=14, ge=1, le=90),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Sending activity (v3.0, admin-only): per-day, per-channel
+    sent/failed counts aggregated from the per-channel log stream
+    (audit rows `notify.<channel>_sent|failed` and
+    `twofa.<channel>_sent|failed`). Powers the dashboard Sending
+    charts. Response: {"days", "dates", "series": {channel: [{date,
+    sent, failed}, ...], "total": [...]}}."""
+    from datetime import datetime, timedelta
+
+    from models import AuditLog
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.created_at >= cutoff,
+            (AuditLog.action.like("notify.%", escape="\\"))
+            | (AuditLog.action.like("twofa.%", escape="\\")),
+        )
+        .all()
+    )
+    dates = [
+        (datetime.utcnow().date() - timedelta(days=days - 1 - i)).isoformat()
+        for i in range(days)
+    ]
+    channels = ("email", "sms", "telegram")
+    series: dict[str, list[dict]] = {
+        ch: [{"date": d, "sent": 0, "failed": 0} for d in dates] for ch in channels
+    }
+    series["total"] = [{"date": d, "sent": 0, "failed": 0} for d in dates]
+    index = {d: i for i, d in enumerate(dates)}
+    for row in rows:
+        parts = row.action.split(".")
+        if len(parts) != 2:
+            continue
+        channel, outcome = parts[0], parts[1]
+        if channel == "notify":
+            # notify.<channel>_<outcome>
+            sub = outcome.rsplit("_", 1)
+            if len(sub) != 2 or sub[0] not in channels or sub[1] not in ("sent", "failed"):
+                continue
+            channel, outcome = sub
+        elif channel == "twofa":
+            sub = outcome.rsplit("_", 1)
+            if len(sub) != 2 or sub[0] not in channels or sub[1] not in ("sent", "failed"):
+                continue
+            channel, outcome = sub
+        else:
+            continue
+        day = row.created_at.date().isoformat()
+        if day not in index:
+            continue
+        i = index[day]
+        series[channel][i][outcome] += 1
+        series["total"][i][outcome] += 1
+    return {"days": days, "dates": dates, "series": series}
+
+
+@router.get("/service-status")
+def service_status(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Service status for the dashboard widget (v3.0, admin-only): the
+    connection state of database, email (SMTP), the active SMS
+    provider, the Telegram bot, and GitHub (update-check upstream).
+    Every check has a 5s timeout and they run concurrently, so this
+    answers in ~5s worst case. No secrets in the response."""
+    return service_status_service.check_all_services(db)
 
 
 @router.get("/update-check", response_model=UpdateCheckResponse)

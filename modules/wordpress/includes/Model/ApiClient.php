@@ -136,6 +136,12 @@ final class ApiClient
         return $this->request('POST', $path);
     }
 
+    /**
+     * POST /licenses/validate — check a key against domain/IP/install path.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side.
+     */
     public function validateLicense(
         string $license_key,
         ?string $domain = null,
@@ -152,7 +158,7 @@ final class ApiClient
         if ($install_path !== null && $install_path !== '') {
             $body['install_path'] = $install_path;
         }
-        return $this->request('POST', '/licenses/validate', $body);
+        return $this->request('POST', '/licenses/validate', $body, true);
     }
 
     /**
@@ -160,8 +166,11 @@ final class ApiClient
      * WP_Error otherwise. A 401/403 always fails closed with a clear
      * message and is written to the PHP error log; nothing is created
      * or changed on the backend in that case.
+     *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
      */
-    private function request(string $method, string $path, ?array $data = null): array|\WP_Error
+    private function request(string $method, string $path, ?array $data = null, bool $public = false): array|\WP_Error
     {
         if (!$this->isConfigured()) {
             return new \WP_Error(
@@ -175,9 +184,11 @@ final class ApiClient
         $headers = array(
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
-            self::HEADER_API_KEY => $this->api_key,
         );
-        if ($this->signed_requests) {
+        if (!$public) {
+            $headers[self::HEADER_API_KEY] = $this->api_key;
+        }
+        if ($this->signed_requests && !$public) {
             $timestamp = (string) time();
             $headers[self::HEADER_TIMESTAMP] = $timestamp;
             $headers[self::HEADER_SIGNATURE] = $this->sign($method, $url, $timestamp, $raw_body);

@@ -1,10 +1,34 @@
 import React, {createContext, useContext, useState, useEffect, useCallback, useRef} from "react";
 import {get, put} from "./utils/api";
+import {getCurrentUser} from "./utils/auth";
 
 const ThemeContext = createContext(null);
 const THEME_KEY = "lmp-theme"; // light | dark | auto (kept from v2.1)
-const PRESET_KEY = "lmp-theme-preset"; // default | ocean | forest | sunset | graphite | custom
+const PRESET_KEY = "lmp-theme-preset"; // default | ocean | forest | sunset | graphite | rose | teal | amber | lime | ruby | custom
 const CUSTOM_KEY = "lmp-theme-custom"; // JSON {accent, accent2, bg, surface}
+
+/** Valid theme values (v3.0, per-admin themes). Anything the server
+ * returns outside these lists is ignored, never applied. */
+export const THEME_PRESET_IDS = ["default", "ocean", "forest", "sunset", "graphite", "rose", "teal", "amber", "lime", "ruby", "custom"];
+const THEME_MODES = ["light", "dark", "auto"];
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const CUSTOM_FIELDS = ["accent", "accent2", "bg", "surface"];
+
+/** Keep only the known, well-formed parts of a stored theme value. */
+function sanitizeTheme(saved) {
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) return null;
+  const out = {};
+  if (typeof saved.mode === "string" && THEME_MODES.includes(saved.mode)) out.mode = saved.mode;
+  if (typeof saved.preset === "string" && THEME_PRESET_IDS.includes(saved.preset)) out.preset = saved.preset;
+  if (saved.custom && typeof saved.custom === "object" && !Array.isArray(saved.custom)) {
+    const c = {};
+    for (const k of CUSTOM_FIELDS) {
+      if (typeof saved.custom[k] === "string" && HEX_RE.test(saved.custom[k])) c[k] = saved.custom[k];
+    }
+    if (Object.keys(c).length) out.custom = c;
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 /** Preset colour themes. Each preset overrides the brand variables
  * (--accent, --accent-2, --accent-soft, --accent-gradient, --hero-gradient)
@@ -35,6 +59,31 @@ export const THEME_PRESETS = [
     id: "graphite",
     light: {accent: "#475569", accent2: "#334155", accentSoft: "#E2E8F0", gradient: "linear-gradient(135deg, #64748B, #475569, #334155, #1E293B)", hero: "linear-gradient(135deg, #E2E8F0, #CBD5E1, #C7D2FE, #E0E7FF)"},
     dark: {accent: "#94A3B8", accent2: "#64748B", accentSoft: "#1E293B", gradient: "linear-gradient(135deg, #64748B, #475569, #334155, #1E293B)", hero: "linear-gradient(135deg, #1E293B, #1A2433, #1B2536, #1C2331)"},
+  },
+  {
+    id: "rose",
+    light: {accent: "#F43F5E", accent2: "#E11D48", accentSoft: "#FFF1F2", gradient: "linear-gradient(135deg, #FB7185, #F43F5E, #E11D48, #DB2777)", hero: "linear-gradient(135deg, #FFE4E6, #FECDD3, #FBCFE8, #F5D0FE)"},
+    dark: {accent: "#FB7185", accent2: "#F43F5E", accentSoft: "#3B1220", gradient: "linear-gradient(135deg, #FB7185, #F43F5E, #E11D48, #DB2777)", hero: "linear-gradient(135deg, #2E1218, #33121C, #2A1226, #2E1226)"},
+  },
+  {
+    id: "teal",
+    light: {accent: "#0D9488", accent2: "#0F766E", accentSoft: "#CCFBF1", gradient: "linear-gradient(135deg, #2DD4BF, #0D9488, #0F766E, #0369A1)", hero: "linear-gradient(135deg, #CCFBF1, #99F6E4, #A7F3D0, #BAE6FD)"},
+    dark: {accent: "#2DD4BF", accent2: "#0D9488", accentSoft: "#0B2E2A", gradient: "linear-gradient(135deg, #2DD4BF, #0D9488, #0F766E, #0369A1)", hero: "linear-gradient(135deg, #0B2622, #0C2E2A, #0B2B28, #0C2436)"},
+  },
+  {
+    id: "amber",
+    light: {accent: "#D97706", accent2: "#B45309", accentSoft: "#FEF3C7", gradient: "linear-gradient(135deg, #FBBF24, #D97706, #B45309, #92400E)", hero: "linear-gradient(135deg, #FEF3C7, #FDE68A, #FCD34D, #FDBA74)"},
+    dark: {accent: "#FBBF24", accent2: "#D97706", accentSoft: "#33230B", gradient: "linear-gradient(135deg, #FBBF24, #D97706, #B45309, #92400E)", hero: "linear-gradient(135deg, #2E2110, #33230B, #2E2410, #2A1E10)"},
+  },
+  {
+    id: "lime",
+    light: {accent: "#65A30D", accent2: "#4D7C0F", accentSoft: "#ECFCCB", gradient: "linear-gradient(135deg, #A3E635, #65A30D, #4D7C0F, #166534)", hero: "linear-gradient(135deg, #ECFCCB, #D9F99D, #BEF264, #86EFAC)"},
+    dark: {accent: "#A3E635", accent2: "#65A30D", accentSoft: "#1E2E0C", gradient: "linear-gradient(135deg, #A3E635, #65A30D, #4D7C0F, #166534)", hero: "linear-gradient(135deg, #1A240C, #1E2E0C, #16240E, #10291A)"},
+  },
+  {
+    id: "ruby",
+    light: {accent: "#BE123C", accent2: "#9F1239", accentSoft: "#FFE4E6", gradient: "linear-gradient(135deg, #F43F5E, #BE123C, #9F1239, #881337)", hero: "linear-gradient(135deg, #FFE4E6, #FECDD3, #FDA4AF, #F9A8D4)"},
+    dark: {accent: "#F87171", accent2: "#BE123C", accentSoft: "#3A0E16", gradient: "linear-gradient(135deg, #F43F5E, #BE123C, #9F1239, #881337)", hero: "linear-gradient(135deg, #2E0E14, #331016, #2A0E18, #2E1218)"},
   },
 ];
 
@@ -67,27 +116,52 @@ export function ThemeProvider({children}) {
   const [preset, setPresetState] = useState(initialPreset);
   const [custom, setCustomState] = useState(() => readJSON(CUSTOM_KEY, DEFAULT_CUSTOM));
   const [resolved, setResolved] = useState(() => resolve(initialMode()));
-  const syncedFromServer = useRef(false);
+  // Per-admin themes (v3.0): the BACKEND is the source of truth. The
+  // user id whose theme has been loaded from the server; the PUT below
+  // stays silent until that load has finished for the current user, so
+  // a mount can never clobber the server theme with local defaults, and
+  // a second admin on the same browser never inherits the first one's
+  // theme (localStorage is only a fast first-paint cache).
+  const userIdRef = useRef(undefined);
+  const serverReadyRef = useRef(false);
 
-  // Load the saved theme from the backend when logged in (localStorage
-  // wins when it already has a value — the user's own device choice).
-  useEffect(() => {
-    if (syncedFromServer.current) return;
-    syncedFromServer.current = true;
-    let hasLocal = false;
-    try { hasLocal = !!localStorage.getItem(THEME_KEY) || !!localStorage.getItem(PRESET_KEY); } catch (e) {}
-    if (hasLocal) return;
-    get("/users/me/preferences")
-      .then((data) => {
-        const saved = data && data.preferences && data.preferences.theme;
-        if (!saved) return;
+  const syncFromServer = useCallback(async () => {
+    const user = getCurrentUser();
+    if (!user || user.id == null) {
+      // Logged out: fall back to the neutral default so the login screen
+      // never wears the previous user's theme.
+      userIdRef.current = null;
+      serverReadyRef.current = false;
+      setModeState("auto");
+      setPresetState("default");
+      setCustomState(DEFAULT_CUSTOM);
+      return;
+    }
+    if (userIdRef.current === user.id && serverReadyRef.current) return;
+    userIdRef.current = user.id;
+    serverReadyRef.current = false;
+    try {
+      const data = await get("/users/me/preferences");
+      const saved = sanitizeTheme(data && data.preferences && data.preferences.theme);
+      if (saved) {
         if (saved.mode) setModeState(saved.mode);
         if (saved.preset) setPresetState(saved.preset);
-        if (saved.custom) setCustomState({...DEFAULT_CUSTOM, ...saved.custom});
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (saved.custom) setCustomState((prev) => ({...prev, ...saved.custom}));
+      }
+    } catch (e) {
+      // Offline / backend down: keep the local cache; a later change
+      // still tries to persist (fire-and-forget below).
+    }
+    serverReadyRef.current = true;
   }, []);
+
+  // Load the logged-in user's theme on mount and whenever the auth
+  // state changes (login as another admin, logout).
+  useEffect(() => {
+    syncFromServer();
+    window.addEventListener("lmp-auth-change", syncFromServer);
+    return () => window.removeEventListener("lmp-auth-change", syncFromServer);
+  }, [syncFromServer]);
 
   // Apply mode + preset to <html>, persist locally and to the backend.
   useEffect(() => {
@@ -122,9 +196,13 @@ export function ThemeProvider({children}) {
       localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom));
     } catch (e) {}
     // Persist per user on the backend (works in demo mode too — the mock
-    // stores preferences in the demo DB). Fire-and-forget; a failure must
-    // never break the theme switch.
-    put("/users/me/preferences", {key: "theme", value: {mode, preset, custom}}).catch(() => {});
+    // stores preferences per user in the demo DB). Only after the
+    // server theme for THIS user has loaded, and only while logged in:
+    // a mount-time PUT would otherwise overwrite the server theme with
+    // local defaults, and a logged-out PUT would 401.
+    if (serverReadyRef.current && getCurrentUser() && getCurrentUser().id != null) {
+      put("/users/me/preferences", {key: "theme", value: {mode, preset, custom}}).catch(() => {});
+    }
     return () => clearTimeout(timer);
   }, [mode, preset, custom]);
 

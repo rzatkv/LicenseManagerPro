@@ -184,6 +184,9 @@ class ApiClient
 
     /**
      * POST /licenses/validate — check a key against domain/IP/install path.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side. (Payload field is "key", the backend's field name.)
      *
      * @return array<string, mixed>
      * @throws ApiException
@@ -194,7 +197,7 @@ class ApiClient
         ?string $ip = null,
         ?string $installPath = null
     ): array {
-        $payload = ['license_key' => $licenseKey];
+        $payload = ['key' => $licenseKey];
         if ($domain !== null && $domain !== '') {
             $payload['domain'] = $domain;
         }
@@ -204,7 +207,7 @@ class ApiClient
         if ($installPath !== null && $installPath !== '') {
             $payload['install_path'] = $installPath;
         }
-        $result = $this->request('POST', '/licenses/validate', $payload);
+        $result = $this->request('POST', '/licenses/validate', $payload, true);
 
         return is_array($result) ? $result : [];
     }
@@ -214,11 +217,14 @@ class ApiClient
      * Throws ApiException on any failure — including 401/403, which
      * fail closed: the caller must not mint or grant anything.
      *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
+     *
      * @param array<string, mixed> $data
      * @return mixed
      * @throws ApiException
      */
-    private function request(string $method, string $path, array $data = []): mixed
+    private function request(string $method, string $path, array $data = [], bool $public = false): mixed
     {
         $apiKey = $this->config->getApiKey();
         $baseUrl = $this->config->getApiUrl();
@@ -231,9 +237,11 @@ class ApiClient
         $headers = [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
-            self::HEADER_API_KEY => $apiKey,
         ];
-        if ($this->config->isSignedRequestsEnabled()) {
+        if (!$public) {
+            $headers[self::HEADER_API_KEY] = $apiKey;
+        }
+        if ($this->config->isSignedRequestsEnabled() && !$public) {
             $headers[self::HEADER_TIMESTAMP] = $timestamp;
             $headers[self::HEADER_SIGNATURE] = $this->sign($method, $path, $timestamp, $body, $apiKey);
         }

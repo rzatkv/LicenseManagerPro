@@ -49,6 +49,8 @@ function Layout() {
 
   // Branding (site_name / logo_url) comes from the settings API; the
   // defaults above render while it loads or when the fetch fails.
+  // The date-calendar choice (v3.0) is synced here too, so dates render
+  // in the admin's chosen calendar on every device.
   useEffect(() => {
     let cancelled = false;
     get("/settings")
@@ -56,6 +58,9 @@ function Layout() {
         if (cancelled || !data) return;
         if (data.site_name) setSiteName(data.site_name);
         if (data.logo_url) setLogoUrl(data.logo_url);
+        if (data.date_calendar) {
+          try { localStorage.setItem("lmp-calendar", data.date_calendar); } catch (e) {}
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -80,7 +85,7 @@ function Layout() {
   }, []);
 
   // Users, Roles and Blacklist are admin-only (their APIs are admin-only);
-  // Languages and Audit Logs are admin/manager (audit-logs API: 403 else).
+  // Audit Logs is admin/manager (audit-logs API: 403 else).
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
   const navSections = [
@@ -104,7 +109,6 @@ function Layout() {
         {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
         {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
         {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
-        {to: "/languages", label: t("nav.languages"), icon: ICONS.languages, show: canManage},
         {to: "/settings", label: t("nav.settings"), icon: ICONS.settings, show: true},
         {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
       ],

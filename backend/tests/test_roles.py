@@ -78,9 +78,11 @@ def test_manager_cannot_change_user_role(client, auth_headers):
     response = client.delete(f"/api/licenses/{lic['id']}", headers=manager_headers)
     assert response.status_code == 200
 
-    # ...and a manager cannot delete settings.
+    # ...and a manager cannot delete settings — deletion is impossible
+    # for anyone in v3.0 (the DELETE endpoint was removed entirely, so
+    # the path answers 405 Method Not Allowed, not a permission error).
     response = client.delete("/api/settings/daily_request_limit", headers=manager_headers)
-    assert response.status_code == 403
+    assert response.status_code == 405
 
 
 def test_admin_can_do_everything(client, auth_headers):

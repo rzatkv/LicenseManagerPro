@@ -3,12 +3,21 @@ import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import Modal from "../components/Modal";
+import Pagination from "../components/Pagination";
 import {en as enDict, fa as faDict, SECTIONS} from "../i18n/translations";
 import "../styles/Languages.css";
 
 const ALL_KEYS = Object.keys(enDict);
+const KEYS_PER_PAGE = 20;
 
-function Languages() {
+/** Language management (v3.0): lives as its own tab inside Settings
+ * (Settings → Languages). The standalone /languages route redirects
+ * there. The add-language form opens in an animated popup, and the
+ * editor shows ONE section at a time (mini-tabs, default first
+ * section) with paginated keys — the full key list would force the
+ * page to scroll. */
+export function LanguagesPanel() {
   const {t, fetchLanguages} = useLanguage();
   const {toast} = useToast();
   const [languages, setLanguages] = useState([]);
@@ -18,9 +27,11 @@ function Languages() {
   const [isBuiltin, setIsBuiltin] = useState(false);
   const [values, setValues] = useState({});
   const [search, setSearch] = useState("");
-  const [section, setSection] = useState("all");
+  const [section, setSection] = useState(SECTIONS[0]);
+  const [keyPage, setKeyPage] = useState(1);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   const fetchList = useCallback(async () => {
     try {
@@ -50,6 +61,7 @@ function Languages() {
           : (dict[key] !== undefined ? dict[key] : "");
       }
       setValues(merged);
+      setKeyPage(1);
     } catch (err) {
       toast.error(err.message || t("common.failedFetch"));
     }
@@ -65,6 +77,7 @@ function Languages() {
       setLanguages([...languages, {code, name: newName.trim()}]);
       setNewCode("");
       setNewName("");
+      setAddOpen(false);
       toast.success(t("languages.keysCloned"));
       await fetchLanguages();
     } catch (err) {
@@ -100,28 +113,17 @@ function Languages() {
   };
 
   const filteredKeys = ALL_KEYS.filter((key) => {
-    if (section !== "all" && !key.startsWith(`${section}.`)) return false;
+    if (!key.startsWith(`${section}.`)) return false;
     if (search && !key.toLowerCase().includes(search.toLowerCase()) && !(values[key] || "").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-
-  const grouped = {};
-  for (const key of filteredKeys) {
-    const sec = key.split(".")[0];
-    if (!grouped[sec]) grouped[sec] = [];
-    grouped[sec].push(key);
-  }
+  const pageKeys = filteredKeys.slice((keyPage - 1) * KEYS_PER_PAGE, keyPage * KEYS_PER_PAGE);
 
   return (
-    <div className="languages-container page-enter">
-      <h1 className="gradient-text">{t("languages.title")}</h1>
-
-      <form className="add-language-form" onSubmit={handleAdd}>
-        <h3>{t("languages.add")}</h3>
-        <input type="text" placeholder={t("languages.codePlaceholder")} value={newCode} onChange={(e) => setNewCode(e.target.value)} required />
-        <input type="text" placeholder={t("languages.namePlaceholder")} value={newName} onChange={(e) => setNewName(e.target.value)} required />
-        <button type="submit">{t("languages.add")}</button>
-      </form>
+    <div className="languages-panel">
+      <div className="toolbar">
+        <button type="button" onClick={() => setAddOpen(true)}>{t("languages.add")}</button>
+      </div>
 
       <div className="table-wrap">
       <table>
@@ -151,44 +153,72 @@ function Languages() {
       </table>
       </div>
 
-      {selectedCode ? (
-        <div className="lang-editor">
-          <h2>{t("languages.editor")} — {selectedName} ({selectedCode})</h2>
-          {isBuiltin && <p className="hint">{t("languages.cannotDeleteBuiltin")}</p>}
-          <div className="lang-editor-tools">
-            <input type="text" placeholder={t("languages.searchKeys")} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select value={section} onChange={(e) => setSection(e.target.value)}>
-              <option value="all">{t("languages.section")}: {t("common.all")}</option>
-              {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          {Object.keys(grouped).map((sec) => (
-            <div key={sec} className="lang-section">
-              <h3>{sec}</h3>
-              {grouped[sec].map((key) => (
-                <div key={key} className="lang-key-row">
-                  <label title={key}>{key}</label>
-                  <input
-                    type="text"
-                    value={values[key] || ""}
-                    disabled={isBuiltin}
-                    onChange={(e) => setValues({...values, [key]: e.target.value})}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-          {!isBuiltin && <button onClick={handleSave}>{t("languages.save")}</button>}
-        </div>
-      ) : (
+      {!selectedCode && (
         <p className="dashboard-empty">{t("languages.selectLanguage")}</p>
       )}
+      <Modal open={!!selectedCode} wide title={selectedCode ? `${t("languages.editor")} — ${selectedName} (${selectedCode})` : ""} onClose={() => { setSelectedCode(null); setSelectedName(""); }}>
+      {selectedCode && (
+        <div className="lang-editor">
+          {isBuiltin && <p className="hint">{t("languages.cannotDeleteBuiltin")}</p>}
+          <div className="lang-editor-tools">
+            <input type="text" placeholder={t("languages.searchKeys")} value={search} onChange={(e) => { setSearch(e.target.value); setKeyPage(1); }} />
+          </div>
+          <div className="mini-tabs" role="tablist" aria-label={t("languages.section")}>
+            {SECTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="tab"
+                aria-selected={section === s}
+                className={section === s ? "mini-tab active" : "mini-tab"}
+                onClick={() => { setSection(s); setKeyPage(1); }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="lang-section">
+            <h3>{section}</h3>
+            {pageKeys.map((key) => (
+              <div key={key} className="lang-key-row">
+                <label title={key}>{key}</label>
+                <input
+                  type="text"
+                  value={values[key] || ""}
+                  disabled={isBuiltin}
+                  onChange={(e) => setValues({...values, [key]: e.target.value})}
+                />
+              </div>
+            ))}
+          </div>
+          <Pagination page={keyPage} total={filteredKeys.length} pageSize={KEYS_PER_PAGE} onPageChange={setKeyPage} />
+          {!isBuiltin && <button onClick={handleSave}>{t("languages.save")}</button>}
+        </div>
+      )}
+      </Modal>
+      <Modal open={addOpen} title={t("languages.add")} onClose={() => setAddOpen(false)}>
+        <form className="add-language-form" onSubmit={handleAdd}>
+          <input type="text" placeholder={t("languages.codePlaceholder")} value={newCode} onChange={(e) => setNewCode(e.target.value)} required />
+          <input type="text" placeholder={t("languages.namePlaceholder")} value={newName} onChange={(e) => setNewName(e.target.value)} required />
+          <button type="submit">{t("languages.add")}</button>
+        </form>
+      </Modal>
       <ConfirmModal
         open={pendingDelete !== null}
         message={t("common.confirmDelete")}
         onConfirm={() => { const code = pendingDelete; setPendingDelete(null); handleDelete(code); }}
         onCancel={() => setPendingDelete(null)}
       />
+    </div>
+  );
+}
+
+function Languages() {
+  const {t} = useLanguage();
+  return (
+    <div className="languages-container page-enter">
+      <h1 className="gradient-text">{t("languages.title")}</h1>
+      <LanguagesPanel />
     </div>
   );
 }

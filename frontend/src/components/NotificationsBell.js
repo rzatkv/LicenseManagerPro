@@ -1,8 +1,10 @@
 import React, {useState, useEffect, useCallback, useRef} from "react";
+import {createPortal} from "react-dom";
 import {useNavigate} from "react-router-dom";
 import {get, post} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
+import {useAnimatedOpen} from "../utils/useAnimatedOpen";
 import "./NotificationsBell.css";
 
 /**
@@ -16,12 +18,25 @@ function NotificationsBell() {
     const [notifications, setNotifications] = useState([]);
     const [unread, setUnread] = useState(0);
     const [open, setOpen] = useState(false);
+    // v3.0: the panel stays mounted ~200ms while the close animation
+    // plays (useAnimatedOpen), then unmounts.
+    const {visible: panelVisible, closing: panelClosing} = useAnimatedOpen(open);
+    const [ringing, setRinging] = useState(false);
     const panelRef = useRef(null);
+    const panelElRef = useRef(null);
     const btnRef = useRef(null);
     // Fixed-position style for the panel, clamped inside the viewport.
     // The panel used to be absolutely positioned against the bell: when
     // the topbar wraps on a narrow screen the bell sits near a viewport
     // edge and the 360px panel overflowed off-screen (clipped titles).
+    // v3.0.0: the panel is rendered via a portal into document.body.
+    // The topbar has backdrop-filter: blur(20px), which in Chrome makes
+    // it the containing block for fixed-position descendants — the JS
+    // clamp computed VIEWPORT coordinates (e.g. left 764px at 1280px)
+    // but CSS applied them relative to the topbar (x=280 in LTR with
+    // the docked sidebar), landing the panel 280px too far right and
+    // clipping 124px off the right edge in EN on laptops. Portaling
+    // makes position:fixed viewport-relative, so the clamp is correct.
     const [panelStyle, setPanelStyle] = useState(null);
 
     // Clamp the open panel inside the viewport (right-aligned to the bell
@@ -60,14 +75,25 @@ function NotificationsBell() {
         return () => clearInterval(id);
     }, [fetchNotifications]);
 
-    // Close the panel on a click outside it.
+    // Close the panel on a click outside it. The panel is portaled to
+    // document.body, so it is NOT inside panelRef (the wrapper div):
+    // clicks inside the panel must be checked against the panel element
+    // itself, or every click on a notification would close the panel.
+    // v3.0.0: Escape closes it too, like every Modal — without this, a
+    // keyboard user (and the bell sweep, which closes with Escape) can
+    // never dismiss the panel, and the next bell click toggles it shut
+    // instead of opening it.
     useEffect(() => {
         if (!open) return;
         const onClick = (e) => {
-            if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
+            if (panelRef.current && panelRef.current.contains(e.target)) return;
+            if (panelElRef.current && panelElRef.current.contains(e.target)) return;
+            setOpen(false);
         };
+        const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
         document.addEventListener("mousedown", onClick);
-        return () => document.removeEventListener("mousedown", onClick);
+        document.addEventListener("keydown", onKey);
+        return () => { document.removeEventListener("mousedown", onClick); document.removeEventListener("keydown", onKey); };
     }, [open]);
 
     const markAllRead = async () => {
@@ -98,20 +124,24 @@ function NotificationsBell() {
         <div className="notif-bell" ref={panelRef}>
             <button
                 type="button"
-                className="notif-bell-btn"
+                className={`notif-bell-btn${ringing ? " bell-ringing" : ""}`}
                 ref={btnRef}
                 aria-label={t("notifications.title")}
                 aria-expanded={open}
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => {
+                    setOpen((v) => !v);
+                    setRinging(true);
+                    setTimeout(() => setRinging(false), 600);
+                }}
             >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
                     <path d="M13.7 21a2 2 0 01-3.4 0" />
                 </svg>
-                {unread > 0 && <span className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
+                {unread > 0 && <span key={unread} className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
             </button>
-            {open && (
-                <div className="notif-panel" role="menu" style={panelStyle || undefined}>
+            {panelVisible && createPortal(
+                <div className={`notif-panel${panelClosing ? " dropdown-closing" : ""}`} role="menu" ref={panelElRef} style={panelStyle || undefined}>
                     <div className="notif-panel-head">
                         <strong>{t("notifications.title")}</strong>
                         <button type="button" className="notif-mark-all" onClick={markAllRead}>
@@ -139,7 +169,8 @@ function NotificationsBell() {
                     <button type="button" className="notif-view-all" onClick={() => { setOpen(false); navigate("/notifications"); }}>
                         {t("notifications.viewAll")}
                     </button>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

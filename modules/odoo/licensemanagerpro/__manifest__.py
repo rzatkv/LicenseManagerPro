@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "LicenseManagerPro",
-    "version": "2.3.4",
+    "version": "3.0.0",
     "category": "Sales/Licensing",
     "summary": "Mint and manage LicenseManagerPro licenses from Odoo sales.",
     "description": """

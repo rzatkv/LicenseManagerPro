@@ -103,6 +103,9 @@ class ApiClient
     /**
      * POST /licenses/validate — check a key (optionally bound to a
      * domain, IP or install path). Returns the decoded response.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side.
      */
     public function validateLicense(string $key, ?string $domain = null, ?string $ip = null, ?string $installPath = null): array
     {
@@ -116,7 +119,7 @@ class ApiClient
         if ($installPath !== null && $installPath !== '') {
             $payload['install_path'] = $installPath;
         }
-        return $this->post('/licenses/validate', $payload);
+        return $this->post('/licenses/validate', $payload, true);
     }
 
     public function get(string $path): array
@@ -124,9 +127,9 @@ class ApiClient
         return $this->request('GET', $path);
     }
 
-    public function post(string $path, array $data = []): array
+    public function post(string $path, array $data = [], bool $public = false): array
     {
-        return $this->request('POST', $path, $data);
+        return $this->request('POST', $path, $data, $public);
     }
 
     public function put(string $path, array $data = []): array
@@ -142,8 +145,11 @@ class ApiClient
     /**
      * One HTTP call. Returns the decoded JSON body on HTTP 2xx.
      * Throws LmpAuthException on 401/403 and LmpApiException otherwise.
+     *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
      */
-    private function request(string $method, string $path, ?array $data = null): array
+    private function request(string $method, string $path, ?array $data = null, bool $public = false): array
     {
         $method = strtoupper($method);
         $url = $this->apiUrl . $path;
@@ -151,12 +157,14 @@ class ApiClient
 
         $headers = [
             'Accept' => 'application/json',
-            self::HEADER_API_KEY => $this->apiKey,
         ];
+        if (!$public) {
+            $headers[self::HEADER_API_KEY] = $this->apiKey;
+        }
         if ($body !== '') {
             $headers['Content-Type'] = 'application/json';
         }
-        if ($this->signedRequests) {
+        if ($this->signedRequests && !$public) {
             $timestamp = (string) time();
             $pathOnly = (string) parse_url($url, PHP_URL_PATH);
             $message = $method . "\n" . $pathOnly . "\n" . $timestamp . "\n" . hash('sha256', $body);

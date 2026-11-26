@@ -1,15 +1,21 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {getList} from "../utils/api";
+import {getList, del} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import ConfirmModal from "../components/ConfirmModal";
+import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import EmptyState from "../components/EmptyState";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/AuditLogs.css";
 
-const PAGE_SIZE = 10;
 const ENTITIES = ["license", "product", "user", "api_key", "setting"];
+// Per-channel log streams (v3.0): the audit trail carries notify.*,
+// twofa.* and service_status.* rows; the backend filters them with
+// ?channel=. No new menu — the streams live as tabs inside Logs.
+const CHANNELS = ["all", "email", "sms", "telegram", "twofa", "system"];
 
 function AuditLogs() {
   const {t, lang} = useLanguage();
@@ -17,19 +23,30 @@ function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
   const [entity, setEntity] = useState("");
   const [actor, setActor] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [sort, setSort] = useState("newest");
+  const [channel, setChannel] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = entity ? `?entity=${encodeURIComponent(entity)}` : "";
+      const params = new URLSearchParams();
+      if (entity) params.set("entity", entity);
+      if (channel && channel !== "all") params.set("channel", channel);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const {items, total: t} = await getList(`/audit-logs${qs}`, {
-        skip: (page - 1) * PAGE_SIZE,
-        limit: PAGE_SIZE,
+        skip: (page - 1) * pageSize,
+        limit: pageSize,
       });
       setLogs(items);
       setTotal(t);
@@ -41,9 +58,32 @@ function AuditLogs() {
     } finally {
       setLoading(false);
     }
-  }, [page, entity, toast, t]);
+  }, [page, pageSize, entity, channel, toast, t]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  const handleDelete = async (id) => {
+    try {
+      await del(`/audit-logs/${id}`);
+      setLogs((prev) => prev.filter((log) => log.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
+      toast.success(t("audit.deleted"));
+    } catch (err) {
+      toast.error(err.message || t("common.error"));
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    try {
+      await del("/audit-logs");
+      setLogs([]);
+      setTotal(0);
+      setPage(1);
+      toast.success(t("audit.allDeleted"));
+    } catch (err) {
+      toast.error(err.message || t("common.error"));
+    }
+  };
 
   const entityLabel = (e) => {
     const key = {
@@ -84,6 +124,7 @@ function AuditLogs() {
     setActor("");
     setActionFilter("");
     setSort("newest");
+    setChannel("all");
     setPage(1);
   };
 
@@ -91,7 +132,23 @@ function AuditLogs() {
     <div className="audit-logs-container page-enter">
       <h1 className="gradient-text">{t("audit.title")}</h1>
 
+      <div className="mini-tabs" role="tablist" aria-label={t("audit.title")}>
+        {CHANNELS.map((ch) => (
+          <button
+            key={ch}
+            type="button"
+            role="tab"
+            aria-selected={channel === ch}
+            className={channel === ch ? "mini-tab active" : "mini-tab"}
+            onClick={() => { setChannel(ch); setPage(1); }}
+          >
+            {t(`audit.channel.${ch}`)}
+          </button>
+        ))}
+      </div>
+
       <div className="toolbar">
+        <button type="button" className="btn-danger" onClick={() => setDeleteAllOpen(true)}>{t("audit.deleteAll")}</button>
         <label htmlFor="audit-entity">{t("audit.filterEntity")}:</label>
         <select
           id="audit-entity"
@@ -156,6 +213,7 @@ function AuditLogs() {
                 <th>{t("audit.entity")}</th>
                 <th>{t("audit.entityId")}</th>
                 <th>{t("audit.details")}</th>
+                <th>{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -166,15 +224,41 @@ function AuditLogs() {
                   <td><span className="badge badge-accent">{log.action}</span></td>
                   <td>{entityLabel(log.entity)}</td>
                   <td>{log.entity_id ?? "-"}</td>
-                  <td className="audit-details">{log.details ? JSON.stringify(log.details) : "-"}</td>
+                  <td><button type="button" className="btn-ghost" onClick={() => setSelected(log)}>{t("common.view")}</button></td>
+                  <td>
+                    <button className="delete-btn" onClick={() => setPendingDelete(log.id)}>{t("common.delete")}</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           </div>
-          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+          <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
         </>
       )}
+      <Modal open={!!selected} title={selected ? `${t("audit.details")} #${selected.id}` : ""} onClose={() => setSelected(null)}>
+        {selected && (<>
+          <p><strong>{t("audit.time")}:</strong> {selected.created_at ? formatDateTime(selected.created_at, lang) : "-"}</p>
+          <p><strong>{t("audit.actor")}:</strong> {selected.actor_email}</p>
+          <p><strong>{t("audit.action")}:</strong> {selected.action}</p>
+          <p><strong>{t("audit.entity")}:</strong> {entityLabel(selected.entity)}</p>
+          <p><strong>{t("audit.entityId")}:</strong> {selected.entity_id ?? "-"}</p>
+          <h4>{t("audit.details")}</h4>
+          <pre className="audit-details-pre">{selected.details ? JSON.stringify(selected.details, null, 2) : "-"}</pre>
+        </>)}
+      </Modal>
+      <ConfirmModal
+        open={pendingDelete !== null}
+        message={t("audit.deleteConfirm")}
+        onConfirm={() => { const id = pendingDelete; setPendingDelete(null); handleDelete(id); }}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <ConfirmModal
+        open={deleteAllOpen}
+        message={t("audit.deleteAllConfirm")}
+        onConfirm={() => { setDeleteAllOpen(false); handleDeleteAll(); }}
+        onCancel={() => setDeleteAllOpen(false)}
+      />
     </div>
   );
 }

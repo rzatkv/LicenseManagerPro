@@ -136,10 +136,11 @@ def dispatch_webhook(
             db.rollback()
             return None
         db.refresh(delivery)
-        from services import notifications as notification_service
+        from services import notify_channels as notify_channels_service
 
-        notification_service.notify_admins(
+        notify_channels_service.notify_event(
             db,
+            "webhook_blocked",
             "Webhook delivery blocked",
             f"{event} to {product.webhook_url} was blocked ({reason}).",
             type_="error",
@@ -193,10 +194,11 @@ def dispatch_webhook(
     if not success:
         # A failed delivery is also an in-app notification (v2.2) so the
         # admin sees it without digging through the deliveries table.
-        from services import notifications as notification_service
+        from services import notify_channels as notify_channels_service
 
-        notification_service.notify_admins(
+        notify_channels_service.notify_event(
             db,
+            "webhook_failed",
             "Webhook delivery failed",
             f"{event} to {product.webhook_url} failed"
             + (f" (HTTP {status_code})" if status_code else ""),
@@ -256,27 +258,42 @@ def check_expiring_licenses(db: Session, days: int = 7) -> dict:
             if delivery is not None:
                 expired_notified += 1
             # In-app notification too (v2.2): one per license.
-            from services import notifications as notification_service
+            from services import notify_channels as notify_channels_service
 
-            notification_service.notify_admins(
+            notify_channels_service.notify_event(
                 db,
+                "license_expired",
                 "License expired",
                 f"License {license_.key} for {license_.product} has expired.",
                 type_="warning",
                 link="/licenses",
+                context={
+                    "license_key": license_.key,
+                    "product_name": license_.product,
+                    "expiry_date": license_.expires_at.isoformat() if license_.expires_at else "",
+                    "user_email": license_.owner_email or "",
+                },
             )
         elif license_.expires_at <= window_end:
             delivery = notify_license_event(db, license_, EVENT_LICENSE_EXPIRING)
             if delivery is not None:
                 expiring_notified += 1
-            from services import notifications as notification_service
+            from services import notify_channels as notify_channels_service
 
             days_left = (license_.expires_at - now).days
-            notification_service.notify_admins(
+            notify_channels_service.notify_event(
                 db,
+                "license_expiring",
                 "License expiring soon",
                 f"License {license_.key} for {license_.product} expires in {days_left} day(s).",
                 type_="warning",
                 link="/licenses",
+                context={
+                    "license_key": license_.key,
+                    "product_name": license_.product,
+                    "expiry_date": license_.expires_at.isoformat() if license_.expires_at else "",
+                    "days_left": str(days_left),
+                    "user_email": license_.owner_email or "",
+                },
             )
     return {"expiring_notified": expiring_notified, "expired_notified": expired_notified}

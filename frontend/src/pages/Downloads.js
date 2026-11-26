@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect, useCallback, useRef} from "react";
 import {get} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
@@ -21,6 +21,28 @@ function Downloads() {
     const [versions, setVersions] = useState(null);
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState(null);
+
+    // Responsive pagination (v3.0): pageSize = grid columns x 2 rows, so
+    // two rows of cards fit without scrolling at any width. Columns come
+    // from the grid's own width and the CSS minmax(280px, 1fr) — the same
+    // formula auto-fit uses — never from the rendered item count (empty
+    // tracks collapse, which would shrink the page size on later pages).
+    const gridRef = useRef(null);
+    const [columns, setColumns] = useState(3);
+    const [page, setPage] = useState(1);
+    useEffect(() => {
+        const measure = () => {
+            const w = gridRef.current ? gridRef.current.clientWidth : 0;
+            if (w > 0) setColumns(Math.max(1, Math.floor((w + 16) / (280 + 16))));
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [modules.length]);
+    const pageSize = columns * 2;
+    const pages = Math.max(1, Math.ceil(modules.length / pageSize));
+    const safePage = Math.min(page, pages);
+    const visibleModules = modules.slice((safePage - 1) * pageSize, safePage * pageSize);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -91,8 +113,9 @@ function Downloads() {
             {modules.length === 0 ? (
                 <EmptyState title={t("common.noData")} />
             ) : (
-                <div className="downloads-grid">
-                    {modules.map((mod, i) => {
+                <>
+                <div className="downloads-grid" ref={gridRef}>
+                    {visibleModules.map((mod, i) => {
                         const latest = latestFor(mod.id);
                         const updateAvailable = latest && latest !== mod.version;
                         return (
@@ -122,6 +145,14 @@ function Downloads() {
                         );
                     })}
                 </div>
+                {pages > 1 && (
+                    <div className="downloads-pager">
+                        <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>{t("common.back")}</button>
+                        <span>{safePage} / {pages}</span>
+                        <button type="button" disabled={safePage >= pages} onClick={() => setPage(safePage + 1)}>{t("common.next")}</button>
+                    </div>
+                )}
+                </>
             )}
         </div>
     );

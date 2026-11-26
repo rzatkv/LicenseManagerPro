@@ -1,4 +1,4 @@
-# LicenseManagerPro for Odoo (v2.3.4)
+# LicenseManagerPro for Odoo (v3.0.0)
 
 Connects Odoo 16 / 17 / 18 to a LicenseManagerPro backend. When a sale
 order containing a mapped product is confirmed, a license is minted
@@ -189,7 +189,7 @@ license data.
 
 | File | Purpose |
 |---|---|
-| `version.json` | Module version (`2.3.4`, matches the app version). |
+| `version.json` | Module version (`3.0.0`, matches the app version). |
 | `licensemanagerpro/__manifest__.py` | Odoo manifest (name, version, deps, data files). |
 | `licensemanagerpro/models/lmp_api_client.py` | API client: TLS-verified requests, HMAC signing, fail-closed errors. |
 | `licensemanagerpro/models/lmp_license.py` | `lmp.license` cached mirror + Sync/Revoke/Renew actions. |

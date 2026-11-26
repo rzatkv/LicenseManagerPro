@@ -2,6 +2,7 @@ import React, {useState, useEffect, useRef} from "react";
 import {useNavigate} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import {getCurrentUser, logout} from "../utils/auth";
+import {useAnimatedOpen} from "../utils/useAnimatedOpen";
 import "./ProfileMenu.css";
 
 /** Header profile menu (v2.3): avatar (photo or initials) with a modern
@@ -10,6 +11,7 @@ function ProfileMenu() {
   const {t} = useLanguage();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const {visible: menuVisible, closing: menuClosing} = useAnimatedOpen(open);
   const rootRef = useRef(null);
   const user = getCurrentUser();
 
@@ -55,8 +57,8 @@ function ProfileMenu() {
           <span className="profile-menu-avatar profile-menu-initials" aria-hidden="true">{initials}</span>
         )}
       </button>
-      {open && (
-        <div className="profile-menu-dropdown" role="menu">
+      {menuVisible && (
+        <div className={`profile-menu-dropdown${menuClosing ? " dropdown-closing" : ""}`} role="menu">
           <div className="profile-menu-head">
             {user.avatar_url ? (
               <img className="profile-menu-avatar" src={user.avatar_url} alt="" />

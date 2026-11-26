@@ -176,6 +176,12 @@ class ModelExtensionModuleLicensemanagerpro extends Model
         return $this->delete('/licenses/' . $licenseId);
     }
 
+    /**
+     * POST /licenses/validate — check a key against domain/IP/install path.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side.
+     */
     public function validateLicense(string $key, ?string $domain = null, ?string $ip = null, ?string $installPath = null): ?array
     {
         $payload = ['key' => $key];
@@ -188,7 +194,7 @@ class ModelExtensionModuleLicensemanagerpro extends Model
         if ($installPath !== null && $installPath !== '') {
             $payload['install_path'] = $installPath;
         }
-        return $this->post('/licenses/validate', $payload);
+        return $this->post('/licenses/validate', $payload, [], true);
     }
 
     public function get(string $path, array $query = []): ?array
@@ -196,9 +202,9 @@ class ModelExtensionModuleLicensemanagerpro extends Model
         return $this->request('GET', $path, null, $query);
     }
 
-    public function post(string $path, array $data = [], array $query = []): ?array
+    public function post(string $path, array $data = [], array $query = [], bool $public = false): ?array
     {
-        return $this->request('POST', $path, $data, $query);
+        return $this->request('POST', $path, $data, $query, $public);
     }
 
     public function put(string $path, array $data = [], array $query = []): ?array
@@ -215,8 +221,11 @@ class ModelExtensionModuleLicensemanagerpro extends Model
      * One HTTP call. Returns the decoded JSON body (array) on HTTP 2xx,
      * null on failure (see $this->lastError). TLS verification is never
      * disabled and a 401/403 fails closed.
+     *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
      */
-    public function request(string $method, string $path, ?array $data = null, array $query = []): ?array
+    public function request(string $method, string $path, ?array $data = null, array $query = [], bool $public = false): ?array
     {
         $this->lastError = '';
         $config = $this->getApiConfig();
@@ -233,9 +242,11 @@ class ModelExtensionModuleLicensemanagerpro extends Model
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
-            'X-API-Key: ' . $config['api_key'],
         ];
-        if ($config['signed']) {
+        if (!$public) {
+            $headers[] = 'X-API-Key: ' . $config['api_key'];
+        }
+        if ($config['signed'] && !$public) {
             $timestamp = (string) time();
             $bodyHash = hash('sha256', $body);
             $message = $method . "\n" . $path . "\n" . $timestamp . "\n" . $bodyHash;

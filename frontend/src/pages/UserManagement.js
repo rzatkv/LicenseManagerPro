@@ -3,13 +3,14 @@ import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/UserManagement.css";
 
-const PAGE_SIZE = 10;
 
 function UserManagement() {
     const {t} = useLanguage();
@@ -17,6 +18,10 @@ function UserManagement() {
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
@@ -25,12 +30,13 @@ function UserManagement() {
     const [newUserEmail, setNewUserEmail] = useState("");
     const [newUserPassword, setNewUserPassword] = useState("");
     const [newUserRole, setNewUserRole] = useState("manager");
+    const [addOpen, setAddOpen] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const {items, total: t} = await getList("/users", {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            const {items, total: t} = await getList("/users", {skip: (page - 1) * pageSize, limit: pageSize});
             setUsers(items);
             setTotal(t);
         } catch (err) {
@@ -40,7 +46,7 @@ function UserManagement() {
         } finally {
             setLoading(false);
         }
-    }, [page, toast, t]);
+    }, [page, pageSize, toast, t]);
 
     useEffect(() => {
         fetchUsers();
@@ -64,11 +70,12 @@ function UserManagement() {
                 password: newUserPassword,
                 role: newUserRole,
             });
-            if (page === 1) setUsers([...users, newUser].slice(0, PAGE_SIZE));
+            if (page === 1) setUsers([...users, newUser].slice(0, pageSize));
             setTotal((prev) => prev + 1);
             setNewUserEmail("");
             setNewUserPassword("");
             setNewUserRole("manager");
+            setAddOpen(false);
             toast.success(t("users.added"));
         } catch (err) {
             toast.error(err.message || t("common.error"));
@@ -125,32 +132,8 @@ function UserManagement() {
     return (
         <div className="user-management-container page-enter">
             <h1 className="gradient-text">{t("users.title")}</h1>
-            <div className="add-user-form glass-card">
-                <h3>{t("users.add")}</h3>
-                <input
-                    type="email"
-                    placeholder={t("users.emailPlaceholder")}
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                />
-                <input
-                    type="password"
-                    placeholder={t("users.passwordPlaceholder")}
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                />
-                <select
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value)}
-                >
-                    <option value="admin">{t("roles.admin")}</option>
-                    <option value="manager">{t("roles.manager")}</option>
-                    <option value="support">{t("roles.support")}</option>
-                    <option value="viewer">{t("roles.viewer")}</option>
-                </select>
-                <button onClick={handleAddUser}>{t("users.addButton")}</button>
-            </div>
             <div className="toolbar">
+                <button type="button" onClick={() => setAddOpen(true)}>{t("users.addButton")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -234,35 +217,36 @@ function UserManagement() {
                     </tbody>
                 </table>
                 </div>
-                <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
                 </>
             )}
 
-            <div className="dashboard-section">
-                <h2>{t("users.permissionMatrix")}</h2>
-                <div className="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>{t("users.capability")}</th>
-                            <th>{t("roles.admin")}</th>
-                            <th>{t("roles.manager")}</th>
-                            <th>{t("roles.support")}</th>
-                            <th>{t("roles.viewer")}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>{t("users.manageProducts")}</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
-                        <tr><td>{t("users.manageUsers")}</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
-                        <tr><td>{t("users.manageSettings")}</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
-                        <tr><td>{t("users.deleteLicenses")}</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
-                        <tr><td>{t("users.createLicenses")}</td><td>✓</td><td>✓</td><td>✓</td><td>—</td></tr>
-                        <tr><td>{t("users.viewOnly")}</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
-                    </tbody>
-                </table>
+            <Modal open={addOpen} title={t("users.add")} onClose={() => setAddOpen(false)}>
+                <div className="add-user-form">
+                    <input
+                        type="email"
+                        placeholder={t("users.emailPlaceholder")}
+                        value={newUserEmail}
+                        onChange={(e) => setNewUserEmail(e.target.value)}
+                    />
+                    <input
+                        type="password"
+                        placeholder={t("users.passwordPlaceholder")}
+                        value={newUserPassword}
+                        onChange={(e) => setNewUserPassword(e.target.value)}
+                    />
+                    <select
+                        value={newUserRole}
+                        onChange={(e) => setNewUserRole(e.target.value)}
+                    >
+                        <option value="admin">{t("roles.admin")}</option>
+                        <option value="manager">{t("roles.manager")}</option>
+                        <option value="support">{t("roles.support")}</option>
+                        <option value="viewer">{t("roles.viewer")}</option>
+                    </select>
+                    <button onClick={handleAddUser}>{t("users.addButton")}</button>
                 </div>
-                <p className="hint">{t("roles.adminDesc")} {t("roles.managerDesc")} {t("roles.supportDesc")} {t("roles.viewerDesc")}</p>
-            </div>
+            </Modal>
             <ConfirmModal
                 open={pendingDelete !== null}
                 message={t("common.confirmDelete")}

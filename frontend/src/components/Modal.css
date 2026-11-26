@@ -45,3 +45,7 @@
 .detail-row strong { color: var(--muted); font-weight: 600; flex-shrink: 0; }
 .detail-row span { text-align: end; overflow-wrap: break-word; min-width: 0; }
 .detail-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+
+/* Wide variant for large editors (Languages key editor): same 85dvh cap
+   and internal scroll, just a wider card. */
+.modal-card-wide { width: min(900px, 100%); }

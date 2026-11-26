@@ -1,16 +1,27 @@
-.downloads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+/* Zero-scroll (v3.0.0): flex column filling the content region; the
+   grid scrolls inside itself (10 cards never fit one viewport) while
+   the title + pager stay fixed. */
+.downloads-container { padding: 20px; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.downloads-container h1 { flex-shrink: 0; }
+.downloads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 4px; }
+.downloads-pager { flex-shrink: 0; }
 .download-card { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 .download-card h2 { margin-bottom: 4px; }
 .download-card p { margin: 0; color: var(--muted); }
 .download-version { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .download-install { font-size: 13px; }
 .download-demo-note { font-size: 13px; color: var(--warning); }
-.download-card button { align-self: flex-start; margin-top: 8px; }
+/* v3.0.0: buttons pinned to the card bottom (flex column + margin-top
+   auto) so every button in a row shares the same Y: the grid stretches
+   cards to equal height, and the free space now lands above the button
+   instead of below it. The 8px flex gap keeps the button clear of the
+   last paragraph. */
+.download-card button { align-self: flex-start; margin-top: auto; }
 /* Direct-download links look and behave like the button above (real
    <a href> so a tap always works — window.open was swallowed by
    in-app browsers). Shares the global button look. */
 .download-card .download-btn {
-  align-self: flex-start; margin-top: 8px;
+  align-self: flex-start; margin-top: auto;
   display: inline-flex; align-items: center; justify-content: center;
   padding: 10px 18px; background: var(--accent-gradient);
   background-color: var(--accent); color: var(--on-accent);
@@ -20,3 +31,7 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.3s ease;
 }
 .download-card .download-btn:hover { text-decoration: none; }
+
+/* v3.0 responsive pagination (pageSize = columns x 2 rows). */
+.downloads-pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
+.downloads-pager span { font-size: 14px; color: var(--muted); font-weight: 600; }

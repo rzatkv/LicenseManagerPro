@@ -166,6 +166,10 @@ final class LicenseService {
    * Validate a license key, optionally with the site domain, IP or
    * install path the backend locks it to.
    *
+   * PUBLIC endpoint (v3.0): POST /licenses/validate sends no API key
+   * and no signature — the check is open to any server; the blacklist
+   * still applies server-side.
+   *
    * @return array<string, mixed>|null Decoded validate response, or NULL.
    */
   public function validate(string $license_key, ?string $domain = NULL, ?string $ip = NULL, ?string $install_path = NULL): ?array {
@@ -179,7 +183,7 @@ final class LicenseService {
     if ($install_path !== NULL && $install_path !== '') {
       $payload['install_path'] = $install_path;
     }
-    return $this->apiClient->post('/licenses/validate', $payload);
+    return $this->apiClient->post('/licenses/validate', $payload, [], [], true);
   }
 
 }

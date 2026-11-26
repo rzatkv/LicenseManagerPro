@@ -1,5 +1,5 @@
 """Dashboard license trend tests (v2.2; estimated MRR removed in
-v2.3.4 — this is not a financial system)."""
+v3.0.0 — this is not a financial system)."""
 
 
 def test_license_trend(client, auth_headers):

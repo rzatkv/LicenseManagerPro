@@ -24,6 +24,7 @@ function Profile() {
     const [me, setMe] = useState(null);
     const [loading, setLoading] = useState(true);
     const [displayName, setDisplayName] = useState("");
+    const [phone, setPhone] = useState("");
     const [avatarUrl, setAvatarUrl] = useState(null);
     const [saving, setSaving] = useState(false);
     const fileInputRef = useRef(null);
@@ -44,6 +45,7 @@ function Profile() {
             const data = await get("/users/me");
             setMe(data);
             setDisplayName(data.display_name || "");
+            setPhone(data.phone || "");
             setAvatarUrl(data.avatar_url || null);
         } catch (err) {
             toast.error(err.message || t("common.failedFetch"));
@@ -75,10 +77,12 @@ function Profile() {
         try {
             const updated = await put("/users/me", {
                 display_name: displayName,
+                phone: phone.trim(),
                 avatar_url: avatarUrl || "",
             });
             setMe(updated);
             setDisplayName(updated.display_name || "");
+            setPhone(updated.phone || "");
             setAvatarUrl(updated.avatar_url || null);
             toast.success(t("profile.saved"));
         } catch (err) {
@@ -262,6 +266,17 @@ function Profile() {
                                 placeholder={t("profile.displayNamePlaceholder")}
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
+                            />
+                            <label className="field-label" htmlFor="profile-phone">
+                                {t("profile.phone")}
+                            </label>
+                            <input
+                                id="profile-phone"
+                                type="tel"
+                                autoComplete="tel"
+                                placeholder="+989000000000"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
                             />
                             <label className="field-label" htmlFor="profile-email">
                                 {t("profile.email")}

@@ -1,7 +1,7 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import {login as loginRequest} from "../utils/auth";
-import {get} from "../utils/api";
+import {get, post} from "../utils/api";
 import {API_BASE_URL, DEMO_MODE} from "../config";
 import {useLanguage} from "../i18n";
 import ThemeToggle from "../components/ThemeToggle";
@@ -20,6 +20,23 @@ function Login() {
     const [step, setStep] = useState("credentials");
     const [tempToken, setTempToken] = useState("");
     const [code, setCode] = useState("");
+    // v3.0: the 2FA channel (totp/email/sms) comes back with requires_2fa;
+    // the hint below the code box follows it. demoCode is demo-only: the
+    // mock returns the demo 2FA code so the flow is testable (the Profile
+    // page already publishes it).
+    const [twofaChannel, setTwofaChannel] = useState("totp");
+    const [demoCode, setDemoCode] = useState("");
+    // v3.0 maintenance: public status; when on, visitors see the
+    // maintenance page (custom message) and admins sign in via the form.
+    const [maintenance, setMaintenance] = useState(null);
+    const [showMaintenanceLogin, setShowMaintenanceLogin] = useState(false);
+    // v3.0 captcha: public config + one single-use custom challenge.
+    const [captchaConfig, setCaptchaConfig] = useState(null);
+    const [challenge, setChallenge] = useState(null);
+    const [captchaAnswer, setCaptchaAnswer] = useState("");
+    const [recaptchaState, setRecaptchaState] = useState("idle");
+    const recaptchaBoxRef = useRef(null);
+    const recaptchaWidgetId = useRef(null);
     const navigate = useNavigate();
 
     // Hero slides (v2.3 flagship login): rotating feature lines with a
@@ -52,36 +69,138 @@ function Login() {
         return () => { cancelled = true; };
     }, []);
 
+    // Maintenance status (public, v3.0) + captcha config (public, v3.0).
+    // Both fail quietly: no maintenance info means normal login, and no
+    // captcha config means captcha off (the server is the authority —
+    // the login still fails closed server-side if captcha is on).
+    useEffect(() => {
+        let cancelled = false;
+        get("/system/maintenance")
+            .then((data) => { if (!cancelled && data) setMaintenance(data); })
+            .catch(() => {});
+        get("/api/captcha/config")
+            .then((data) => { if (!cancelled && data) setCaptchaConfig(data); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
+
+    const fetchChallenge = useCallback(() => {
+        setChallenge(null);
+        setCaptchaAnswer("");
+        post("/api/captcha/challenge", {})
+            .then((data) => { if (data) setChallenge(data); })
+            .catch(() => {});
+    }, []);
+
+    // Custom captcha: mint one single-use challenge when the config says so.
+    useEffect(() => {
+        if (captchaConfig && captchaConfig.type === "custom") fetchChallenge();
+    }, [captchaConfig, fetchChallenge]);
+
+    // Google reCAPTCHA (v2 checkbox / v3 invisible): load the Google
+    // script on demand. If it fails (offline, blocked, bad site key) the
+    // page keeps working — the login attempt fails closed server-side
+    // with a clear error instead of crashing the page.
+    useEffect(() => {
+        if (!captchaConfig || (captchaConfig.type !== "recaptcha-v2" && captchaConfig.type !== "recaptcha-v3")) return undefined;
+        if (!captchaConfig.site_key) { setRecaptchaState("failed"); return undefined; }
+        if (window.grecaptcha) { setRecaptchaState("ready"); return undefined; }
+        setRecaptchaState("loading");
+        const script = document.createElement("script");
+        script.src = captchaConfig.type === "recaptcha-v3"
+            ? `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(captchaConfig.site_key)}`
+            : "https://www.google.com/recaptcha/api.js";
+        script.async = true;
+        script.defer = true;
+        script.onload = () => setRecaptchaState("ready");
+        script.onerror = () => setRecaptchaState("failed");
+        document.head.appendChild(script);
+        return () => { /* keep the script for the session: reCAPTCHA is global */ };
+    }, [captchaConfig]);
+
+    // reCAPTCHA v2 checkbox: render the widget once the script is ready.
+    useEffect(() => {
+        if (!captchaConfig || captchaConfig.type !== "recaptcha-v2") return undefined;
+        if (recaptchaState !== "ready" || !window.grecaptcha || !recaptchaBoxRef.current) return undefined;
+        if (recaptchaWidgetId.current !== null) return undefined;
+        try {
+            recaptchaWidgetId.current = window.grecaptcha.render(recaptchaBoxRef.current, {
+                sitekey: captchaConfig.site_key,
+            });
+        } catch (e) {
+            setRecaptchaState("failed");
+        }
+        return undefined;
+    }, [captchaConfig, recaptchaState]);
+
     // Store the JWT and the user's email/role exactly as utils/auth.js
     // login() does (same localStorage keys), then enter the app.
+    // Uses get() so it works in demo mode too (mock /users/me).
     const finishLogin = async (token) => {
         localStorage.setItem("token", token);
         try {
-            const me = await fetch(`${API_BASE_URL}/users/me`, {
-                headers: {Authorization: `Bearer ${token}`},
-            });
-            if (me.ok) {
-                const u = await me.json();
-                localStorage.setItem("lmp-user", JSON.stringify({email: u.email || email, role: u.role || "viewer"}));
-            } else {
-                localStorage.setItem("lmp-user", JSON.stringify({email, role: "viewer"}));
-            }
+            const u = await get("/users/me");
+            localStorage.setItem("lmp-user", JSON.stringify({email: u.email || email, role: u.role || "viewer"}));
         } catch (e) {
             localStorage.setItem("lmp-user", JSON.stringify({email, role: "viewer"}));
         }
         navigate("/dashboard");
     };
 
+    // Captcha payload for the login request (v3.0): custom models send the
+    // single-use challenge id + answer; reCAPTCHA sends the token. Returns
+    // null when captcha is off. For v3 the token is minted here, at submit.
+    const captchaPayload = async () => {
+        if (!captchaConfig || captchaConfig.type === "off") return null;
+        if (captchaConfig.type === "custom") {
+            return {captcha_challenge_id: challenge ? challenge.challenge_id : null, captcha_answer: captchaAnswer};
+        }
+        if (captchaConfig.type === "recaptcha-v2") {
+            let token = "";
+            try { token = window.grecaptcha && recaptchaWidgetId.current !== null ? window.grecaptcha.getResponse(recaptchaWidgetId.current) : ""; } catch (e) {}
+            return {captcha_token: token};
+        }
+        // reCAPTCHA v3: invisible, score-based; no token without the script.
+        if (window.grecaptcha && recaptchaState === "ready") {
+            try {
+                const token = await window.grecaptcha.execute(captchaConfig.site_key, {action: "login"});
+                return {captcha_token: token};
+            } catch (e) { return {captcha_token: ""}; }
+        }
+        return {captcha_token: ""};
+    };
+
+    const refreshChallengeAfterFailure = () => {
+        if (captchaConfig && captchaConfig.type === "custom") fetchChallenge();
+        if (captchaConfig && captchaConfig.type === "recaptcha-v2" && window.grecaptcha && recaptchaWidgetId.current !== null) {
+            try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (e) {}
+        }
+    };
+
+    const enterTwofaStep = (temp_token, channel, demo_code) => {
+        setTempToken(temp_token);
+        setTwofaChannel(channel || "totp");
+        setDemoCode(demo_code || "");
+        setCode("");
+        setStep("2fa");
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setError("");
-        // Demo mode: the mock login never requires 2FA.
+        const captcha = await captchaPayload();
+        // Demo mode: the mock login verifies the captcha server-side.
         if (DEMO_MODE) {
             try {
-                await loginRequest(email, password);
+                await loginRequest(email, password, captcha);
                 navigate("/dashboard");
             } catch (err) {
-                setError(t("login.invalid"));
+                if (err && err.requires2fa) {
+                    enterTwofaStep(err.tempToken, err.twofaChannel, err.demoCode);
+                    return;
+                }
+                setError(err && /captcha/i.test(err.message || "") ? t("captcha.failed") : t("login.invalid"));
+                refreshChallengeAfterFailure();
             }
             return;
         }
@@ -89,21 +208,24 @@ function Login() {
             const response = await fetch(`${API_BASE_URL}/auth/login`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({email, password}),
+                body: JSON.stringify({email, password, ...(captcha || {})}),
             });
-            if (!response.ok) throw new Error("Invalid credentials");
+            if (!response.ok) {
+                let detail = "";
+                try { detail = (await response.json()).detail || ""; } catch (e) {}
+                throw new Error(detail || "Invalid credentials");
+            }
             const data = await response.json();
             if (data.requires_2fa) {
                 // No access token yet: the temp token is exchanged for a
                 // JWT at /auth/verify-2fa. No way to skip this step.
-                setTempToken(data.temp_token);
-                setCode("");
-                setStep("2fa");
+                enterTwofaStep(data.temp_token, data.twofa_channel, "");
                 return;
             }
             await finishLogin(data.access_token);
         } catch (err) {
-            setError(t("login.invalid"));
+            setError(err && /captcha/i.test(err.message || "") ? t("captcha.failed") : t("login.invalid"));
+            refreshChallengeAfterFailure();
         }
     };
 
@@ -111,17 +233,7 @@ function Login() {
         e.preventDefault();
         setError("");
         try {
-            const response = await fetch(`${API_BASE_URL}/auth/verify-2fa`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({temp_token: tempToken, code: code.trim()}),
-            });
-            if (response.status === 401) {
-                setError(t("twofa.invalidCode"));
-                return;
-            }
-            if (!response.ok) throw new Error("2FA verification failed");
-            const data = await response.json();
+            const data = await post("/auth/verify-2fa", {temp_token: tempToken, code: code.trim()});
             await finishLogin(data.access_token);
         } catch (err) {
             setError(t("twofa.invalidCode"));
@@ -134,6 +246,8 @@ function Login() {
         setCode("");
         setError("");
     };
+
+    const twofaHintKey = twofaChannel === "email" ? "twofa.emailHint" : twofaChannel === "sms" ? "twofa.smsHint" : "twofa.loginHint";
 
     return (
         <div className="login-container">
@@ -151,6 +265,16 @@ function Login() {
                 <ThemeToggle />
                 <LanguageMenu />
             </div>
+            {maintenance && maintenance.enabled && !showMaintenanceLogin ? (
+                <div className="login-layout">
+                    <div className="login-form login-anim maintenance-card">
+                        <img src={logoUrl} alt={siteName} className="login-logo" />
+                        <h1>{t("maintenance.title")}</h1>
+                        <p className="login-subtitle">{maintenance.message || t("maintenance.defaultMessage")}</p>
+                        <button type="button" onClick={() => setShowMaintenanceLogin(true)}>{t("maintenance.adminLogin")}</button>
+                    </div>
+                </div>
+            ) : (
             <div className="login-layout">
                 <div
                     className="login-hero"
@@ -183,7 +307,8 @@ function Login() {
                 <form className="login-form login-anim" onSubmit={handleVerify2fa}>
                     <img src={logoUrl} alt={siteName} className="login-logo" />
                     <h1>{t("login.twoFactorTitle")}</h1>
-                    <p className="login-subtitle">{t("login.twoFactorHint")}</p>
+                    <p className="login-subtitle">{t(twofaHintKey)}</p>
+                    {demoCode && <p className="login-subtitle">{t("twofa.demoCode")}: {demoCode}</p>}
                     {error && <div className="error-message">{error}</div>}
                     <div className="form-group">
                         <input
@@ -221,10 +346,60 @@ function Login() {
                         <label>{t("login.password")}:</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
+                    {captchaConfig && captchaConfig.type === "custom" && (
+                        <div className="form-group captcha-box">
+                            <label>{t("captcha.title")}:</label>
+                            {challenge ? (
+                                <>
+                                    <p className="captcha-prompt">{t(`captcha.prompt.${challenge.model}`)}</p>
+                                    <p className="captcha-display" aria-label={t(`captcha.prompt.${challenge.model}`)}>{challenge.display}</p>
+                                    <div className="captcha-row">
+                                        <input
+                                            type="text"
+                                            value={captchaAnswer}
+                                            onChange={(e) => setCaptchaAnswer(e.target.value)}
+                                            placeholder={t("captcha.answerPlaceholder")}
+                                            autoComplete="off"
+                                            required
+                                        />
+                                        <button type="button" className="btn-ghost" onClick={fetchChallenge}>{t("captcha.refresh")}</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <p className="login-subtitle">{t("common.loading")}</p>
+                            )}
+                        </div>
+                    )}
+                    {captchaConfig && captchaConfig.type === "recaptcha-v2" && (
+                        <div className="form-group captcha-box">
+                            <label>{t("captcha.title")}:</label>
+                            {recaptchaState === "failed" ? (
+                                <p className="login-subtitle">{t("captcha.loadFailed")}</p>
+                            ) : (
+                                <>
+                                    <div ref={recaptchaBoxRef} />
+                                    <p className="login-subtitle">{t("captcha.v2hint")}</p>
+                                </>
+                            )}
+                        </div>
+                    )}
+                    {captchaConfig && captchaConfig.type === "recaptcha-v3" && (
+                        <div className="form-group captcha-box">
+                            {recaptchaState === "failed" ? (
+                                <p className="login-subtitle">{t("captcha.loadFailed")}</p>
+                            ) : (
+                                <p className="login-subtitle">{t("captcha.v3hint")}</p>
+                            )}
+                        </div>
+                    )}
                     <button type="submit">{t("login.button")}</button>
+                    {maintenance && maintenance.enabled && (
+                        <button type="button" style={{background: "none", backgroundColor: "transparent", boxShadow: "none", color: "var(--muted)", marginTop: 10, width: "100%"}} onClick={() => setShowMaintenanceLogin(false)}>{t("maintenance.back")}</button>
+                    )}
                 </form>
             )}
             </div>
+            )}
         </div>
     );
 }

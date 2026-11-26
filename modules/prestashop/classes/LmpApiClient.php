@@ -181,6 +181,11 @@ class LmpApiClient
     }
 
     /**
+     * POST /licenses/validate — check a key against domain/IP/install path.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side. (Payload field is "key", the backend's field name.)
+     *
      * @return array{ok: bool, status: int, error: string, data: mixed}
      */
     public function validateLicense(
@@ -189,7 +194,7 @@ class LmpApiClient
         ?string $ip = null,
         ?string $installPath = null
     ): array {
-        $payload = ['license_key' => $licenseKey];
+        $payload = ['key' => $licenseKey];
         if ($domain !== null && $domain !== '') {
             $payload['domain'] = $domain;
         }
@@ -200,7 +205,7 @@ class LmpApiClient
             $payload['install_path'] = $installPath;
         }
 
-        return $this->request('POST', '/licenses/validate', [], $payload);
+        return $this->request('POST', '/licenses/validate', [], $payload, true);
     }
 
     /**
@@ -208,12 +213,15 @@ class LmpApiClient
      * and 'error' explains it. 401/403 are reported as authentication
      * failures so callers can fail closed.
      *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
+     *
      * @param array<string, string> $query
      * @param array<string, mixed>|null $data
      *
      * @return array{ok: bool, status: int, error: string, data: mixed}
      */
-    private function request(string $method, string $path, array $query = [], ?array $data = null): array
+    private function request(string $method, string $path, array $query = [], ?array $data = null, bool $public = false): array
     {
         if (!$this->isConfigured()) {
             return [
@@ -231,7 +239,7 @@ class LmpApiClient
         }
 
         $headers = ['Content-Type: application/json', 'Accept: application/json'];
-        foreach ($this->buildAuthHeaders($method, $path, $body) as $name => $value) {
+        foreach ($this->buildAuthHeaders($method, $path, $body, $public) as $name => $value) {
             $headers[] = $name . ': ' . $value;
         }
 
@@ -301,8 +309,13 @@ class LmpApiClient
      *
      * @return array<string, string>
      */
-    private function buildAuthHeaders(string $method, string $path, string $body): array
+    private function buildAuthHeaders(string $method, string $path, string $body, bool $public = false): array
     {
+        if ($public) {
+            // PUBLIC endpoint (POST /licenses/validate, v3.0): no API key,
+            // no HMAC signature — the check is open to any server.
+            return [];
+        }
         $headers = [self::HEADER_API_KEY => $this->apiKey];
         if (!$this->signedRequests) {
             return $headers;

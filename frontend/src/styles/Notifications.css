@@ -1,4 +1,12 @@
-.notif-page-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Zero-scroll (v3.0.0): flex column filling the content region; the
+   list scrolls inside itself while the title + toolbar stay fixed.
+   (The X-overflow at >=1024px was the Dashboard .toggle-switch name
+   collision squeezing the "Unread only" toggle to 44px — fixed by
+   renaming the Dashboard switch to .widget-switch.) */
+.notifications-container { padding: 20px; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.notifications-container h1 { flex-shrink: 0; }
+.notifications-container .toolbar { flex-shrink: 0; }
+.notif-page-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
 .notif-page-list .notif-item { border: 1px solid var(--glass-border); background: var(--glass); }
 .notif-page-list .notif-item .badge { margin-inline-start: auto; flex-shrink: 0; }
 

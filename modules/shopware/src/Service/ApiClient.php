@@ -66,9 +66,9 @@ class ApiClient
      * @param array<string, mixed> $payload
      * @return array<string, mixed>|null
      */
-    public function post(string $path, array $payload = []): ?array
+    public function post(string $path, array $payload = [], bool $public = false): ?array
     {
-        return $this->request('POST', $path, $payload);
+        return $this->request('POST', $path, $payload, $public);
     }
 
     /**
@@ -99,8 +99,11 @@ class ApiClient
     /**
      * @param array<string, mixed>|null $payload
      * @return array<string, mixed>|null
+     *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent.
      */
-    private function request(string $method, string $path, ?array $payload = null): ?array
+    private function request(string $method, string $path, ?array $payload = null, bool $public = false): ?array
     {
         $this->lastError = '';
         if (!$this->config->isConfigured()) {
@@ -116,9 +119,11 @@ class ApiClient
         $headers = [
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
-            self::HEADER_API_KEY => $this->config->getApiKey(),
         ];
-        if ($this->config->isSignedRequestsEnabled()) {
+        if (!$public) {
+            $headers[self::HEADER_API_KEY] = $this->config->getApiKey();
+        }
+        if ($this->config->isSignedRequestsEnabled() && !$public) {
             // The signed PATH is the URL path only — never the query string.
             $signPath = explode('?', $apiPath, 2)[0];
             $headers += $this->buildSignatureHeaders($method, $signPath, $body);

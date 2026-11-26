@@ -104,6 +104,7 @@ def serialize_license(license_: License) -> dict:
         "max_activations": license_.max_activations,
         "activations": license_.activations,
         "reissue_count": license_.reissue_count,
+        "notes": license_.notes,
         "created_at": license_.created_at,
         "updated_at": license_.updated_at,
     }
@@ -112,6 +113,10 @@ def serialize_license(license_: License) -> dict:
 def create_license(request: LicenseCreateRequest, db: Session) -> License:
     from services import products as product_service
     from services import webhooks as webhook_service
+    from services.settings import require_notes_enabled
+
+    # v3.0: notes are rejected while the notes feature is disabled.
+    require_notes_enabled(db, request.notes)
 
     if request.status not in LICENSE_STATUSES:
         raise HTTPException(
@@ -172,6 +177,7 @@ def create_license(request: LicenseCreateRequest, db: Session) -> License:
         status=request.status,
         expires_at=expires_at,
         max_activations=request.max_activations,
+        notes=request.notes,
     )
     db.add(license_)
     db.commit()
@@ -290,6 +296,11 @@ def update_license(license_id: int, request: LicenseUpdateRequest, db: Session) 
         license_.allowed_ips = _join_csv(request.allowed_ips)
     if request.install_path is not None:
         license_.install_path = request.install_path
+    if "notes" in request.model_fields_set:
+        from services.settings import require_notes_enabled
+
+        require_notes_enabled(db, request.notes)
+        license_.notes = request.notes
     db.commit()
     db.refresh(license_)
     return license_

@@ -8,6 +8,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
@@ -26,12 +27,12 @@ const ICONS = {
 
 const ALL_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"];
 const ALL_EVENTS = ["license.created", "license.renewed", "license.revoked", "license.expiring", "license.expired", "license.validated_failed"];
-const PAGE_SIZE = 10;
 
 const emptyForm = {
   name: "", slug: "", description: "", status: "active",
   billing_cycles: ["monthly", "annual"], webhook_url: "", webhook_events: [], webhook_secret: "",
   group_id: "", key_prefix: "", key_segments: 4, key_segment_length: 4, max_reissues: 0,
+  notes: "",
 };
 
 function Products() {
@@ -40,6 +41,10 @@ function Products() {
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState([]);
@@ -54,12 +59,16 @@ function Products() {
   const [wizardStep, setWizardStep] = useState(0);
   const [wizardForm, setWizardForm] = useState(emptyForm);
   const [wizardBusy, setWizardBusy] = useState(false);
+  // Notes feature (v3.0): the notes field is shown only while the
+  // product_notes_enabled setting is "on" (default on); the backend
+  // rejects notes with 400 while it is off.
+  const [notesEnabled, setNotesEnabled] = useState(true);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const base = groupFilter ? `/products?group_id=${groupFilter}` : "/products";
-      const {items, total: t} = await getList(base, {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+      const {items, total: t} = await getList(base, {skip: (page - 1) * pageSize, limit: pageSize});
       setProducts(items);
       setTotal(t);
     } catch (err) {
@@ -69,7 +78,7 @@ function Products() {
     } finally {
       setLoading(false);
     }
-  }, [page, groupFilter, toast, t]);
+  }, [page, pageSize, groupFilter, toast, t]);
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -82,6 +91,14 @@ function Products() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await get("/settings");
+        setNotesEnabled(data.product_notes_enabled !== "off");
+      } catch (err) { /* default (on) stays */ }
+    })();
+  }, []);
 
   const fetchDeliveries = useCallback(async (productId) => {
     try {
@@ -121,6 +138,7 @@ function Products() {
       group_id: p.group_id ? String(p.group_id) : "",
       key_prefix: p.key_prefix || "", key_segments: p.key_segments ?? 4,
       key_segment_length: p.key_segment_length ?? 4, max_reissues: p.max_reissues ?? 0,
+      notes: p.notes || "",
     });
     setTestResult(null);
   };
@@ -141,6 +159,9 @@ function Products() {
     key_segments: Number(f.key_segments) || 4,
     key_segment_length: Number(f.key_segment_length) || 4,
     max_reissues: Number(f.max_reissues) || 0,
+    // Notes are sent only while the feature is on: with it off the
+    // field is hidden, and a stale prefilled value would 400 the save.
+    ...(notesEnabled ? {notes: f.notes || undefined} : {}),
   });
 
   const handleSubmit = async (e) => {
@@ -161,7 +182,7 @@ function Products() {
     setWizardBusy(true);
     try {
       const created = await post("/products", productPayload(wizardForm));
-      if (page === 1) setProducts([...products, created].slice(0, PAGE_SIZE));
+      if (page === 1) setProducts([...products, created].slice(0, pageSize));
       setTotal((prev) => prev + 1);
       toast.success(t("products.created"));
       setWizardForm(emptyForm);
@@ -220,6 +241,7 @@ function Products() {
     [t("products.maxReissues"), String(wizardForm.max_reissues || 0)],
     [t("products.webhookUrl"), wizardForm.webhook_url || t("products.notConfigured")],
     [t("products.webhookEvents"), wizardForm.webhook_events.length ? wizardForm.webhook_events.join(", ") : "-"],
+    ...(notesEnabled ? [[t("products.notes"), wizardForm.notes || "-"]] : []),
   ];
 
   return (
@@ -249,6 +271,9 @@ function Products() {
                 <input type="text" placeholder={t("products.slug")} value={wizardForm.slug} onChange={(e) => setWizardForm({...wizardForm, slug: e.target.value})} />
               </div>
               <input type="text" placeholder={t("products.description")} value={wizardForm.description} onChange={(e) => setWizardForm({...wizardForm, description: e.target.value})} />
+              {notesEnabled && (
+                <textarea placeholder={t("products.notes")} value={wizardForm.notes} onChange={(e) => setWizardForm({...wizardForm, notes: e.target.value})} rows={3} />
+              )}
               <div className="form-row">
                 <select value={wizardForm.status} onChange={(e) => setWizardForm({...wizardForm, status: e.target.value})}>
                   <option value="active">{t("common.active")}</option>
@@ -305,14 +330,16 @@ function Products() {
         </Wizard>
       )}
 
-      {editingId !== null && (
-        <form className="product-form glass-card" onSubmit={handleSubmit}>
-          <h3>{`${t("products.edit")} #${editingId}`}</h3>
+      <Modal open={editingId !== null} title={editingId !== null ? `${t("products.edit")} #${editingId}` : ""} onClose={resetForm}>
+        <form className="product-form" onSubmit={handleSubmit}>
           <div className="form-row">
             <input type="text" placeholder={t("products.name")} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} required />
             <input type="text" placeholder={t("products.slug")} value={form.slug} onChange={(e) => setForm({...form, slug: e.target.value})} />
           </div>
           <input type="text" placeholder={t("products.description")} value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} />
+          {notesEnabled && (
+            <textarea placeholder={t("products.notes")} value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} />
+          )}
           <div className="form-row">
             <select value={form.status} onChange={(e) => setForm({...form, status: e.target.value})}>
               <option value="active">{t("common.active")}</option>
@@ -355,7 +382,7 @@ function Products() {
           </div>
           <p className="hint">{t("products.slugHint")}</p>
         </form>
-      )}
+      </Modal>
 
       <div className="toolbar">
         <div className="filter-container">
@@ -419,7 +446,7 @@ function Products() {
           </tbody>
         </table>
         </div>
-        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
         </>
       )}
 
@@ -429,11 +456,12 @@ function Products() {
         </p>
       )}
 
-      {detailsProduct && (
-        <Modal title={detailsProduct.name} onClose={() => setDetailsId(null)}>
+      <Modal open={!!detailsProduct} title={detailsProduct ? detailsProduct.name : ""} onClose={() => setDetailsId(null)}>
+        {detailsProduct && (<>
           <div className="detail-row"><strong>{t("products.slug")}</strong><span>{detailsProduct.slug || "-"}</span></div>
           <div className="detail-row"><strong>{t("products.group")}</strong><span>{groupName(detailsProduct.group_id)}</span></div>
           <div className="detail-row"><strong>{t("products.description")}</strong><span>{detailsProduct.description || "-"}</span></div>
+          {notesEnabled && detailsProduct.notes && <div className="detail-row"><strong>{t("products.notes")}</strong><span>{detailsProduct.notes}</span></div>}
           <div className="detail-row"><strong>{t("products.cycles")}</strong><span className="detail-chips">{(detailsProduct.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></div>
           <div className="detail-row"><strong>{t("products.status")}</strong><span>{detailsProduct.status === "active" ? t("common.active") : t("common.inactive")}</span></div>
           <div className="detail-row"><strong>{t("products.webhookUrl")}</strong><span>{detailsProduct.webhook_url || t("products.notConfigured")}</span></div>
@@ -481,8 +509,8 @@ function Products() {
             </table>
             </div>
           )}
+          </>)}
         </Modal>
-      )}
       <ConfirmModal
         open={pendingDelete !== null}
         message={t("common.confirmDelete")}

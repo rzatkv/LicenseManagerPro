@@ -1,6 +1,6 @@
 # License Manager Pro — WHMCS Module
 
-Version 2.3.4 — for License Manager Pro 2.3.0+.
+Version 3.0.0 — for License Manager Pro 3.0.0.
 
 Provisions License Manager Pro licenses from WHMCS: when a customer orders
 (and pays for) a product that uses this module, WHMCS creates a license in
@@ -142,7 +142,7 @@ Controller.
 
 - WHMCS 8.x (server module API v1.1; Loader functions need WHMCS 8.0+).
 - PHP with the cURL extension.
-- A reachable License Manager Pro 2.3.0+ instance and a module-scoped
+- A reachable License Manager Pro 3.0.0 instance and a module-scoped
   API key (see Authentication above).
 
 ## Files

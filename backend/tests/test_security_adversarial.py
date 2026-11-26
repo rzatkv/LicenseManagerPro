@@ -335,14 +335,23 @@ def test_blacklisted_domain_blocked_on_validate_and_check_access(client, auth_he
 
 # --- Settings ------------------------------------------------------------------
 def test_sensitive_settings_hidden_from_non_privileged_users(client, auth_headers):
-    resp = client.put(
-        "/api/settings/smtp_password",
-        json={"key": "smtp_password", "value": "hunter2"},
-        headers=auth_headers,
-    )
-    assert resp.status_code == 200, resp.text
+    # v3.0: settings are FIXED — an arbitrary key cannot be created via
+    # PUT (404; that rejection is covered by
+    # test_settings_dashboard.test_settings_create_and_delete_are_gone).
+    # Seed a sensitive-looking key directly so the READ-hiding behavior
+    # can still be exercised.
+    from database import SessionLocal
+    from services.settings import update_setting
+
+    db = SessionLocal()
+    try:
+        update_setting(db, "smtp_password", "hunter2")
+    finally:
+        db.close()
     _make_user(client, auth_headers, "reader@example.com", "viewer")
     headers = _login(client, "reader@example.com")
     assert "smtp_password" not in client.get("/api/settings", headers=headers).json()
     assert client.get("/api/settings/smtp_password", headers=headers).status_code == 404
-    assert client.get("/api/settings/smtp_password", headers=auth_headers).status_code == 200
+    resp = client.get("/api/settings/smtp_password", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["value"] == "hunter2"

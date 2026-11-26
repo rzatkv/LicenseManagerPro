@@ -2,6 +2,7 @@
 
 All routes live under /api (see README.md for the endpoint table).
 """
+import json
 import logging
 import time
 import uuid
@@ -9,15 +10,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from config import APP_VERSION, CORS_ORIGINS, SECRET_KEY
 from database import SessionLocal, create_tables, ensure_schema, seed_roles, seed_settings
 from models import User
+from services.settings import get_setting_default
+from services.strip4 import strip_4byte_deep
+from utils.auth import verify_access_token
 from routers import (
     api_keys,
     audit_logs,
     auth,
     blacklist,
+    captcha,
     dashboard,
     downloads,
     languages,
@@ -28,6 +34,7 @@ from routers import (
     roles,
     search,
     settings,
+    sms,
     system,
     users,
     webhooks,
@@ -104,6 +111,13 @@ async def security_headers_middleware(request: Request, call_next):
         response.headers[name] = value
     if request.url.path.startswith("/api/"):
         response.headers["Content-Security-Policy"] = API_CSP
+        # v3.0: the response charset follows the `system_encoding`
+        # setting (read by the maintenance middleware into request.state;
+        # utf-8 when unset). This never touches the database charset.
+        encoding = getattr(request.state, "system_encoding", "utf-8") or "utf-8"
+        content_type = response.headers.get("content-type", "")
+        if content_type.startswith("application/json"):
+            response.headers["content-type"] = f"application/json; charset={encoding}"
     return response
 
 
@@ -125,6 +139,93 @@ async def request_id_logging_middleware(request: Request, call_next):
     )
     return response
 
+
+# Paths that stay reachable while maintenance mode is on: the login flow
+# itself (auth + captcha), the public maintenance status, and readiness.
+_MAINTENANCE_EXEMPT = (
+    "/api/auth",
+    "/api/captcha",
+    "/api/system/ready",
+    "/api/system/maintenance",
+)
+
+
+def _is_admin_request(request: Request, db) -> bool:
+    """True when the request carries a valid JWT for an admin user."""
+    try:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return False
+        payload = verify_access_token(auth_header[7:])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return False
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        return user is not None and user.role == "admin" and user.is_active
+    except Exception:  # noqa: BLE001 - any token problem means "not admin"
+        return False
+
+
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    """Maintenance mode (v3.0, server-side): when the `maintenance_mode`
+    setting is "on", every /api call except the exempt paths above is
+    answered 503 with the admin's custom message — unless the caller is
+    an admin (admin bypass: admins can still log in and use the panel).
+    The frontend login page shows the maintenance screen from the
+    public /api/system/maintenance status. Also stashes the
+    `system_encoding` setting on request.state for the security-headers
+    middleware (response charset)."""
+    path = request.url.path
+    if path.startswith("/api/"):
+        db = SessionLocal()
+        try:
+            request.state.system_encoding = get_setting_default(
+                db, "system_encoding", "utf-8"
+            )
+            if not path.startswith(_MAINTENANCE_EXEMPT):
+                if get_setting_default(db, "maintenance_mode", "off") == "on":
+                    if not _is_admin_request(request, db):
+                        message = get_setting_default(db, "maintenance_message", "")
+                        return JSONResponse(
+                            status_code=503,
+                            content={"detail": "maintenance", "message": message},
+                        )
+        finally:
+            db.close()
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def strip_4byte_middleware(request: Request, call_next):
+    """Auto-strip 4-byte characters (v3.0): when the `strip_4byte`
+    setting is "on" (default), every JSON request body's string values
+    are stripped of characters outside the Basic Multilingual Plane
+    (emoji, etc.) before any handler sees them — server-side, so no
+    client can sneak one past. Multipart bodies are left untouched."""
+    if (
+        request.method in ("POST", "PUT", "PATCH")
+        and request.url.path.startswith("/api/")
+        and "application/json" in request.headers.get("content-type", "")
+    ):
+        db = SessionLocal()
+        try:
+            enabled = get_setting_default(db, "strip_4byte", "on") == "on"
+        finally:
+            db.close()
+        if enabled:
+            raw = await request.body()
+            if raw:
+                try:
+                    data = json.loads(raw)
+                except ValueError:
+                    data = None
+                if data is not None:
+                    cleaned = strip_4byte_deep(data)
+                    if cleaned != data:
+                        request._body = json.dumps(cleaned).encode("utf-8")
+    return await call_next(request)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -135,6 +236,7 @@ app.add_middleware(
 
 # All routes are mounted under /api to match the frontend and README.
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(captcha.router, prefix="/api/captcha", tags=["Captcha"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["API Keys"])
 app.include_router(licenses.router, prefix="/api/licenses", tags=["Licenses"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
@@ -149,6 +251,7 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"]
 app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(sms.router, prefix="/api/sms", tags=["SMS"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["Audit Logs"])
 

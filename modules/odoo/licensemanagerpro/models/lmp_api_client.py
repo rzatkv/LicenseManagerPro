@@ -214,7 +214,10 @@ class LmpApiClient:
         install_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         """POST /licenses/validate. Returns the backend validation
-        result (``valid`` plus detail/license when applicable)."""
+        result (``valid`` plus detail/license when applicable).
+        PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+        the check is open to any server; the blacklist still applies
+        server-side."""
         payload: Dict[str, Any] = {"key": license_key}
         if domain:
             payload["domain"] = domain
@@ -222,16 +225,19 @@ class LmpApiClient:
             payload["ip"] = ip
         if install_path:
             payload["install_path"] = install_path
-        return self._request(HTTP_POST, "/licenses/validate", payload=payload)
+        return self._request(HTTP_POST, "/licenses/validate", payload=payload, public=True)
 
     # -- internals --------------------------------------------------------
 
     def _signed_headers(
-        self, method: str, path: str, body: bytes
+        self, method: str, path: str, body: bytes, public: bool = False
     ) -> Dict[str, str]:
         """Build the authentication headers for one request. When
         signing is off this is just the API key header; when it is on,
-        the timestamp + HMAC signature headers are added."""
+        the timestamp + HMAC signature headers are added. A PUBLIC
+        endpoint (``public=True``) sends no auth headers at all."""
+        if public:
+            return {}
         headers = {HEADER_API_KEY: self.api_key}
         if not self.sign_requests:
             return headers
@@ -252,17 +258,21 @@ class LmpApiClient:
         path: str,
         payload: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
+        public: bool = False,
     ) -> Any:
         """One HTTP call. Returns the decoded JSON body on HTTP 2xx.
         Raises :class:`LmpAuthError` on 401/403 and
         :class:`LmpApiError` on any other failure. TLS verification is
-        always enabled; it can never be disabled from this module."""
+        always enabled; it can never be disabled from this module.
+
+        ``public=True`` marks a PUBLIC endpoint (POST /licenses/validate):
+        no X-API-Key header and no HMAC signature are sent."""
         api_path = API_PATH_PREFIX + path
         url = self.base_url + api_path
         body = b""
         if payload is not None:
             body = json.dumps(payload).encode("utf-8")
-        headers = self._signed_headers(method, api_path, body)
+        headers = self._signed_headers(method, api_path, body, public=public)
         headers["Content-Type"] = "application/json"
         headers["Accept"] = "application/json"
         try:

@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useSearchParams} from "react-router-dom";
-import {get, getList, post, del} from "../utils/api";
+import {get, getList, post, put, del} from "../utils/api";
 import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
@@ -8,22 +8,26 @@ import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
 import "../styles/LicenseList.css";
 
-const PAGE_SIZE = 10;
 
 // Compact action icons: four text buttons made the actions cell wider
 // than a phone viewport and the rows ~250px tall; 32px icon buttons
 // keep the cell narrow (same treatment as the Products table).
 const ICONS = {
   view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>,
   renew: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg>,
   reissue: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2M15 6l3 3M18 3l3 3"/></svg>,
   delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
 };
+
+const ALL_CYCLES = ["monthly", "quarterly", "semiannual", "annual", "biennial", "lifetime"];
+const LICENSE_STATUSES = ["active", "inactive", "revoked"];
 
 function statusPill(status, t) {
     const label = t(`common.${status}`) !== `common.${status}` ? t(`common.${status}`) : status;
@@ -41,6 +45,10 @@ function LicenseList() {
     const [licenses, setLicenses] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
     const [products, setProducts] = useState([]);
     const [groups, setGroups] = useState([]);
     const [filter, setFilter] = useState("all");
@@ -54,6 +62,17 @@ function LicenseList() {
     const [validatePath, setValidatePath] = useState("");
     const [pendingDelete, setPendingDelete] = useState(null);
     const [pendingReissue, setPendingReissue] = useState(null);
+    // Notes feature (v3.0): the notes field is shown only while the
+    // product_notes_enabled setting is "on" (default on); the backend
+    // rejects notes with 400 while it is off.
+    const [notesEnabled, setNotesEnabled] = useState(true);
+
+    // Edit-license popup (v3.0, row 41): the Licenses page had NO edit
+    // action at all — only details. Edit now opens in the same animated
+    // Modal as every other list page, backed by PUT /api/licenses/{id}.
+    const [editing, setEditing] = useState(null);
+    const [editForm, setEditForm] = useState(null);
+    const [editBusy, setEditBusy] = useState(false);
     const [searchParams] = useSearchParams();
     const productFilter = searchParams.get("product") || "";
 
@@ -71,12 +90,13 @@ function LicenseList() {
     const [wDomains, setWDomains] = useState("");
     const [wIps, setWIps] = useState("");
     const [wInstallPath, setWInstallPath] = useState("");
+    const [wNotes, setWNotes] = useState("");
 
     const fetchLicenses = useCallback(async () => {
         setLoading(true);
         try {
             const q = productFilter ? `?filter=${filter}&product=${productFilter}` : `?filter=${filter}`;
-            const {items, total: t} = await getList(`/licenses${q}`, {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            const {items, total: t} = await getList(`/licenses${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
             setLicenses(items);
             setTotal(t);
         } catch (err) {
@@ -86,7 +106,7 @@ function LicenseList() {
         } finally {
             setLoading(false);
         }
-    }, [filter, productFilter, page, toast, t]);
+    }, [filter, productFilter, page, pageSize, toast, t]);
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -109,6 +129,16 @@ function LicenseList() {
     useEffect(() => { fetchLicenses(); }, [fetchLicenses]);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
     useEffect(() => { fetchGroups(); }, [fetchGroups]);
+    useEffect(() => {
+        // The notes toggle lives in Settings → General; list pages read
+        // it once so the notes field can hide everywhere when it is off.
+        (async () => {
+            try {
+                const data = await get("/settings");
+                setNotesEnabled(data.product_notes_enabled !== "off");
+            } catch (err) { /* default (on) stays */ }
+        })();
+    }, []);
 
     const fetchActivations = useCallback(async (licenseId) => {
         try {
@@ -129,6 +159,13 @@ function LicenseList() {
     const wizardProducts = wGroupFilter
         ? products.filter((p) => String(p.group_id) === String(wGroupFilter))
         : products;
+
+    // Edit form: the cycle options follow the (possibly newly picked)
+    // linked product; a standalone license offers all known cycles.
+    const editProduct = editForm && editForm.product_id
+        ? products.find((p) => String(p.id) === String(editForm.product_id))
+        : null;
+    const editCycles = editProduct ? (editProduct.billing_cycles || []) : ALL_CYCLES;
 
     const handleRenew = async (id) => {
         try {
@@ -189,10 +226,65 @@ function LicenseList() {
         }
     };
 
+    // Edit-license popup: prefill from the row; the key is never editable
+    // (it is the license identity). Payload mirrors LicenseUpdateRequest:
+    // billing_cycle only when chosen ("" would 422), owner_email null
+    // means "leave it" (the backend skips null), expires_in_days only
+    // when typed (it resets expiry to now + days), notes only while the
+    // notes feature is on (otherwise the backend 400s a non-empty value).
+    const handleEdit = (license) => {
+        setEditing(license);
+        setEditForm({
+            product_id: license.product_id ? String(license.product_id) : "",
+            product: license.product || "",
+            billing_cycle: license.billing_cycle || "",
+            owner_email: license.owner_email || "",
+            status: license.status || "active",
+            expires_in_days: "",
+            max_activations: license.max_activations ?? 1,
+            allowed_domains: (license.allowed_domains || []).join(", "),
+            allowed_ips: (license.allowed_ips || []).join(", "),
+            install_path: license.install_path || "",
+            notes: license.notes || "",
+        });
+    };
+
+    const handleEditSave = async (e) => {
+        e.preventDefault();
+        if (!editing || !editForm) return;
+        setEditBusy(true);
+        try {
+            const linked = editForm.product_id ? products.find((p) => String(p.id) === String(editForm.product_id)) : null;
+            const payload = {
+                product_id: editForm.product_id ? Number(editForm.product_id) : null,
+                product: linked ? linked.name : (editForm.product || undefined),
+                billing_cycle: editForm.billing_cycle || undefined,
+                owner_email: editForm.owner_email || null,
+                status: editForm.status,
+                expires_in_days: editForm.expires_in_days ? Number(editForm.expires_in_days) : undefined,
+                max_activations: Number(editForm.max_activations) || 1,
+                allowed_domains: editForm.allowed_domains,
+                allowed_ips: editForm.allowed_ips,
+                install_path: editForm.install_path,
+                ...(notesEnabled ? {notes: editForm.notes} : {}),
+            };
+            const updated = await put(`/licenses/${editing.id}`, payload);
+            setLicenses(licenses.map((l) => (l.id === editing.id ? updated : l)));
+            if (selected && selected.id === editing.id) setSelected(updated);
+            toast.success(t("licenses.updated"));
+            setEditing(null);
+            setEditForm(null);
+        } catch (err) {
+            toast.error(err.message || t("common.error"));
+        } finally {
+            setEditBusy(false);
+        }
+    };
+
     const resetWizard = () => {
         setWGroupFilter(""); setWProductId(""); setWProduct(""); setWCycle("");
         setWOwnerEmail(""); setWExpiresInDays(365); setWMaxActivations(1);
-        setWDomains(""); setWIps(""); setWInstallPath("");
+        setWDomains(""); setWIps(""); setWInstallPath(""); setWNotes("");
         setWizardStep(0);
     };
 
@@ -200,6 +292,7 @@ function LicenseList() {
         setWizardBusy(true);
         try {
             let payload;
+            const notesPayload = notesEnabled && wNotes ? {notes: wNotes} : {};
             if (wProductId) {
                 if (!wCycle) { toast.error(t("licenses.cycleRequired")); return; }
                 payload = {
@@ -210,6 +303,7 @@ function LicenseList() {
                     allowed_domains: wDomains || undefined,
                     allowed_ips: wIps || undefined,
                     install_path: wInstallPath || undefined,
+                    ...notesPayload,
                 };
             } else {
                 if (!wProduct.trim()) { toast.error(t("licenses.productRequired")); return; }
@@ -221,10 +315,11 @@ function LicenseList() {
                     allowed_domains: wDomains || undefined,
                     allowed_ips: wIps || undefined,
                     install_path: wInstallPath || undefined,
+                    ...notesPayload,
                 };
             }
             const created = await post("/licenses", payload);
-            if (page === 1) setLicenses([created, ...licenses].slice(0, PAGE_SIZE));
+            if (page === 1) setLicenses([created, ...licenses].slice(0, pageSize));
             setTotal((prev) => prev + 1);
             toast.success(t("licenses.created"));
             resetWizard();
@@ -274,6 +369,7 @@ function LicenseList() {
         [t("licenses.allowedDomains"), wDomains || "-"],
         [t("licenses.allowedIps"), wIps || "-"],
         [t("licenses.installPath"), wInstallPath || "-"],
+        ...(notesEnabled ? [[t("licenses.notes"), wNotes || "-"]] : []),
     ];
 
     return (
@@ -352,6 +448,12 @@ function LicenseList() {
                                 <span>{t("licenses.maxActivations")}</span>
                                 <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={wMaxActivations} onChange={(e) => setWMaxActivations(e.target.value)} />
                             </label>
+                            {notesEnabled && (
+                                <label className="field-label">
+                                    <span>{t("licenses.notes")}</span>
+                                    <textarea placeholder={t("licenses.notes")} value={wNotes} onChange={(e) => setWNotes(e.target.value)} rows={3} />
+                                </label>
+                            )}
                             {stepError && <p className="wizard-error" role="alert">{stepError}</p>}
                         </>
                     )}
@@ -419,6 +521,9 @@ function LicenseList() {
                                 <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => { setSelected(license); setValidateResult(null); setValidateDomain(""); setValidateIp(""); setValidatePath(""); }}>
                                     {ICONS.view}
                                 </button>
+                                <button className="edit-btn icon-btn row-action-extra" title={t("licenses.edit")} aria-label={t("licenses.edit")} onClick={() => handleEdit(license)}>
+                                    {ICONS.edit}
+                                </button>
                                 <button className="renew-btn icon-btn row-action-extra" title={t("common.renew")} aria-label={t("common.renew")} onClick={() => handleRenew(license.id)}>
                                     {ICONS.renew}
                                 </button>
@@ -435,11 +540,85 @@ function LicenseList() {
                 </tbody>
             </table>
             </div>
-            <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
             </>
             )}
-            {selected && (
-                <Modal title={`${t("licenses.licenseDetail")} #${selected.id}`} onClose={() => { setSelected(null); setValidateResult(null); }}>
+            <Modal open={editing !== null} title={editing ? `${t("licenses.edit")} #${editing.id}` : ""} onClose={() => { setEditing(null); setEditForm(null); }}>
+                {editing && editForm && (
+                <form className="license-edit-form" onSubmit={handleEditSave}>
+                    <p><strong>{t("licenses.key")}:</strong> {editing.key} <CopyButton text={editing.key} /></p>
+                    {editForm.product_id ? (
+                        <label className="field-label">
+                            <span>{t("licenses.product")}</span>
+                            <select value={editForm.product_id} onChange={(e) => {
+                                const p = products.find((x) => String(x.id) === String(e.target.value));
+                                setEditForm({...editForm, product_id: e.target.value, product: p ? p.name : editForm.product, billing_cycle: ""});
+                            }}>
+                                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </label>
+                    ) : (
+                        <label className="field-label">
+                            <span>{t("licenses.product")}</span>
+                            <input type="text" placeholder={t("licenses.productName")} value={editForm.product} onChange={(e) => setEditForm({...editForm, product: e.target.value})} required />
+                        </label>
+                    )}
+                    <label className="field-label">
+                        <span>{t("licenses.billingCycle")}</span>
+                        <select value={editForm.billing_cycle} onChange={(e) => setEditForm({...editForm, billing_cycle: e.target.value})}>
+                            <option value="">—</option>
+                            {editCycles.map((c) => <option key={c} value={c}>{t(`cycle.${c}`)}</option>)}
+                        </select>
+                    </label>
+                    <label className="field-label">
+                        <span>{t("licenses.ownerEmail")}</span>
+                        <input type="email" placeholder={t("licenses.ownerEmail")} value={editForm.owner_email} onChange={(e) => setEditForm({...editForm, owner_email: e.target.value})} />
+                    </label>
+                    <label className="field-label">
+                        <span>{t("common.status")}</span>
+                        <select value={editForm.status} onChange={(e) => setEditForm({...editForm, status: e.target.value})}>
+                            {LICENSE_STATUSES.map((s) => <option key={s} value={s}>{t(`common.${s}`) !== `common.${s}` ? t(`common.${s}`) : s}</option>)}
+                        </select>
+                    </label>
+                    <p><strong>{t("licenses.expiresAt")}:</strong> {editing.expires_at ? formatDate(editing.expires_at, lang) : t("common.never")}</p>
+                    <label className="field-label">
+                        <span>{t("licenses.newExpiry")}</span>
+                        <input type="number" min="1" placeholder={t("licenses.newExpiry")} value={editForm.expires_in_days} onChange={(e) => setEditForm({...editForm, expires_in_days: e.target.value})} />
+                    </label>
+                    <label className="field-label">
+                        <span>{t("licenses.maxActivations")}</span>
+                        <input type="number" min="1" placeholder={t("licenses.maxActivations")} value={editForm.max_activations} onChange={(e) => setEditForm({...editForm, max_activations: e.target.value})} required />
+                    </label>
+                    <label className="field-label">
+                        <span>{t("licenses.allowedDomains")}</span>
+                        <input type="text" placeholder={t("licenses.allowedDomains")} value={editForm.allowed_domains} onChange={(e) => setEditForm({...editForm, allowed_domains: e.target.value})} />
+                        <small className="hint">{t("licenses.allowedDomainsHint")}</small>
+                    </label>
+                    <label className="field-label">
+                        <span>{t("licenses.allowedIps")}</span>
+                        <input type="text" placeholder={t("licenses.allowedIps")} value={editForm.allowed_ips} onChange={(e) => setEditForm({...editForm, allowed_ips: e.target.value})} />
+                        <small className="hint">{t("licenses.allowedIpsHint")}</small>
+                    </label>
+                    <label className="field-label">
+                        <span>{t("licenses.installPath")}</span>
+                        <input type="text" placeholder={t("licenses.installPath")} value={editForm.install_path} onChange={(e) => setEditForm({...editForm, install_path: e.target.value})} />
+                        <small className="hint">{t("licenses.installPathHint")}</small>
+                    </label>
+                    {notesEnabled && (
+                        <label className="field-label">
+                            <span>{t("licenses.notes")}</span>
+                            <textarea placeholder={t("licenses.notes")} value={editForm.notes} onChange={(e) => setEditForm({...editForm, notes: e.target.value})} rows={3} />
+                        </label>
+                    )}
+                    <div className="form-row">
+                        <button type="submit" disabled={editBusy}>{t("common.save")}</button>
+                        <button type="button" className="btn-ghost" onClick={() => { setEditing(null); setEditForm(null); }}>{t("common.cancel")}</button>
+                    </div>
+                </form>
+                )}
+            </Modal>
+            <Modal open={!!selected} title={selected ? `${t("licenses.licenseDetail")} #${selected.id}` : ""} onClose={() => { setSelected(null); setValidateResult(null); }}>
+                {selected && (<>
                     <p><strong>{t("licenses.key")}:</strong> {selected.key} <CopyButton text={selected.key} /></p>
                     <p><strong>{t("licenses.product")}:</strong> {selected.product}</p>
                     <p><strong>{t("licenses.billingCycle")}:</strong> {selected.billing_cycle ? t(`cycle.${selected.billing_cycle}`) : "-"}</p>
@@ -450,6 +629,7 @@ function LicenseList() {
                     <p><strong>{t("licenses.allowedDomains")}:</strong> {(selected.allowed_domains || []).join(", ") || "-"}</p>
                     <p><strong>{t("licenses.allowedIps")}:</strong> {(selected.allowed_ips || []).join(", ") || "-"}</p>
                     <p><strong>{t("licenses.installPath")}:</strong> {selected.install_path || "-"}</p>
+                    {notesEnabled && selected.notes && <p><strong>{t("licenses.notes")}:</strong> {selected.notes}</p>}
                     <p><strong>{t("common.createdAt")}:</strong> {formatDate(selected.created_at, lang)}</p>
                     <p><strong>{t("common.updatedAt")}:</strong> {formatDate(selected.updated_at, lang)}</p>
                     <div className="activations-section">
@@ -475,6 +655,7 @@ function LicenseList() {
                         <button onClick={() => handleValidate(selected)}>{t("common.validate")}</button>
                     </div>
                     <div className="row-actions modal-actions">
+                        <button onClick={() => { const lic = selected; setSelected(null); handleEdit(lic); }}>{t("licenses.edit")}</button>
                         <button onClick={() => handleRenew(selected.id)}>{t("licenses.renewCycle")}</button>
                         <button onClick={() => { const id = selected.id; setSelected(null); setPendingReissue(id); }}>{t("licenses.reissue")}</button>
                         <button className="btn-danger" onClick={() => { const id = selected.id; setSelected(null); setPendingDelete(id); }}>{t("common.delete")}</button>
@@ -487,8 +668,8 @@ function LicenseList() {
                             {validateResult.reason && validateResult.reason !== validateResult.detail ? ` (${validateResult.reason})` : ""}
                         </p>
                     )}
+                    </>)}
                 </Modal>
-            )}
             <ConfirmModal
                 open={pendingDelete !== null}
                 message={t("common.confirmDelete")}

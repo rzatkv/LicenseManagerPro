@@ -4,16 +4,17 @@ import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import Modal from "../components/Modal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import ChipSelect from "../components/ChipSelect";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/APIKeyList.css";
 
-const PAGE_SIZE = 10;
 
 const ALL_ACCESS_RIGHTS = [
     "create_license",
@@ -33,6 +34,10 @@ function APIKeyList() {
     const [apiKeys, setApiKeys] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [sort, setSort] = useState("newest");
@@ -51,7 +56,8 @@ function APIKeyList() {
     const [pendingRotate, setPendingRotate] = useState(null);
     // Secret shown exactly once after create/rotate; cleared on dismiss.
     const [revealedSecret, setRevealedSecret] = useState(null);
-    // Wizard state (create only; edit stays inline).
+    // Wizard state (create only; edit opens in an animated Modal — see
+    // the edit form below, APIKeyList.js:328 — NOT an inline form).
     const [showWizard, setShowWizard] = useState(false);
     const [wizardStep, setWizardStep] = useState(0);
     const [wizardBusy, setWizardBusy] = useState(false);
@@ -60,7 +66,7 @@ function APIKeyList() {
     const fetchApiKeys = useCallback(async () => {
         setLoading(true);
         try {
-            const {items, total: t} = await getList("/api-keys", {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            const {items, total: t} = await getList("/api-keys", {skip: (page - 1) * pageSize, limit: pageSize});
             setApiKeys(items);
             setTotal(t);
         } catch (err) {
@@ -70,7 +76,7 @@ function APIKeyList() {
         } finally {
             setLoading(false);
         }
-    }, [page, toast, t]);
+    }, [page, pageSize, toast, t]);
 
     useEffect(() => {
         fetchApiKeys();
@@ -182,7 +188,7 @@ function APIKeyList() {
                 associated_directory: newDirectory || undefined,
                 single_use: newSingleUse,
             });
-            if (page === 1) setApiKeys([created, ...apiKeys].slice(0, PAGE_SIZE));
+            if (page === 1) setApiKeys([created, ...apiKeys].slice(0, pageSize));
             setTotal((prev) => prev + 1);
             // The secret is returned once, at creation — show it, not the prefix.
             setCreatedKey(created.plain_key || created.key);
@@ -320,9 +326,8 @@ function APIKeyList() {
                 </div>
             )}
 
-            {editingId !== null && (
-                <form className="add-api-key-form glass-card" onSubmit={handleUpdate} style={{margin: "16px 0"}}>
-                    <h3>{`${t("apikeys.edit")} #${editingId}`}</h3>
+            <Modal open={editingId !== null} title={editingId !== null ? `${t("apikeys.edit")} #${editingId}` : ""} onClose={resetForm}>
+                <form className="add-api-key-form" onSubmit={handleUpdate}>
                     <input type="text" placeholder={t("apikeys.keyLocked")} value={newKey} disabled />
                     <ToggleSwitch checked={newIsModule} onChange={setNewIsModule} label={t("apikeys.moduleKey")} hint={t("apikeys.moduleKeyHint")} />
                     {newIsModule && (
@@ -347,7 +352,7 @@ function APIKeyList() {
                         <button type="button" className="btn-ghost" onClick={resetForm}>{t("common.cancel")}</button>
                     </div>
                 </form>
-            )}
+            </Modal>
 
             <div className="toolbar">
                 <div className="search-wrap">
@@ -422,7 +427,7 @@ function APIKeyList() {
                     </tbody>
                 </table>
                 </div>
-                <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
                 </>
             )}
             <ConfirmModal

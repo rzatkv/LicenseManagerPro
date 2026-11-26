@@ -61,6 +61,7 @@ ALL_PERMISSIONS: list[str] = sorted(
         "settings:write",
         "system:check-expiring",
         "audit:read",
+        "audit:delete",
         "users:write",
         "roles:write",
         "downloads:read",

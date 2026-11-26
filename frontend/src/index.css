@@ -569,6 +569,37 @@ pre {
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* v3.0 close animations: the reverse of modalIn/fadeIn — the popup stays
+   mounted ~200ms (useAnimatedOpen) while these play, then unmounts. */
+@keyframes modalOut {
+    from { opacity: 1; transform: scale(1) translateY(0); }
+    to { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+@keyframes backdropOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+.modal-backdrop.modal-closing { animation: backdropOut 0.2s ease forwards; }
+.modal-card.modal-card-closing { animation: modalOut 0.2s ease forwards; }
+
+/* Shared small tab strip (v3.0): channel tabs inside Audit Logs, sub-tabs
+   inside Settings, tabs on About / API Docs. Horizontally scrollable on
+   narrow screens — the strip scrolls, the page never does. */
+.mini-tabs { display: flex; gap: 6px; margin: 0 auto 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.mini-tabs::-webkit-scrollbar { display: none; }
+.mini-tab { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.mini-tab:hover { color: var(--text); }
+.mini-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
+
+/* Shared dropdown exit animation (v3.0): the reverse of the pop-in —
+   used by the bell panel, profile/language/search dropdowns while
+   useAnimatedOpen keeps them mounted ~180ms after close. */
+@keyframes dropdownOut {
+    from { opacity: 1; transform: scale(1) translateY(0); }
+    to { opacity: 0; transform: scale(0.96) translateY(-4px); }
+}
+.dropdown-closing { animation: dropdownOut 0.18s ease forwards; }
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }

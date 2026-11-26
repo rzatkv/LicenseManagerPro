@@ -1,18 +1,24 @@
+/* Zero-scroll (v3.0.0): flex column filling the content region; the
+   cards scroll inside .profile-cards while the title stays fixed. */
 .profile-container {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
 
-.profile-container h1 {
-    text-align: center;
-    margin-bottom: 20px;
-}
+.profile-container h1 { flex-shrink: 0; text-align: center; margin-bottom: 20px; }
 
 .profile-loading {
     text-align: center;
     color: var(--muted);
 }
 
-/* Two cards side by side on wide screens, stacked on mobile. */
+/* Two cards side by side on wide screens, stacked on mobile.
+   flex:1 + internal scroll: the cards region takes whatever height the
+   title leaves, instead of pushing the page past the viewport. */
 .profile-cards {
     display: grid;
     grid-template-columns: 1fr;
@@ -20,6 +26,11 @@
     max-width: 1080px;
     margin: 0 auto;
     align-items: start;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+    padding-bottom: 4px;
 }
 
 @media (min-width: 900px) {

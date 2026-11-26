@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="License Manager Pro — API keys, licenses and system settings">
+  <defs>
+    <linearGradient id="banner-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C1165E"/>
+      <stop offset="0.45" stop-color="#E56B8F"/>
+      <stop offset="0.75" stop-color="#6D5DF6"/>
+      <stop offset="1" stop-color="#7B6CFF"/>
+    </linearGradient>
+    <linearGradient id="banner-glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" fill="url(#banner-g)"/>
+  <circle cx="1050" cy="40" r="180" fill="#FFFFFF" opacity="0.06"/>
+  <circle cx="120" cy="280" r="150" fill="#FFFFFF" opacity="0.06"/>
+  <circle cx="980" cy="250" r="90" fill="#FFFFFF" opacity="0.05"/>
+  <rect x="48" y="48" width="1104" height="204" rx="28" fill="url(#banner-glass)" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1.5"/>
+  <g transform="translate(96, 92)">
+    <rect width="116" height="116" rx="28" fill="#FFFFFF" fill-opacity="0.16" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="1.5"/>
+    <g fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="44" cy="44" r="15"/>
+      <path d="M55 55 L84 84"/>
+      <path d="M70 70 L78 62"/>
+      <path d="M77 77 L85 69"/>
+    </g>
+  </g>
+  <text x="248" y="148" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="54" font-weight="800" fill="#FFFFFF">License Manager Pro</text>
+  <text x="248" y="190" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="22" font-weight="400" fill="#FFFFFF" fill-opacity="0.92">API keys, licenses &amp; system settings — v3.0.0</text>
+</svg>

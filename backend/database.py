@@ -129,8 +129,8 @@ def ensure_schema():
                 conn.execute(text(ddl)
                 )
 
-        # Retired columns (v2.3.4): two product columns were removed —
-        # this is not a financial system. Drop them from pre-v2.3.4
+        # Retired columns (v3.0.0): two product columns were removed —
+        # this is not a financial system. Drop them from pre-v3.0.0
         # databases when present; a failure is logged, never fatal.
         retired = {"products": ("price", "currency")}
         for table_name, columns in retired.items():
@@ -177,6 +177,30 @@ def seed_settings(db):
             '"enforce_ip_lock": true, "enforce_install_path_lock": true, '
             '"enforce_activation_limit": true, "missing_lock_behavior": "deny"}'
         ),
+        # Panel domain (v3.0): the admin-configured domain the panel runs
+        # on; empty means "use the request host". Editable in Settings.
+        "panel_domain": "",
+        # Maintenance mode (v3.0): off by default; the message is shown to
+        # visitors while maintenance is on (empty = the frontend default).
+        "maintenance_mode": "off",
+        "maintenance_message": "",
+        # Date calendar (v3.0): gregorian | jalali | hijri.
+        "date_calendar": "gregorian",
+        # Auto-strip 4-byte characters (v3.0): on by default — MySQL
+        # utf8 cannot store emoji; off keeps input untouched.
+        "strip_4byte": "on",
+        # 2FA delivery channel (v3.0): totp | email | sms.
+        "twofa_channel": "totp",
+        # System encoding (v3.0): response charset; utf-8 default. This
+        # NEVER changes the database charset or stored data.
+        "system_encoding": "utf-8",
+        # Product & license notes (v3.0): on by default.
+        "product_notes_enabled": "on",
+        # JSON configs (v3.0) — written by their dedicated endpoints.
+        "sms_config": '{"active_provider": "", "providers": {"ippanel": {}, "kavenegar": {}, "faraz": {}}}',
+        "email_config": "{}",
+        "telegram_config": '{"bot_token": "", "chat_ids": []}',
+        "notification_channels": "{}",
     }
     for key, value in defaults.items():
         existing = db.query(SystemSetting).filter(SystemSetting.key == key).first()

@@ -21,6 +21,7 @@ from schemas import (
 )
 from services import twofa as twofa_service
 from services import users as user_service
+from services import captcha as captcha_service
 from services.audit import log_audit
 from utils.auth import (
     DUMMY_PASSWORD_HASH,
@@ -74,6 +75,15 @@ def login(
         raise HTTPException(
             status_code=429, detail="Too many failed login attempts, try again later"
         )
+    # v3.0 CAPTCHA (when enabled in Settings → Security): verified
+    # server-side before the password is even checked. A failed captcha
+    # counts as a failed login, so it feeds the same lockout above.
+    captcha_ok, captcha_error = captcha_service.verify_login_captcha(db, request)
+    if not captcha_ok:
+        record_failed_login(request.email)
+        log_audit(db, request.email, "user.login_failed", "user", None,
+                  {"reason": "captcha_failed"})
+        raise HTTPException(status_code=400, detail=captcha_error or "Captcha verification failed")
     user = db.query(User).filter(User.email == request.email).first()
     # Always run the bcrypt verify (dummy hash for unknown users) so the
     # response time does not reveal whether the email exists.
@@ -93,14 +103,28 @@ def login(
         raise HTTPException(status_code=401, detail="Invalid email or password")
     # v2.3: TOTP users do not get a JWT yet — password OK, second factor
     # pending. The temp token is exchanged at POST /auth/verify-2fa.
+    # v3.0: the `twofa_channel` setting decides how the code reaches the
+    # user — totp (authenticator app, as before), email or sms (a
+    # 6-digit code is sent and verified server-side).
     if user.totp_enabled:
         from services import twofa as twofa_service
+        from services import twofa_delivery as twofa_delivery_service
+        from services.settings import get_setting_default
 
+        channel = get_setting_default(db, "twofa_channel", "totp")
+        if channel in ("email", "sms"):
+            ok, error = twofa_delivery_service.send_code(db, user, channel)
+            if not ok:
+                raise HTTPException(
+                    status_code=400,
+                    detail=error or "Could not send the verification code",
+                )
         return {
             "access_token": "",
             "token_type": "bearer",
             "requires_2fa": True,
             "temp_token": twofa_service.make_temp_token(user),
+            "twofa_channel": channel,
         }
     user.last_login_at = utcnow()
     db.commit()
@@ -162,12 +186,23 @@ def verify_2fa_login(
     db: Session = Depends(get_db),
     _rate_limited=Depends(rate_limit_2fa),
 ):
-    """Second step of a 2FA login: exchange a temp token + TOTP code (or
-    a one-time backup code) for a JWT access token."""
+    """Second step of a 2FA login: exchange a temp token + code for a JWT
+    access token. The code is a TOTP code (or a one-time backup code)
+    when the channel is totp, or the delivered 6-digit code when the
+    channel is email/sms (v3.0)."""
     user = twofa_service.user_from_temp_token(request.temp_token, db)
     if not user.totp_enabled:
         raise HTTPException(status_code=400, detail="2FA is not enabled for this user")
-    if not twofa_service.verify_code(user, request.code, db):
+    from services.settings import get_setting_default
+
+    channel = get_setting_default(db, "twofa_channel", "totp")
+    if channel in ("email", "sms"):
+        from services import twofa_delivery as twofa_delivery_service
+
+        code_ok = twofa_delivery_service.verify_code(db, user, request.code)
+    else:
+        code_ok = twofa_service.verify_code(user, request.code, db)
+    if not code_ok:
         log_audit(db, user.email, "user.login_2fa_failed", "user", user.id)
         raise HTTPException(status_code=401, detail="Invalid verification code")
     user.last_login_at = utcnow()
@@ -180,11 +215,17 @@ def verify_2fa_login(
 
 
 @router.get("/2fa/status", response_model=TwoFAStatusResponse)
-def twofa_status(current_user: User = Depends(get_current_user)):
+def twofa_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Whether the current user has 2FA enabled (and backup codes left)."""
+    from services.settings import get_setting_default
+
     return {
         "enabled": current_user.totp_enabled,
         "backup_codes_remaining": twofa_service.backup_codes_remaining(current_user),
+        "channel": get_setting_default(db, "twofa_channel", "totp"),
     }
 
 

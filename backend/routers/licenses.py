@@ -1,11 +1,15 @@
 """License routes (v2.3: JWT or module API key).
 
 Writes are permission-gated (v2.0): create needs licenses:create, update
-licenses:write, delete licenses:delete, renew licenses:renew. Reads and
-validate are open to any authenticated role. Each route below accepts
-EITHER a JWT user (with the given permission) OR an X-API-Key header
-carrying a module-scoped key, via utils.module_auth.require_actor —
-except reissue and the activations endpoints, which stay JWT-only.
+licenses:write, delete licenses:delete, renew licenses:renew. Reads are
+open to any authenticated role. The license check (POST /validate, v3.0)
+is PUBLIC — any server may call it with no API key and no JWT — but the
+blacklist, the license locks and the 60/min per-IP rate limit still
+apply, and the response carries only valid/detail/license/grace/warnings.
+Each other route below accepts EITHER a JWT user (with the given
+permission) OR an X-API-Key header carrying a module-scoped key, via
+utils.module_auth.require_actor — except reissue and the activations
+endpoints, which stay JWT-only.
 Audit rows record the JWT user's email, or ``module-key:<id>``.
 """
 
@@ -25,7 +29,7 @@ from schemas import (
     MessageResponse,
 )
 from services import licenses as license_service
-from services import notifications as notification_service
+from services import notify_channels as notify_channels_service
 from services import webhooks as webhook_service
 from services.audit import log_audit
 from utils.auth import get_current_user
@@ -77,12 +81,19 @@ def create_license(
         license_.id,
         {"key": license_.key, "product": license_.product},
     )
-    notification_service.notify_admins(
+    notify_channels_service.notify_event(
         db,
+        "license_created",
         "License created",
         f"License {license_.key} for {license_.product} was created.",
         type_="success",
         link="/licenses",
+        context={
+            "license_key": license_.key,
+            "product_name": license_.product,
+            "expiry_date": license_.expires_at.isoformat() if license_.expires_at else "",
+            "user_email": license_.owner_email or "",
+        },
     )
     return license_service.serialize_license(license_)
 
@@ -91,13 +102,16 @@ def create_license(
 def validate_license(
     request: LicenseValidateRequest,
     db: Session = Depends(get_db),
-    actor=Depends(require_actor(jwt_perm=None, module_scope="licenses:validate")),
     _rate_limited=Depends(rate_limit_validate),
 ):
     """Validate a license key (exists, active, not expired, activations left,
-    plus domain/IP/install-path locks when set). Enforcement follows the
-    effective license-security config (v2.3); lenient mode returns
-    valid=true with grace=true and warnings instead of denying."""
+    plus domain/IP/install-path locks when set). PUBLIC (v3.0): no API key
+    and no JWT — any server may call it. The blacklist is still enforced
+    first, the locks still apply, and the 60/min per-IP rate limit still
+    holds; the response reveals only valid/detail/license/grace/warnings.
+    Enforcement follows the effective license-security config (v2.3);
+    lenient mode returns valid=true with grace=true and warnings instead
+    of denying."""
     result = license_service.validate_license(
         request.key,
         db,
@@ -212,12 +226,19 @@ def reissue_license(
         license_.id,
         {"key": license_.key, "reissue_count": license_.reissue_count},
     )
-    notification_service.notify_admins(
+    notify_channels_service.notify_event(
         db,
+        "license_reissued",
         "License reissued",
         f"License for {license_.product} was reissued (new key {license_.key}).",
         type_="info",
         link="/licenses",
+        context={
+            "license_key": license_.key,
+            "product_name": license_.product,
+            "expiry_date": license_.expires_at.isoformat() if license_.expires_at else "",
+            "user_email": license_.owner_email or "",
+        },
     )
     return license_service.serialize_license(license_)
 

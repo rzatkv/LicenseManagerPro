@@ -4,12 +4,13 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Blacklist.css";
 
-const PAGE_SIZE = 10;
 
 function Blacklist() {
     const {t, lang} = useLanguage();
@@ -17,19 +18,24 @@ function Blacklist() {
     const [entries, setEntries] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
+    const pageSize = useResponsivePageSize();
+    // Breakpoint change resets to page 1 (the fetch refetches via its
+    // pageSize dep below).
+    useEffect(() => { setPage(1); }, [pageSize]);
     const [typeFilter, setTypeFilter] = useState("");
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [type, setType] = useState("ip");
     const [value, setValue] = useState("");
     const [reason, setReason] = useState("");
+    const [addOpen, setAddOpen] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
 
     const fetchEntries = useCallback(async () => {
         setLoading(true);
         try {
             const q = typeFilter ? `?type=${typeFilter}` : "";
-            const {items, total: t} = await getList(`/blacklist${q}`, {skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE});
+            const {items, total: t} = await getList(`/blacklist${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
             setEntries(items);
             setTotal(t);
         } catch (err) {
@@ -39,7 +45,7 @@ function Blacklist() {
         } finally {
             setLoading(false);
         }
-    }, [page, typeFilter, toast, t]);
+    }, [page, pageSize, typeFilter, toast, t]);
 
     useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
@@ -48,10 +54,11 @@ function Blacklist() {
         if (!value.trim()) return;
         try {
             const created = await post("/blacklist", {type, value: value.trim(), reason: reason.trim() || undefined});
-            if (page === 1) setEntries([created, ...entries].slice(0, PAGE_SIZE));
+            if (page === 1) setEntries([created, ...entries].slice(0, pageSize));
             setTotal((prev) => prev + 1);
             setValue("");
             setReason("");
+            setAddOpen(false);
             toast.success(t("blacklist.added"));
         } catch (err) {
             toast.error(err.message || t("common.error"));
@@ -92,31 +99,8 @@ function Blacklist() {
             <h1 className="gradient-text">{t("blacklist.title")}</h1>
             <p className="dashboard-empty">{t("blacklist.blockedNote")}</p>
 
-            <form className="blacklist-form glass-card" onSubmit={handleAdd}>
-                <h3>{t("blacklist.add")}</h3>
-                <div className="form-row">
-                    <select value={type} onChange={(e) => setType(e.target.value)} aria-label={t("blacklist.type")}>
-                        <option value="ip">{t("blacklist.ip")}</option>
-                        <option value="domain">{t("blacklist.domain")}</option>
-                    </select>
-                    <input
-                        type="text"
-                        placeholder={t("blacklist.valuePlaceholder")}
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                        required
-                    />
-                    <input
-                        type="text"
-                        placeholder={t("blacklist.reasonPlaceholder")}
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                    />
-                    <button type="submit">{t("common.add")}</button>
-                </div>
-            </form>
-
             <div className="toolbar">
+                <button type="button" onClick={() => setAddOpen(true)}>{t("blacklist.add")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -170,9 +154,33 @@ function Blacklist() {
                     </tbody>
                 </table>
                 </div>
-                <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
                 </>
             )}
+            <Modal open={addOpen} title={t("blacklist.add")} onClose={() => setAddOpen(false)}>
+                <form className="blacklist-form" onSubmit={handleAdd}>
+                    <div className="form-row">
+                        <select value={type} onChange={(e) => setType(e.target.value)} aria-label={t("blacklist.type")}>
+                            <option value="ip">{t("blacklist.ip")}</option>
+                            <option value="domain">{t("blacklist.domain")}</option>
+                        </select>
+                        <input
+                            type="text"
+                            placeholder={t("blacklist.valuePlaceholder")}
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            required
+                        />
+                        <input
+                            type="text"
+                            placeholder={t("blacklist.reasonPlaceholder")}
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                        />
+                        <button type="submit">{t("common.add")}</button>
+                    </div>
+                </form>
+            </Modal>
             <ConfirmModal
                 open={pendingDelete !== null}
                 message={t("common.confirmDelete")}

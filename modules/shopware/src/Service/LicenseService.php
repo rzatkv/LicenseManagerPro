@@ -128,6 +128,12 @@ class LicenseService
     /**
      * @return array<string, mixed>|null Validation response, null on API failure.
      */
+    /**
+     * POST /licenses/validate — check a key against domain/IP/install path.
+     * PUBLIC endpoint (v3.0): sends no API key and no HMAC signature —
+     * the check is open to any server; the blacklist still applies
+     * server-side.
+     */
     public function validateLicense(string $licenseKey, ?string $domain = null, ?string $ip = null, ?string $installPath = null): ?array
     {
         $payload = ['key' => $licenseKey];
@@ -141,7 +147,7 @@ class LicenseService
             $payload['install_path'] = $installPath;
         }
 
-        return $this->apiClient->post('/licenses/validate', $payload);
+        return $this->apiClient->post('/licenses/validate', $payload, true);
     }
 
     /**

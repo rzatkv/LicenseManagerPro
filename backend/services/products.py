@@ -84,6 +84,7 @@ def serialize_product(product: Product) -> dict:
         "key_segment_length": product.key_segment_length,
         "max_reissues": product.max_reissues,
         "security_overrides": security_overrides,
+        "notes": product.notes,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
     }
@@ -138,6 +139,10 @@ def validate_webhook_url_scheme(url: str | None) -> None:
 def create_product(request: ProductCreateRequest, db: Session) -> Product:
     cycles = validate_billing_cycles(request.billing_cycles)
     validate_webhook_url_scheme(request.webhook_url)
+    # v3.0: notes are rejected while the notes feature is disabled.
+    from services.settings import require_notes_enabled
+
+    require_notes_enabled(db, request.notes)
     if request.status not in PRODUCT_STATUSES:
         raise HTTPException(
             status_code=400,
@@ -172,6 +177,7 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
             if request.security_overrides is not None
             else None
         ),
+        notes=request.notes,
     )
     db.add(product)
     db.commit()
@@ -181,6 +187,12 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
 
 def update_product(product_id: int, request: ProductUpdateRequest, db: Session) -> Product:
     product = get_product(product_id, db)
+    if "notes" in request.model_fields_set:
+        # v3.0: notes are rejected while the notes feature is disabled.
+        from services.settings import require_notes_enabled
+
+        require_notes_enabled(db, request.notes)
+        product.notes = request.notes
     if request.billing_cycles is not None:
         product.billing_cycles = json.dumps(validate_billing_cycles(request.billing_cycles))
     if request.name is not None:

@@ -9,7 +9,6 @@ import UserManagement from "./pages/UserManagement";
 import About from "./pages/About";
 import Products from "./pages/Products";
 import ProductGroups from "./pages/ProductGroups";
-import Languages from "./pages/Languages";
 import ApiDocs from "./pages/ApiDocs";
 import AuditLogs from "./pages/AuditLogs";
 import Blacklist from "./pages/Blacklist";
@@ -54,7 +53,7 @@ function App() {
                             <Route path="/roles" element={<AdminRoute><Roles/></AdminRoute>}/>
                             <Route path="/profile" element={<Profile/>}/>
                             <Route path="/audit-logs" element={<AuditLogs/>}/>
-                            <Route path="/languages" element={<Languages/>}/>
+                            <Route path="/languages" element={<Navigate to="/settings?tab=languages" replace />} />
                             <Route path="/docs" element={<ApiDocs/>}/>
                             <Route path="/settings" element={<Settings/>}/>
                             <Route path="/about" element={<About/>}/>

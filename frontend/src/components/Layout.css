@@ -51,6 +51,12 @@
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 .layout-nav-link:hover { background: var(--surface-2); transform: translateX(3px); }
+/* v3.0.0: no underline on menu hover — the global `a:hover` rule
+   (index.css) underlines every link, and its (0,1,1) specificity beats
+   the base .layout-nav-link (0,1,0). This (0,2,0) override keeps the
+   background/slide feedback and drops only the underline. Content
+   links elsewhere keep the global hover underline. */
+.layout-nav-link:hover, .layout-nav-link.active:hover, .layout-bottomnav-link:hover { text-decoration: none; }
 [dir="rtl"] .layout-nav-link:hover { transform: translateX(-3px); }
 .layout-nav-link.active {
   background: var(--accent-gradient);
@@ -81,8 +87,19 @@
 .layout-backdrop { display: none; }
 /* Mobile bottom nav: hidden on desktop/tablet, shown ≤768px (see below). */
 .layout-bottomnav { display: none; }
-/* The content area is the only scroll region of the app shell. */
-.layout-content { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
+/* The content area is the only scroll region of the app shell — and in
+   v3.0.0 it must NOT scroll at all: every page is a flex column that
+   fills this region (see .page-enter below), and tall content scrolls
+   inside its own block (table-wrap / tabpanel / grid). So this is a
+   flex column with overflow hidden, not an overflow-y:auto scroller:
+   a page that overflows would otherwise silently re-introduce page
+   scroll. Measured by the all-routes Playwright sweep (952 combos). */
+.layout-content { flex: 1; min-height: 0; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; }
+/* Layout wraps every page in .page-enter (animation wrapper, height
+   auto). It must fill the content region and be a flex column too, or
+   a page's height:100% / flex:1 resolves to auto and the shrink never
+   engages (same trap as ApiDocs' :has rule, now fixed globally). */
+.layout-content > .page-enter { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 /* Drawer breakpoint is 1024px (not 768px): narrow portrait phones report
    widths around 886px, and at those widths the docked sidebar squeezes the
    content — they must get the drawer + hamburger instead. */

@@ -83,6 +83,8 @@ class User(Base):
     # Profile (v2.3).
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Phone number (v3.0): used for SMS 2FA codes and SMS notifications.
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # TOTP two-factor authentication (v2.3): base32 secret (encrypted at
     # rest is out of scope for this release; it lives only in the DB),
@@ -128,6 +130,9 @@ class Product(Base):
     key_segment_length: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     # Max times a license of this product may be reissued (v2.2); NULL = unlimited.
     max_reissues: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Admin notes on the product (v3.0); gated by the
+    # `product_notes_enabled` setting — NULL when notes are disabled.
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Per-product license-security overrides (v2.3): JSON object with the
     # same keys as the global `license_security` setting; any key present
     # here overrides the global value for this product. NULL = use global.
@@ -352,6 +357,9 @@ class License(Base):
     activations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Times this license has been reissued (v2.2).
     reissue_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Admin notes on the license (v3.0); gated by the
+    # `product_notes_enabled` setting.
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False

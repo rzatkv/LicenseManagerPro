@@ -120,6 +120,12 @@ def update_user(user_id: int, request: UserUpdateRequest, db: Session) -> User:
     if request.avatar_url is not None:
         validate_avatar_url(request.avatar_url)
         user.avatar_url = request.avatar_url or None
+    if request.phone is not None:
+        # v3.0: phone for SMS 2FA / SMS notifications; free-form, max 32.
+        phone = (request.phone or "").strip()
+        if len(phone) > 32:
+            raise HTTPException(status_code=400, detail="phone must be at most 32 characters")
+        user.phone = phone or None
     db.commit()
     db.refresh(user)
     return user

@@ -243,11 +243,11 @@ function Roles() {
                 </div>
             )}
 
-            {showForm && (
-                <Modal
-                    title={editing ? `${t("common.edit")} — ${editing.name}` : t("roles.create")}
-                    onClose={closeForm}
-                >
+            <Modal
+                open={showForm}
+                title={editing ? `${t("common.edit")} — ${editing.name}` : t("roles.create")}
+                onClose={closeForm}
+            >
                     <form className="roles-form" onSubmit={handleSave}>
                         <label className="field-label" htmlFor="role-name">
                             {t("roles.name")}
@@ -301,7 +301,6 @@ function Roles() {
                         </div>
                     </form>
                 </Modal>
-            )}
 
             <ConfirmModal
                 open={pendingDelete !== null}

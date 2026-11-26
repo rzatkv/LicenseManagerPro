@@ -1,10 +1,19 @@
 /* About (v2.3 redesign): hero card + split cards in a responsive grid.
    All colors come from the theme variables in index.css — no hard-coded
-   colors, so both languages and both themes render correctly. */
+   colors, so both languages and both themes render correctly.
+   Zero-scroll (v3.0.0): flex column filling the content region; the tab
+   panel scrolls inside itself while the hero + tabs stay fixed. */
 
 .about-container {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
+.about-container .about-hero { flex-shrink: 0; }
+.about-container .about-tabs { flex-shrink: 0; }
 
 .about-hero {
     display: flex;
@@ -161,3 +170,11 @@
         justify-content: center;
     }
 }
+
+/* v3.0 tabs: one card at a time (same pill pattern as Settings/Docs). */
+.about-tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 880px; margin: 0 auto 20px; }
+.about-tab { padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.about-tab:hover { border-color: var(--accent); color: var(--text); }
+.about-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; box-shadow: var(--shadow); }
+.about-tab-panel { max-width: 880px; margin: 0 auto; flex: 1; min-height: 0; min-width: 0; overflow-y: auto; width: 100%; padding-bottom: 4px; }
+.about-tab-panel .about-card { margin: 0; }

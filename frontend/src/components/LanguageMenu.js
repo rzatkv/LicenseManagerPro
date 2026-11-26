@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef} from "react";
 import {useLanguage} from "../i18n";
+import {useAnimatedOpen} from "../utils/useAnimatedOpen";
 import "./LanguageMenu.css";
 
 /** Header language menu (v2.3.2): ONE component used in both places —
@@ -16,6 +17,7 @@ import "./LanguageMenu.css";
 function LanguageMenu() {
   const {t, lang, setLang, available} = useLanguage();
   const [open, setOpen] = useState(false);
+  const {visible: menuVisible, closing: menuClosing} = useAnimatedOpen(open);
   const rootRef = useRef(null);
 
   useEffect(() => {
@@ -44,8 +46,8 @@ function LanguageMenu() {
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z" /></svg>
       </button>
-      {open && (
-        <div className="language-menu-dropdown" role="menu">
+      {menuVisible && (
+        <div className={`language-menu-dropdown${menuClosing ? " dropdown-closing" : ""}`} role="menu">
           {available.map((l) => (
             <button
               key={l.code}

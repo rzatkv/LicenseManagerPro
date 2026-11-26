@@ -1,10 +1,11 @@
-import React, {useEffect, useState, useCallback, useMemo} from "react";
+import React, {useEffect, useState, useCallback, useMemo, useRef} from "react";
 import {Link, useNavigate} from "react-router-dom";
 import {get, post, put} from "../utils/api";
-import {formatDate, formatDayShort, formatMonthShort} from "../utils/format";
+import {formatDate, formatDateTime, formatDayShort, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {SkeletonCard} from "../components/Skeleton";
+import Modal from "../components/Modal";
 import "../styles/Dashboard.css";
 
 const daysLeft = (expiresAt) => {
@@ -199,15 +200,84 @@ function WebhookStatsWidget({stats, title, t}) {
     );
 }
 
-// --- Customizable dashboard widgets (v2.3) -------------------------------
-const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks"];
+/** Sending activity chart (v3.0): per-day sent (green) + failed (red)
+ * bars for one channel (or all channels combined). */
+function SendingChart({series, title, t}) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
+    const width = 640;
+    const height = 200;
+    const padL = 28;
+    const padR = 10;
+    const padT = 14;
+    const padB = 34;
+    const max = Math.max(1, ...series.map((d) => d.sent + d.failed));
+    const n = Math.max(1, series.length);
+    const slot = (width - padL - padR) / n;
+    const barW = Math.min(14, slot / 2 - 2);
+    const y = (v) => padT + (1 - v / max) * (height - padT - padB);
+    const total = series.reduce((a, d) => a + d.sent + d.failed, 0);
+    return (
+        <div className="chart-card chart-card-wide">
+            <h3>{title}</h3>
+            {total === 0 ? <p className="dashboard-empty">{t("dashboard.sendingNoData")}</p> : (
+                <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
+                    {series.map((d, i) => {
+                        const x0 = padL + i * slot + (slot - barW * 2 - 2) / 2;
+                        const sentH = mounted ? (d.sent / max) * (height - padT - padB) : 0;
+                        const failedH = mounted ? (d.failed / max) * (height - padT - padB) : 0;
+                        return (
+                            <g key={d.date}>
+                                <rect x={x0} y={height - padB - sentH} width={barW} height={sentH} rx="2" fill="var(--success)">
+                                    <title>{`${d.date}: ${t("dashboard.sendingSent")} ${d.sent}`}</title>
+                                </rect>
+                                <rect x={x0 + barW + 2} y={height - padB - failedH} width={barW} height={failedH} rx="2" fill="var(--danger)">
+                                    <title>{`${d.date}: ${t("dashboard.sendingFailed")} ${d.failed}`}</title>
+                                </rect>
+                                {i % Math.ceil(n / 7) === 0 && (
+                                    <text x={padL + i * slot + slot / 2} y={height - 12} textAnchor="middle" fill="var(--muted)" fontSize="10">
+                                        {d.date.slice(5)}
+                                    </text>
+                                )}
+                            </g>
+                        );
+                    })}
+                    <line x1={padL} x2={width - padR} y1={height - padB} y2={height - padB} stroke="var(--border)" strokeWidth="1" />
+                </svg>
+            )}
+            <p className="chart-legend-line">
+                <span className="legend-dot" style={{background: "var(--success)"}} /> {t("dashboard.sendingSent")}
+                {" · "}
+                <span className="legend-dot" style={{background: "var(--danger)"}} /> {t("dashboard.sendingFailed")}
+            </p>
+        </div>
+    );
+}
+
+// --- Customizable dashboard widgets (v2.3, extended v3.0) -----------------
+const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks", "services", "sending"];
+const WIDGET_TABS = {
+    trend: "trends", status: "status", perMonth: "monthly", byProduct: "monthly",
+    activations: "trends", webhooks: "status", services: "services", sending: "sending",
+};
+const TAB_ORDER = ["overview", "highlights", "trends", "status", "monthly", "activity", "apikeys", "users", "services", "sending"];
+// Tabs that exist only because of widgets: hidden when all their widgets
+// are turned off in the gear popup.
+const WIDGET_TABS_ONLY = ["trends", "status", "monthly", "services", "sending"];
 const DEFAULT_LAYOUT = {
     order: [...WIDGET_IDS],
-    sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M"},
-    ranges: {trend: 14, activations: 14},
+    sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M", services: "L", sending: "L"},
+    ranges: {trend: 14, activations: 14, perMonth: 6, byProduct: 90, sending: 14},
+    hidden: {},
 };
 const LAYOUT_KEY = "lmp-dashboard-layout";
+const TAB_KEY = "lmp-dashboard-tab";
 const RANGE_OPTIONS = [7, 14, 30, 90];
+const MONTH_OPTIONS = [3, 6, 12];
+const SERVICE_REFRESH_SECONDS = 300;
 
 function readLayout() {
     try {
@@ -219,9 +289,19 @@ function readLayout() {
             order: [...new Set([...parsed.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
             sizes: {...DEFAULT_LAYOUT.sizes, ...(parsed.sizes || {})},
             ranges: {...DEFAULT_LAYOUT.ranges, ...(parsed.ranges || {})},
+            hidden: {...(parsed.hidden || {})},
         };
     } catch (e) {
         return null;
+    }
+}
+
+function readTab() {
+    try {
+        const tab = localStorage.getItem(TAB_KEY);
+        return TAB_ORDER.includes(tab) ? tab : "overview";
+    } catch (e) {
+        return "overview";
     }
 }
 
@@ -239,11 +319,60 @@ function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
-    // Customizable widgets (v2.3): order, size (S/M/L) and chart range
-    // persist per user (localStorage first, backend preferences as well).
+    // Customizable widgets (v2.3): order, size (S/M/L), chart range and
+    // visibility persist per user (localStorage first, backend too).
     const [layout, setLayout] = useState(() => readLayout() || DEFAULT_LAYOUT);
     const [customizing, setCustomizing] = useState(false);
+    const [gearOpen, setGearOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState(() => readTab());
+    // Narrow viewports (<640px) show fewer rows in the dashboard's recent
+    // lists (responsive page size, same pattern as the list pages): the
+    // 5-row recent-licenses table is 466px tall at 360px in fa and pushes
+    // the Activity tab 157px past the viewport.
+    const [isNarrow, setIsNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 640px)");
+        const onChange = (e) => setIsNarrow(e.matches);
+        mq.addEventListener("change", onChange);
+        return () => mq.removeEventListener("change", onChange);
+    }, []);
+    const recentCount = isNarrow ? 3 : 5;
+    // One panel at a time inside the four stacked tabs (v3.0): the Trends
+    // tab holds two full-width charts, the Status tab a donut + the webhook
+    // stats, the Monthly tab two bar charts, and the Activity tab two
+    // tables — stacked they overflow at 360px and at 1366x768, so each
+    // gets a mini-tab switcher (split, never squeeze).
+    const [trendView, setTrendView] = useState("trend");
+    const [statusView, setStatusView] = useState("status");
+    const [monthlyView, setMonthlyView] = useState("perMonth");
+    const [activityView, setActivityView] = useState("expiring");
+    // Service status (v3.0): lazy, non-blocking — fetched only when the
+    // Services tab opens, never before the dashboard renders.
+    const [serviceStatus, setServiceStatus] = useState(null);
+    const [serviceLoading, setServiceLoading] = useState(false);
+    const [serviceCheckedAt, setServiceCheckedAt] = useState(null);
+    const [serviceCountdown, setServiceCountdown] = useState(SERVICE_REFRESH_SECONDS);
+    // IPPanel SMS balance (v3.0): same lazy pattern — fetched only on
+    // the Services tab, never blocks the dashboard render. The backend
+    // caches the credit ~5 minutes; refresh=true forces a live call.
+    const [smsBalance, setSmsBalance] = useState(null);
+    const [smsBalanceLoading, setSmsBalanceLoading] = useState(false);
+    // Sending charts (v3.0): lazy too — fetched only on the Sending tab.
+    const [sendingStats, setSendingStats] = useState(null);
+    const [sendingLoading, setSendingLoading] = useState(false);
+    const [sendingChannel, setSendingChannel] = useState("total");
     const navigate = useNavigate();
+
+    const isVisible = (id) => !layout.hidden[id];
+    const visibleTabs = useMemo(() => TAB_ORDER.filter((tab) => {
+        if (!WIDGET_TABS_ONLY.includes(tab)) return true;
+        return WIDGET_IDS.some((id) => WIDGET_TABS[id] === tab && isVisible(id));
+    }), [layout.hidden]);
+    const effectiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || "overview";
+
+    useEffect(() => {
+        try { localStorage.setItem(TAB_KEY, effectiveTab); } catch (e) {}
+    }, [effectiveTab]);
 
     // Load a saved layout from the backend when nothing is stored
     // locally (same pattern as the theme provider).
@@ -256,6 +385,7 @@ function Dashboard() {
                     order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
                     sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
                     ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
+                    hidden: {...(saved.hidden || {})},
                 });
             }
         }).catch(() => {});
@@ -279,6 +409,71 @@ function Dashboard() {
             .then((d) => setActivations(Array.isArray(d.points) ? d.points : []))
             .catch(() => setActivations([]));
     }, [layout.ranges.activations]);
+
+    // Service status: fetch on demand (tab opens or manual re-check).
+    const fetchServiceStatus = useCallback(async () => {
+        setServiceLoading(true);
+        try {
+            const data = await get("/system/service-status");
+            setServiceStatus(Array.isArray(data.services) ? data.services : []);
+            setServiceCheckedAt(data.checked_at || new Date().toISOString());
+            setServiceCountdown(SERVICE_REFRESH_SECONDS);
+        } catch (err) {
+            setServiceStatus([]);
+            toast.error(err.message || t("common.error"));
+        } finally {
+            setServiceLoading(false);
+        }
+    }, [toast, t]);
+    useEffect(() => {
+        if (effectiveTab === "services" && serviceStatus === null) fetchServiceStatus();
+    }, [effectiveTab, serviceStatus, fetchServiceStatus]);
+    // SMS balance: fetch on demand with the Services tab (same trigger
+    // as the service status); a failed fetch degrades to the
+    // "unavailable" state instead of spinning forever.
+    const fetchSmsBalance = useCallback(async (refresh = false) => {
+        setSmsBalanceLoading(true);
+        try {
+            const data = await get(refresh ? "/sms/balance?refresh=1" : "/sms/balance");
+            setSmsBalance(data || {available: false, error: "unavailable"});
+        } catch (err) {
+            setSmsBalance({available: false, error: "unavailable"});
+        } finally {
+            setSmsBalanceLoading(false);
+        }
+    }, []);
+    useEffect(() => {
+        if (effectiveTab === "services" && smsBalance === null) fetchSmsBalance();
+    }, [effectiveTab, smsBalance, fetchSmsBalance]);
+    // Auto-refresh every 5 minutes while the Services tab is open, with
+    // a visible countdown; the page never waits for a check. The SMS
+    // balance refreshes on the same tick (the backend caches the credit
+    // ~5 minutes, so this costs no extra live call).
+    useEffect(() => {
+        if (effectiveTab !== "services") return;
+        const id = setInterval(() => {
+            setServiceCountdown((c) => {
+                if (c <= 1) {
+                    fetchServiceStatus();
+                    fetchSmsBalance();
+                    return SERVICE_REFRESH_SECONDS;
+                }
+                return c - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, [effectiveTab, fetchServiceStatus, fetchSmsBalance]);
+
+    // Sending stats: fetch on demand (tab opens, range or channel change
+    // only re-fetches on range — the channel switch is client-side).
+    useEffect(() => {
+        if (effectiveTab !== "sending") return;
+        setSendingLoading(true);
+        get(`/system/sending-stats?days=${layout.ranges.sending}`)
+            .then((d) => setSendingStats(d && d.series ? d.series : null))
+            .catch(() => setSendingStats(null))
+            .finally(() => setSendingLoading(false));
+    }, [effectiveTab, layout.ranges.sending]);
 
     const slides = useMemo(() => [
         {title: t("dashboard.slide1Title"), text: t("dashboard.slide1Text")},
@@ -344,27 +539,30 @@ function Dashboard() {
     const perMonth = useMemo(() => {
         const months = [];
         const now = new Date();
-        for (let i = 5; i >= 0; i--) {
+        const count = layout.ranges.perMonth || 6;
+        for (let i = count - 1; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             const label = formatMonthShort(d, lang);
-            const count = licenses.filter((l) => l.created_at && l.created_at.slice(0, 7) === key).length;
-            months.push({label, value: count});
+            const n = licenses.filter((l) => l.created_at && l.created_at.slice(0, 7) === key).length;
+            months.push({label, value: n});
         }
         return months;
-    }, [licenses, lang]);
+    }, [licenses, lang, layout.ranges.perMonth]);
 
     const byProduct = useMemo(() => {
+        const days = layout.ranges.byProduct || 90;
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
         const map = {};
         for (const lic of licenses) {
+            if (!lic.created_at || new Date(lic.created_at) < cutoff) continue;
             const name = lic.product || "-";
             map[name] = (map[name] || 0) + 1;
         }
-        // Full names: BarChart wraps long labels onto two lines instead of
-        // truncating them ("CloudPanel P…").
         return Object.entries(map).map(([label, value]) => ({label, value}))
             .sort((a, b) => b.value - a.value).slice(0, 6);
-    }, [licenses]);
+    }, [licenses, layout.ranges.byProduct]);
 
     if (error && !summary) {
         return (
@@ -394,204 +592,500 @@ function Dashboard() {
     const expiringSoon = licenses
         .filter((lic) => { const left = daysLeft(lic.expires_at); return lic.status === "active" && left !== null && left <= 30; })
         .sort((a, b) => daysLeft(a.expires_at) - daysLeft(b.expires_at));
-    const recentLicenses = [...licenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
-    const recentApiKeys = [...apiKeys].sort((a, b) => b.id - a.id).slice(0, 5);
-    const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, 5);
+    const recentLicenses = [...licenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, recentCount);
+    const recentApiKeys = [...apiKeys].sort((a, b) => b.id - a.id).slice(0, recentCount);
+    const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, recentCount);
+
+    // One widget card, with its own range control directly underneath the
+    // chart (v3.0: per-chart ranges, independent, persisted in the layout).
+    const renderWidget = (id, index) => {
+        const size = layout.sizes[id] || "M";
+        const move = (dir) => {
+            setLayout((prev) => {
+                const order = [...prev.order];
+                const j = order.indexOf(id) + dir;
+                if (j < 0 || j >= order.length) return prev;
+                [order[index], order[j]] = [order[j], order[index]];
+                return {...prev, order};
+            });
+        };
+        const rangeControl = (rangeKey, options, unitKey) => (
+            <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
+                <span className="chart-range-label">{t("dashboard.range")}</span>
+                {options.map((d) => (
+                    <button
+                        key={d}
+                        type="button"
+                        className={layout.ranges[rangeKey] === d ? "chart-range-btn active" : "chart-range-btn"}
+                        aria-pressed={layout.ranges[rangeKey] === d}
+                        onClick={() => setLayout((prev) => ({...prev, ranges: {...prev.ranges, [rangeKey]: d}}))}
+                    >
+                        {d} {t(unitKey)}
+                    </button>
+                ))}
+            </div>
+        );
+        return (
+            <div
+                key={id}
+                className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}`}
+                draggable={customizing}
+                onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); }}
+                onDragOver={(e) => { if (customizing) e.preventDefault(); }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    const dragged = e.dataTransfer.getData("text/plain");
+                    if (!dragged || dragged === id) return;
+                    setLayout((prev) => {
+                        const order = prev.order.filter((x) => x !== dragged);
+                        order.splice(order.indexOf(id), 0, dragged);
+                        return {...prev, order};
+                    });
+                }}
+            >
+                {customizing && (
+                    <div className="widget-controls">
+                        <span className="widget-drag-handle" title={t("dashboard.customize")}>⠿</span>
+                        <span className="widget-control-group">
+                            <span className="widget-control-label">{t("dashboard.size")}</span>
+                            {["S", "M", "L"].map((s) => (
+                                <button
+                                    key={s}
+                                    type="button"
+                                    className={size === s ? "widget-size-btn active" : "widget-size-btn"}
+                                    aria-pressed={size === s}
+                                    onClick={() => setLayout((prev) => ({...prev, sizes: {...prev.sizes, [id]: s}}))}
+                                >
+                                    {t(`dashboard.size${s}`)}
+                                </button>
+                            ))}
+                        </span>
+                        <span className="widget-control-group">
+                            <button type="button" className="widget-move-btn" disabled={index === 0} onClick={() => move(-1)} aria-label="↑">↑</button>
+                            <button type="button" className="widget-move-btn" disabled={index === layout.order.length - 1} onClick={() => move(1)} aria-label="↓">↓</button>
+                        </span>
+                    </div>
+                )}
+                {id === "trend" && (
+                    <>
+                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} />
+                        {rangeControl("trend", RANGE_OPTIONS, "common.days")}
+                    </>
+                )}
+                {id === "status" && <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />}
+                {id === "perMonth" && (
+                    <>
+                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />
+                        {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
+                    </>
+                )}
+                {id === "byProduct" && (
+                    <>
+                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />
+                        {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
+                    </>
+                )}
+                {id === "activations" && (
+                    <>
+                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} />
+                        {rangeControl("activations", RANGE_OPTIONS, "common.days")}
+                    </>
+                )}
+                {id === "webhooks" && <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} />}
+            </div>
+        );
+    };
+
+    const tabWidgets = (tab) => layout.order.filter((id) => WIDGET_TABS[id] === tab && isVisible(id));
+
+    const countdownText = () => {
+        const m = Math.floor(serviceCountdown / 60);
+        const s = serviceCountdown % 60;
+        return `${m}:${String(s).padStart(2, "0")}`;
+    };
+
+    const statusDot = (status) => ({
+        connected: "var(--success)",
+        not_configured: "var(--muted-2)",
+        auth_failed: "var(--warning)",
+        unreachable: "var(--danger)",
+    }[status] || "var(--muted-2)");
 
     return (
         <div className="dashboard-container page-enter">
-            <h1 className="gradient-text">{t("dashboard.title")}</h1>
-
-            <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-                <div className="slide slide-fade" key={slide}>
-                    <h3>{slides[slide].title}</h3>
-                    <p>{slides[slide].text}</p>
-                </div>
-                <div className="slider-dots">
-                    {slides.map((_, i) => (
-                        <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
-                    ))}
+            <div className="dashboard-header">
+                <span className="dashboard-title gradient-text">{t("dashboard.title")}</span>
+                <div className="dashboard-header-actions">
+                    <button
+                        type="button"
+                        className="btn-ghost dashboard-gear-btn"
+                        aria-label={t("dashboard.widgetVisibility")}
+                        title={t("dashboard.widgetVisibility")}
+                        onClick={() => setGearOpen(true)}
+                    >
+                        ⚙
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-ghost"
+                        aria-pressed={customizing}
+                        onClick={() => setCustomizing((v) => !v)}
+                    >
+                        {t("dashboard.customize")}
+                    </button>
                 </div>
             </div>
 
-            {/* No financial card: this is not a financial system (v2.3) —
-                the Estimated MRR card was removed entirely. */}
-            <div className="dashboard-summary">
-                {[
-                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
-                    {label: t("dashboard.users"), value: summary.usersCount},
-                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
-                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
-                ].map((box, i) => (
-                    <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
-                        <h2>{box.label}</h2>
-                        <p>{box.value}</p>
-                    </div>
+            <div className="dashboard-tabs" role="tablist" aria-label={t("dashboard.title")}>
+                {visibleTabs.map((tab) => (
+                    <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={effectiveTab === tab}
+                        className={effectiveTab === tab ? "dashboard-tab active" : "dashboard-tab"}
+                        onClick={() => setActiveTab(tab)}
+                    >
+                        {t(`dashboard.tabs.${tab}`)}
+                    </button>
                 ))}
             </div>
 
-            <div className="dashboard-customize-bar">
-                <button
-                    type="button"
-                    className="btn-ghost"
-                    aria-pressed={customizing}
-                    onClick={() => setCustomizing((v) => !v)}
-                >
-                    {t("dashboard.customize")}
-                </button>
-            </div>
+            <div className="dashboard-tab-panel" key={effectiveTab}>
+                {effectiveTab === "overview" && (
+                    <>
+                        {/* No financial card: this is not a financial system (v2.3) —
+                            the Estimated MRR card was removed entirely. */}
+                        <div className="dashboard-summary">
+                            {[
+                                {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
+                                {label: t("dashboard.users"), value: summary.usersCount},
+                                {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
+                                {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
+                            ].map((box, i) => (
+                                <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
+                                    <h2>{box.label}</h2>
+                                    <p>{box.value}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="dashboard-actions">
+                            <h2>{t("dashboard.quickActions")}</h2>
+                            <div className="action-buttons">
+                                <Link className="action-btn" to="/licenses">{t("dashboard.createLicense")}</Link>
+                                <Link className="action-btn" to="/api-keys">{t("dashboard.createApiKey")}</Link>
+                                <Link className="action-btn" to="/users">{t("dashboard.addUser")}</Link>
+                                <Link className="action-btn" to="/products">{t("nav.products")}</Link>
+                                <Link className="action-btn" to="/docs">{t("nav.apiDocs")}</Link>
+                                <Link className="action-btn" to="/settings">{t("dashboard.settings")}</Link>
+                            </div>
+                        </div>
+                    </>
+                )}
 
-            <div className="charts-row">
-                {layout.order.map((id, index) => {
-                    const size = layout.sizes[id] || "M";
-                    const move = (dir) => {
-                        setLayout((prev) => {
-                            const order = [...prev.order];
-                            const j = order.indexOf(id) + dir;
-                            if (j < 0 || j >= order.length) return prev;
-                            [order[index], order[j]] = [order[j], order[index]];
-                            return {...prev, order};
-                        });
-                    };
-                    return (
-                        <div
-                            key={id}
-                            className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}`}
-                            draggable={customizing}
-                            onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); }}
-                            onDragOver={(e) => { if (customizing) e.preventDefault(); }}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                const dragged = e.dataTransfer.getData("text/plain");
-                                if (!dragged || dragged === id) return;
-                                setLayout((prev) => {
-                                    const order = prev.order.filter((x) => x !== dragged);
-                                    order.splice(order.indexOf(id), 0, dragged);
-                                    return {...prev, order};
-                                });
-                            }}
-                        >
-                            {customizing && (
-                                <div className="widget-controls">
-                                    <span className="widget-drag-handle" title={t("dashboard.customize")}>⠿</span>
-                                    <span className="widget-control-group">
-                                        <span className="widget-control-label">{t("dashboard.size")}</span>
-                                        {["S", "M", "L"].map((s) => (
-                                            <button
-                                                key={s}
-                                                type="button"
-                                                className={size === s ? "widget-size-btn active" : "widget-size-btn"}
-                                                aria-pressed={size === s}
-                                                onClick={() => setLayout((prev) => ({...prev, sizes: {...prev.sizes, [id]: s}}))}
-                                            >
-                                                {t(`dashboard.size${s}`)}
-                                            </button>
-                                        ))}
-                                    </span>
-                                    {(id === "trend" || id === "activations") && (
-                                        <span className="widget-control-group">
-                                            <span className="widget-control-label">{t("dashboard.range")}</span>
-                                            <select
-                                                value={layout.ranges[id]}
-                                                onChange={(e) => setLayout((prev) => ({...prev, ranges: {...prev.ranges, [id]: Number(e.target.value)}}))}
-                                                aria-label={t("dashboard.range")}
-                                            >
-                                                {RANGE_OPTIONS.map((d) => (
-                                                    <option key={d} value={d}>{d} {t("common.days")}</option>
-                                                ))}
-                                            </select>
-                                        </span>
-                                    )}
-                                    <span className="widget-control-group">
-                                        <button type="button" className="widget-move-btn" disabled={index === 0} onClick={() => move(-1)} aria-label="↑">↑</button>
-                                        <button type="button" className="widget-move-btn" disabled={index === layout.order.length - 1} onClick={() => move(1)} aria-label="↓">↓</button>
-                                    </span>
+                {effectiveTab === "highlights" && (
+                    <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+                        <div className="slide slide-fade" key={slide}>
+                            <h3>{slides[slide].title}</h3>
+                            <p>{slides[slide].text}</p>
+                        </div>
+                        <div className="slider-dots">
+                            {slides.map((_, i) => (
+                                <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {effectiveTab === "trends" && (
+                    <>
+                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.trends")}>
+                            {["trend", "activations"].filter((id) => isVisible(id)).map((id) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={trendView === id}
+                                    className={trendView === id ? "mini-tab active" : "mini-tab"}
+                                    onClick={() => setTrendView(id)}
+                                >
+                                    {t(`dashboard.widgets.${id}`)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="charts-row">
+                            {tabWidgets("trends").filter((id) => id === (isVisible(trendView) ? trendView : tabWidgets("trends")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                        </div>
+                    </>
+                )}
+                {effectiveTab === "status" && (
+                    <>
+                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.status")}>
+                            {["status", "webhooks"].filter((id) => isVisible(id)).map((id) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={statusView === id}
+                                    className={statusView === id ? "mini-tab active" : "mini-tab"}
+                                    onClick={() => setStatusView(id)}
+                                >
+                                    {t(`dashboard.widgets.${id}`)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="charts-row">
+                            {tabWidgets("status").filter((id) => id === (isVisible(statusView) ? statusView : tabWidgets("status")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                        </div>
+                    </>
+                )}
+                {effectiveTab === "monthly" && (
+                    <>
+                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.monthly")}>
+                            {["perMonth", "byProduct"].filter((id) => isVisible(id)).map((id) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={monthlyView === id}
+                                    className={monthlyView === id ? "mini-tab active" : "mini-tab"}
+                                    onClick={() => setMonthlyView(id)}
+                                >
+                                    {t(`dashboard.widgets.${id}`)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="charts-row">
+                            {tabWidgets("monthly").filter((id) => id === (isVisible(monthlyView) ? monthlyView : tabWidgets("monthly")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                        </div>
+                    </>
+                )}
+
+                {effectiveTab === "activity" && (
+                    <>
+                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.activity")}>
+                            {["expiring", "recent"].map((v) => (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activityView === v}
+                                    className={activityView === v ? "mini-tab active" : "mini-tab"}
+                                    onClick={() => setActivityView(v)}
+                                >
+                                    {v === "expiring" ? t("dashboard.expiringSoon") : t("dashboard.recentLicenses")}
+                                </button>
+                            ))}
+                        </div>
+                        {activityView === "expiring" ? (
+                        <div className="dashboard-section">
+                            <h2>{t("dashboard.expiringSoon")}</h2>
+                            {expiringSoon.length === 0 ? (
+                                <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
+                            ) : (
+                                <div className="table-wrap">
+                                <table>
+                                    <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
+                                    <tbody>
+                                    {expiringSoon.map((lic) => (
+                                        <tr key={lic.id}>
+                                            <td>{lic.product}</td>
+                                            <td className="key-cell">{lic.key}</td>
+                                            <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
+                                            <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
                                 </div>
                             )}
-                            {id === "trend" && <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} />}
-                            {id === "status" && <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />}
-                            {id === "perMonth" && <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />}
-                            {id === "byProduct" && <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />}
-                            {id === "activations" && <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} />}
-                            {id === "webhooks" && <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} />}
                         </div>
-                    );
-                })}
-            </div>
+                        ) : (
+                        <div className="dashboard-section">
+                            <h2>{t("dashboard.recentLicenses")}</h2>
+                            {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
+                                <div className="table-wrap">
+                                <table>
+                                    <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
+                                    <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
+                                </table>
+                                </div>
+                            )}
+                            <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                        </div>
+                        )}
+                    </>
+                )}
 
-            <div className="dashboard-actions">
-                <h2>{t("dashboard.quickActions")}</h2>
-                <div className="action-buttons">
-                    <Link className="action-btn" to="/licenses">{t("dashboard.createLicense")}</Link>
-                    <Link className="action-btn" to="/api-keys">{t("dashboard.createApiKey")}</Link>
-                    <Link className="action-btn" to="/users">{t("dashboard.addUser")}</Link>
-                    <Link className="action-btn" to="/products">{t("nav.products")}</Link>
-                    <Link className="action-btn" to="/docs">{t("nav.apiDocs")}</Link>
-                    <Link className="action-btn" to="/settings">{t("dashboard.settings")}</Link>
-                </div>
-            </div>
+                {effectiveTab === "apikeys" && (
+                    <div className="dashboard-section">
+                        <h2>{t("dashboard.recentApiKeys")}</h2>
+                        {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
+                            <div className="table-wrap">
+                            <table>
+                                <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
+                                <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
+                            </table>
+                            </div>
+                        )}
+                        <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+                    </div>
+                )}
 
-            <div className="dashboard-section">
-                <h2>{t("dashboard.expiringSoon")}</h2>
-                {expiringSoon.length === 0 ? (
-                    <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
-                ) : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
-                        <tbody>
-                        {expiringSoon.map((lic) => (
-                            <tr key={lic.id}>
-                                <td>{lic.product}</td>
-                                <td className="key-cell">{lic.key}</td>
-                                <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
-                                <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
+                {effectiveTab === "users" && (
+                    <div className="dashboard-section">
+                        <h2>{t("dashboard.recentUsers")}</h2>
+                        {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
+                            <div className="table-wrap">
+                            <table>
+                                <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
+                                <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
+                            </table>
+                            </div>
+                        )}
+                        <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
+                    </div>
+                )}
+
+                {effectiveTab === "services" && (
+                    <>
+                    <div className="chart-card service-status-card">
+                        <div className="service-status-header">
+                            <h3>{t("dashboard.serviceStatusTitle")}</h3>
+                            <button type="button" className="btn-ghost" onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
+                                {t("dashboard.serviceRecheck")}
+                            </button>
+                        </div>
+                        {serviceLoading && serviceStatus === null ? (
+                            <SkeletonCard lines={5} />
+                        ) : (
+                            <>
+                                <ul className="service-status-list">
+                                    {(serviceStatus || []).map((s) => (
+                                        <li key={s.key} className="service-status-row">
+                                            <span className="service-status-dot" style={{background: statusDot(s.status)}} />
+                                            <span className="service-status-label">{s.label}</span>
+                                            <span className="service-status-detail">{s.detail || ""}</span>
+                                            <span className="service-status-state">{t(`dashboard.serviceStatus.${s.status}`)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="service-status-meta">
+                                    {serviceCheckedAt
+                                        ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(serviceCheckedAt, lang)} · ${t("dashboard.serviceNextCheck")}: ${countdownText()}`
+                                        : t("dashboard.serviceNeverChecked")}
+                                </p>
+                            </>
+                        )}
+                    </div>
+                    <div className="chart-card sms-balance-card">
+                        {smsBalanceLoading && smsBalance === null ? (
+                            <SkeletonCard lines={1} />
+                        ) : (
+                            <>
+                                <div className="sms-balance-row">
+                                    <h3>{t("dashboard.smsBalanceTitle")}</h3>
+                                    <button type="button" className="btn-ghost sms-balance-recheck" onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
+                                        {t("dashboard.serviceRecheck")}
+                                    </button>
+                                </div>
+                                {smsBalance && smsBalance.available ? (
+                                    <>
+                                        <p className="sms-balance-value">
+                                            {Number(smsBalance.credit).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
+                                            {" "}
+                                            <span className="sms-balance-unit">{t("dashboard.smsBalanceUnit")}</span>
+                                            {smsBalance.demo ? <span className="demo-badge">demo</span> : null}
+                                        </p>
+                                        <p className="sms-balance-meta">
+                                            {smsBalance.checked_at
+                                                ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(smsBalance.checked_at, lang)}`
+                                                : t("dashboard.serviceNeverChecked")}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="sms-balance-empty">
+                                        {t(smsBalance && smsBalance.error === "not_configured"
+                                            ? "dashboard.smsBalanceNotConfigured"
+                                            : "dashboard.smsBalanceUnavailable")}
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    </>
+                )}
+
+                {effectiveTab === "sending" && (
+                    <div className="sending-tab">
+                        <div className="chart-channel-row" role="group" aria-label={t("dashboard.sendingChannel")}>
+                            {["total", "email", "sms", "telegram"].map((ch) => (
+                                <button
+                                    key={ch}
+                                    type="button"
+                                    className={sendingChannel === ch ? "chart-range-btn active" : "chart-range-btn"}
+                                    aria-pressed={sendingChannel === ch}
+                                    onClick={() => setSendingChannel(ch)}
+                                >
+                                    {t(`dashboard.sendingChannel.${ch}`)}
+                                </button>
+                            ))}
+                        </div>
+                        {sendingLoading && !sendingStats ? (
+                            <SkeletonCard lines={4} />
+                        ) : (
+                            <>
+                                <SendingChart
+                                    series={(sendingStats && sendingStats[sendingChannel]) || []}
+                                    title={`${t(`dashboard.sendingChannel.${sendingChannel}`)} · ${layout.ranges.sending} ${t("common.days")}`}
+                                    t={t}
+                                />
+                                <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
+                                    <span className="chart-range-label">{t("dashboard.range")}</span>
+                                    {RANGE_OPTIONS.map((d) => (
+                                        <button
+                                            key={d}
+                                            type="button"
+                                            className={layout.ranges.sending === d ? "chart-range-btn active" : "chart-range-btn"}
+                                            aria-pressed={layout.ranges.sending === d}
+                                            onClick={() => setLayout((prev) => ({...prev, ranges: {...prev.ranges, sending: d}}))}
+                                        >
+                                            {d} {t("common.days")}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
 
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentLicenses")}</h2>
-                {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
-                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
-            </div>
-
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentApiKeys")}</h2>
-                {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
-                        <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
-            </div>
-
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentUsers")}</h2>
-                {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
-                        <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
-            </div>
+            {/* Widget visibility popup (v3.0): every dashboard widget with
+                a quick on/off toggle; takes effect immediately and persists
+                with the widget preferences. */}
+            <Modal open={gearOpen} onClose={() => setGearOpen(false)} title={t("dashboard.widgetVisibility")}>
+                <ul className="widget-visibility-list">
+                    {WIDGET_IDS.map((id) => (
+                        <li key={id} className="widget-visibility-row">
+                            <span>{t(`dashboard.widgets.${id}`)}</span>
+                            <button
+                                type="button"
+                                className={isVisible(id) ? "widget-switch on" : "widget-switch"}
+                                role="switch"
+                                aria-checked={isVisible(id)}
+                                aria-label={t(`dashboard.widgets.${id}`)}
+                                onClick={() => setLayout((prev) => ({
+                                    ...prev,
+                                    hidden: {...prev.hidden, [id]: !prev.hidden[id] ? true : false},
+                                }))}
+                            >
+                                <span className="widget-knob" />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                <p className="modal-hint">{t("dashboard.widgetVisibilityHint")}</p>
+            </Modal>
         </div>
     );
 }

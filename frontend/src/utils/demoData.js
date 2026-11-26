@@ -11,8 +11,13 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v13";
-const APP_VERSION = "2.3.4";
+const STORAGE_KEY = "lmp-demo-db-v14";
+const APP_VERSION = "3.0.0";
+// Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
+// code is 123456 — the Profile page says so. Module scope so the login
+// handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
+const DEMO_2FA_SECRET = "DEMO2FASECRET";
+const DEMO_2FA_CODE = "123456";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
 // One module per platform (v2.3): the Downloads page links DIRECTLY to
 // the GitHub release asset, so the module version always matches the
@@ -111,23 +116,23 @@ function seed() {
         {id: 2, name: "Business Apps", slug: "business-apps", description: "CRM, helpdesk and office tools.", color: "#C1165E", sort_order: 1, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
     ];
     const products = [
-        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, security_overrides: null, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
-        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, security_overrides: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
-        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, security_overrides: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
+        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, security_overrides: null, notes: "Flagship product — priority support.", created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
+        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, security_overrides: null, notes: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
+        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, security_overrides: null, notes: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
     ];
     const lic = (id, productId, product, owner, status, expires, created, extra) => ({
         id, key: randomLicenseKey(products.find((p) => p.id === productId)), product, product_id: productId,
         billing_cycle: productId === 1 ? "annual" : productId === 2 ? "monthly" : "annual",
         owner_email: owner, status, expires_at: expires, max_activations: 5, activations: 1,
-        allowed_domains: [], allowed_ips: [], install_path: null, reissue_count: 0,
+        allowed_domains: [], allowed_ips: [], install_path: null, reissue_count: 0, notes: null,
         created_at: created, updated_at: created, ...(extra || {}),
     });
     return {
         users: [
-            {id: 1, email: "demo@demo.com", role: "admin", role_id: 1, display_name: "Demo Admin", avatar_url: null, totp_enabled: false, last_login_at: now, is_active: true, created_at: isoDaysAgo(30)},
-            {id: 2, email: "manager@demo.com", role: "manager", role_id: 2, display_name: "Demo Manager", avatar_url: null, totp_enabled: false, last_login_at: isoDaysAgo(1), is_active: true, created_at: isoDaysAgo(12)},
-            {id: 3, email: "support@demo.com", role: "support", role_id: 3, display_name: "Demo Support", avatar_url: null, totp_enabled: false, last_login_at: isoDaysAgo(2), is_active: true, created_at: isoDaysAgo(5)},
-            {id: 4, email: "viewer@demo.com", role: "viewer", role_id: 4, display_name: "Demo Viewer", avatar_url: null, totp_enabled: false, last_login_at: null, is_active: true, created_at: isoDaysAgo(3)},
+            {id: 1, email: "demo@demo.com", role: "admin", role_id: 1, display_name: "Demo Admin", avatar_url: null, phone: "+989000000000", totp_enabled: false, last_login_at: now, is_active: true, created_at: isoDaysAgo(30)},
+            {id: 2, email: "manager@demo.com", role: "manager", role_id: 2, display_name: "Demo Manager", avatar_url: null, phone: null, totp_enabled: false, last_login_at: isoDaysAgo(1), is_active: true, created_at: isoDaysAgo(12)},
+            {id: 3, email: "support@demo.com", role: "support", role_id: 3, display_name: "Demo Support", avatar_url: null, phone: null, totp_enabled: false, last_login_at: isoDaysAgo(2), is_active: true, created_at: isoDaysAgo(5)},
+            {id: 4, email: "viewer@demo.com", role: "viewer", role_id: 4, display_name: "Demo Viewer", avatar_url: null, phone: null, totp_enabled: false, last_login_at: null, is_active: true, created_at: isoDaysAgo(3)},
         ],
         currentUserId: 1,
         // Built-in roles (v2.3): same permission sets as the backend seed.
@@ -143,7 +148,7 @@ function seed() {
         licenseSecurity: {strictness: "strict", enforce_domain_lock: true, enforce_ip_lock: true, enforce_install_path_lock: true, enforce_activation_limit: true, missing_lock_behavior: "deny"},
         products,
         licenses: [
-            lic(1, 1, "CloudPanel Pro", "acme@example.com", "active", isoDaysFromNow(200), isoDaysAgo(30), {billing_cycle: "annual", allowed_domains: ["acme.example.com"], activations: 3, max_activations: 10}),
+            lic(1, 1, "CloudPanel Pro", "acme@example.com", "active", isoDaysFromNow(200), isoDaysAgo(30), {billing_cycle: "annual", allowed_domains: ["acme.example.com"], activations: 3, max_activations: 10, notes: "Enterprise customer — renew early."}),
             lic(2, 1, "CloudPanel Pro", "studio@example.com", "active", isoDaysFromNow(30), isoDaysAgo(20), {billing_cycle: "quarterly", allowed_domains: ["studio.example.com"], allowed_ips: ["203.0.113.10"]}),
             lic(3, 2, "CRM Suite", "acme@example.com", "inactive", isoDaysAgo(10), isoDaysAgo(45), {billing_cycle: "monthly"}),
             lic(4, 3, "HelpDesk", "billing@example.com", "active", isoDaysFromNow(365), now, {billing_cycle: "annual", install_path: "/var/www/html"}),
@@ -190,6 +195,21 @@ function seed() {
             daily_request_limit: "100",
             site_name: "License Manager Pro",
             logo_url: "./logo.svg",
+            // v3.0: panel domain ("" = request host), maintenance off.
+            panel_domain: "",
+            maintenance_mode: "off",
+            maintenance_message: "",
+            // v3.0: date calendar, 4-byte strip, 2FA channel, encoding, notes.
+            date_calendar: "gregorian",
+            strip_4byte: "on",
+            twofa_channel: "totp",
+            system_encoding: "utf-8",
+            product_notes_enabled: "on",
+            // v3.0: JSON configs (mirrors the backend settings).
+            sms_config: JSON.stringify({active_provider: "", providers: {ippanel: {}, kavenegar: {}, faraz: {}}}),
+            email_config: JSON.stringify({}),
+            telegram_config: JSON.stringify({bot_token: "", chat_ids: []}),
+            notification_channels: JSON.stringify({}),
         },
         product_groups: productGroups,
         notifications: [
@@ -207,13 +227,26 @@ function seed() {
             {id: 3, actor_email: "demo@demo.com", action: "user.create", entity: "user", entity_id: 4, details: {email: "viewer@demo.com", role: "viewer"}, created_at: isoDaysAgo(3)},
             {id: 4, actor_email: "support@demo.com", action: "license.renew", entity: "license", entity_id: 7, details: {billing_cycle: "monthly"}, created_at: isoDaysAgo(2)},
             {id: 5, actor_email: "demo@demo.com", action: "api_key.create", entity: "api_key", entity_id: 3, details: {access_rights: ["get_license_info"]}, created_at: isoDaysAgo(5)},
+            // v3.0: per-channel send logs (demo seed for the Logs channel
+            // filters + the dashboard sending charts).
+            {id: 6, actor_email: "system", action: "notify.email_sent", entity: "notification", entity_id: null, details: {event: "license_created", channel: "email", to: "acme@example.com"}, created_at: isoDaysAgo(0)},
+            {id: 7, actor_email: "system", action: "notify.email_sent", entity: "notification", entity_id: null, details: {event: "license_created", channel: "email", to: "studio@example.com"}, created_at: isoDaysAgo(0)},
+            {id: 8, actor_email: "system", action: "notify.email_failed", entity: "notification", entity_id: null, details: {event: "license_expiring", channel: "email", to: "sales@example.com"}, created_at: isoDaysAgo(0)},
+            {id: 9, actor_email: "system", action: "notify.sms_sent", entity: "notification", entity_id: null, details: {event: "license_expiring", channel: "sms", to: "+989000000000"}, created_at: isoDaysAgo(1)},
+            {id: 10, actor_email: "system", action: "notify.telegram_sent", entity: "notification", entity_id: null, details: {event: "license_created", channel: "telegram", to: ""}, created_at: isoDaysAgo(1)},
+            {id: 11, actor_email: "system", action: "twofa.email_sent", entity: "notification", entity_id: null, details: {event: "twofa_code", channel: "email", to: "demo@demo.com"}, created_at: isoDaysAgo(2)},
+            {id: 12, actor_email: "system", action: "notify.email_sent", entity: "notification", entity_id: null, details: {event: "license_expiring", channel: "email", to: "help@example.com"}, created_at: isoDaysAgo(3)},
+            {id: 13, actor_email: "system", action: "notify.sms_failed", entity: "notification", entity_id: null, details: {event: "license_expired", channel: "sms", to: "+989000000000"}, created_at: isoDaysAgo(5)},
+            {id: 14, actor_email: "system", action: "notify.telegram_sent", entity: "notification", entity_id: null, details: {event: "webhook_failed", channel: "telegram", to: ""}, created_at: isoDaysAgo(7)},
+            {id: 15, actor_email: "system", action: "notify.email_sent", entity: "notification", entity_id: null, details: {event: "license_renewed", channel: "email", to: "ops@example.com"}, created_at: isoDaysAgo(9)},
+            {id: 16, actor_email: "system", action: "service_status.check_failed", entity: "service", entity_id: "email", details: {event: "service_status_check", channel: "system", service: "email", status: "unreachable", detail: "Connection timed out"}, created_at: isoDaysAgo(4)},
         ],
         nextLicenseId: 9,
         nextApiKeyId: 4,
         nextUserId: 5,
         nextProductId: 4,
         nextDeliveryId: 3,
-        nextAuditLogId: 6,
+        nextAuditLogId: 17,
         nextGroupId: 3,
         nextNotificationId: 4,
         nextBlacklistId: 1,
@@ -322,6 +355,256 @@ function requireRole(allowed) {
     }
 }
 
+// ---- CAPTCHA (v3.0, mirrors backend/services/captcha.py) -----------------
+// In-memory single-use challenges; the demo has no Google, so reCAPTCHA
+// verification always fails closed here (the login page shows the
+// graceful "could not load" state with placeholder keys).
+const CAPTCHA_TYPES = ["off", "custom", "recaptcha-v2", "recaptcha-v3"];
+const CAPTCHA_MODELS = ["math", "text", "reverse"];
+const _captchaChallenges = new Map();
+const _TEXT_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function captchaConfig() {
+    let cfg = {type: "off", model: "math", site_key: "", secret_key: "", v3_threshold: 0.5};
+    try {
+        const stored = JSON.parse(db.settings.captcha_config || "null");
+        if (stored && typeof stored === "object") cfg = {...cfg, ...stored};
+    } catch (e) {}
+    if (!CAPTCHA_TYPES.includes(cfg.type)) cfg.type = "off";
+    if (!CAPTCHA_MODELS.includes(cfg.model)) cfg.model = "math";
+    return cfg;
+}
+
+function publicCaptchaConfig() {
+    const cfg = captchaConfig();
+    return {
+        type: cfg.type,
+        model: cfg.model,
+        site_key: (cfg.type === "recaptcha-v2" || cfg.type === "recaptcha-v3") ? cfg.site_key : "",
+        v3_threshold: cfg.v3_threshold,
+        secret_configured: !!cfg.secret_key,
+    };
+}
+
+function generateCaptchaChallenge(model) {
+    if (!CAPTCHA_MODELS.includes(model)) model = "math";
+    const id = `ch_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    let display, answer, prompt;
+    if (model === "math") {
+        const a = 2 + Math.floor(Math.random() * 18);
+        const b = 2 + Math.floor(Math.random() * 18);
+        if (Math.random() < 0.5) { display = `${a} + ${b} = ?`; answer = String(a + b); }
+        else { display = `${a + b} - ${a} = ?`; answer = String(b); }
+        prompt = "Solve the calculation";
+    } else if (model === "text") {
+        const code = Array.from({length: 5}, () => _TEXT_ALPHABET[Math.floor(Math.random() * _TEXT_ALPHABET.length)]).join("");
+        display = code.split("").join(" ");
+        answer = code;
+        prompt = "Type the characters shown";
+    } else {
+        const digits = Array.from({length: 4}, () => String(Math.floor(Math.random() * 10))).join("");
+        display = digits;
+        answer = digits.split("").reverse().join("");
+        prompt = "Type these digits in reverse order";
+    }
+    _captchaChallenges.set(id, {answer, expires: Date.now() + 300000});
+    return {challenge_id: id, model, prompt, display};
+}
+
+function verifyCaptchaChallenge(id, answer) {
+    if (!id || answer == null) return false;
+    const stored = _captchaChallenges.get(id);
+    _captchaChallenges.delete(id);
+    if (!stored || Date.now() > stored.expires) return false;
+    const norm = (s) => String(s).replace(/\s+/g, "").toLowerCase();
+    return norm(answer) === norm(stored.answer);
+}
+
+function verifyLoginCaptcha(body) {
+    const cfg = captchaConfig();
+    if (cfg.type === "off") return true;
+    if (cfg.type === "custom") {
+        return verifyCaptchaChallenge(body && body.captcha_challenge_id, body && body.captcha_answer);
+    }
+    // reCAPTCHA in the demo: no Google to verify against — fail closed.
+    return false;
+}
+
+function isValidHostname(value) {
+    if (!value || value.length > 253) return false;
+    if (value.includes("://") || value.includes("/") || value.includes(":") || value.includes("_")) return false;
+    const label = "[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?";
+    return new RegExp(`^${label}(?:\\.${label})*$`).test(value);
+}
+
+// Settings the demo mock accepts through PUT /settings/{key} (mirrors the
+// backend allowlist); system-managed keys are rejected, unknown keys 404.
+const EDITABLE_SETTINGS = ["site_name", "logo_url", "daily_request_limit", "panel_domain", "maintenance_mode", "maintenance_message", "date_calendar", "strip_4byte", "twofa_channel", "system_encoding", "product_notes_enabled"];
+const SYSTEM_MANAGED_SETTINGS = ["app_version", "latest_version", "last_updated", "license_security", "captcha_config", "sms_config", "email_config", "telegram_config", "notification_channels"];
+
+function validateSettingValue(key, value) {
+    if (key === "panel_domain") {
+        if (value && !isValidHostname(value)) fail(400, "panel_domain must be a valid hostname, e.g. panel.example.com");
+    } else if (key === "daily_request_limit") {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < 1 || n > 1000000) fail(400, "daily_request_limit must be between 1 and 1000000");
+    } else if (key === "maintenance_mode") {
+        if (value !== "on" && value !== "off") fail(400, "maintenance_mode must be 'on' or 'off'");
+    } else if (key === "maintenance_message") {
+        if (String(value).length > 500) fail(400, "maintenance_message must be at most 500 characters");
+    } else if (key === "site_name") {
+        if (!String(value).trim() || String(value).length > 100) fail(400, "site_name must be 1-100 characters");
+    } else if (key === "logo_url") {
+        if (String(value).length > 500) fail(400, "logo_url must be at most 500 characters");
+    } else if (key === "date_calendar") {
+        if (!["gregorian", "jalali", "hijri"].includes(value)) fail(400, "date_calendar must be gregorian, jalali or hijri");
+    } else if (key === "strip_4byte" || key === "product_notes_enabled") {
+        if (value !== "on" && value !== "off") fail(400, `${key} must be 'on' or 'off'`);
+    } else if (key === "twofa_channel") {
+        if (!["totp", "email", "sms"].includes(value)) fail(400, "twofa_channel must be totp, email or sms");
+    } else if (key === "system_encoding") {
+        if (!["utf-8", "windows-1256", "iso-8859-1"].includes(String(value).toLowerCase())) fail(400, "system_encoding must be utf-8, windows-1256 or iso-8859-1");
+    }
+}
+
+// ---- 4-byte strip (v3.0, mirrors backend/services/strip4.py) -------------
+function strip4byteText(text) {
+    // Remove characters outside the Basic Multilingual Plane (emoji, etc.).
+    return String(text).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+}
+
+function strip4byteDeep(value) {
+    if (typeof value === "string") return strip4byteText(value);
+    if (Array.isArray(value)) return value.map(strip4byteDeep);
+    if (value && typeof value === "object") {
+        const out = {};
+        for (const [k, v] of Object.entries(value)) out[k] = strip4byteDeep(v);
+        return out;
+    }
+    return value;
+}
+
+// ---- SMS / Email / Telegram configs (v3.0, mirrors the backend) ---------
+const SMS_PROVIDERS = ["ippanel", "kavenegar", "faraz"];
+const SMS_PROVIDER_FIELDS = {ippanel: ["api_key", "sender"], kavenegar: ["api_key", "sender"], faraz: ["username", "password", "sender"]};
+
+function smsConfig() {
+    try {
+        const cfg = JSON.parse(db.settings.sms_config || "{}");
+        return {active_provider: cfg.active_provider || "", providers: {ippanel: {}, kavenegar: {}, faraz: {}, ...(cfg.providers || {})}};
+    } catch {
+        return {active_provider: "", providers: {ippanel: {}, kavenegar: {}, faraz: {}}};
+    }
+}
+
+function publicSmsConfig() {
+    const cfg = smsConfig();
+    const providers = {};
+    for (const name of SMS_PROVIDERS) {
+        const fields = cfg.providers[name] || {};
+        providers[name] = {
+            configured: SMS_PROVIDER_FIELDS[name].some((f) => f !== "sender" && (fields[f] || "").trim()),
+            sender: fields.sender || "",
+        };
+    }
+    return {active_provider: cfg.active_provider, providers};
+}
+
+function emailConfig() {
+    try {
+        return JSON.parse(db.settings.email_config || "{}");
+    } catch {
+        return {};
+    }
+}
+
+function publicEmailConfig() {
+    const cfg = emailConfig();
+    return {
+        smtp_host: cfg.smtp_host || "",
+        smtp_port: cfg.smtp_port || 587,
+        encryption: cfg.encryption || "tls",
+        username: cfg.username || "",
+        password_configured: Boolean(cfg.password),
+        from_address: cfg.from_address || "",
+        from_name: cfg.from_name || "",
+        templates: emailTemplates(),
+        signature: emailSignature(),
+    };
+}
+
+const DEFAULT_TEMPLATES = {
+    twofa_code: {subject: "Your verification code", body: "Hello,\n\nYour verification code is: {{code}}\n\nThis code expires in 5 minutes. If you did not request it, ignore this email.\n"},
+    license_created: {subject: "Your license for {{product_name}} is ready", body: "Hello,\n\nYour license has been created.\n\nLicense key: {{license_key}}\nProduct: {{product_name}}\nExpires: {{expiry_date}}\n"},
+    license_renewed: {subject: "Your license for {{product_name}} was renewed", body: "Hello,\n\nYour license has been renewed.\n\nLicense key: {{license_key}}\nProduct: {{product_name}}\nExpires: {{expiry_date}}\n"},
+    license_expiring: {subject: "Your license for {{product_name}} expires soon", body: "Hello,\n\nYour license expires in {{days_left}} day(s).\n\nLicense key: {{license_key}}\nProduct: {{product_name}}\nExpires: {{expiry_date}}\n\nPlease renew it before it expires.\n"},
+    license_expired: {subject: "Your license for {{product_name}} has expired", body: "Hello,\n\nYour license has expired.\n\nLicense key: {{license_key}}\nProduct: {{product_name}}\nExpired: {{expiry_date}}\n"},
+    user_created: {subject: "Your account on {{site_name}}", body: "Hello,\n\nAn account was created for you on {{site_name}}.\n\nEmail: {{user_email}}\nRole: {{role}}\n"},
+};
+
+function emailTemplates() {
+    const stored = (emailConfig().templates) || {};
+    const merged = {};
+    for (const [name, tpl] of Object.entries(DEFAULT_TEMPLATES)) {
+        merged[name] = {...tpl, ...(stored[name] || {})};
+    }
+    return merged;
+}
+
+function emailSignature() {
+    const cfg = emailConfig();
+    return cfg.signature !== undefined ? cfg.signature : "--\nLicense Manager Pro";
+}
+
+function telegramConfig() {
+    try {
+        const cfg = JSON.parse(db.settings.telegram_config || "{}");
+        return {bot_token: cfg.bot_token || "", chat_ids: cfg.chat_ids || []};
+    } catch {
+        return {bot_token: "", chat_ids: []};
+    }
+}
+
+function publicTelegramConfig() {
+    const cfg = telegramConfig();
+    return {token_configured: Boolean(cfg.bot_token), chat_ids: [...cfg.chat_ids]};
+}
+
+// ---- Notification channels (v3.0) ----------------------------------------
+const NOTIFY_EVENTS = ["license_created", "license_reissued", "license_expiring", "license_expired", "webhook_failed", "webhook_blocked", "user_created", "api_key_expiring"];
+const NOTIFY_CHANNELS = ["email", "sms", "telegram"];
+
+function notificationChannels() {
+    let stored = {};
+    try {
+        stored = JSON.parse(db.settings.notification_channels || "{}");
+    } catch {
+        stored = {};
+    }
+    const merged = {};
+    for (const event of NOTIFY_EVENTS) {
+        merged[event] = {email: true, sms: false, telegram: false, ...(stored[event] || {})};
+    }
+    return merged;
+}
+
+// Per-channel log (v3.0): records a send outcome in the audit trail so
+// the Logs page filters + sending charts see it. Demo only: no real send.
+function logChannelSend(channel, event, ok, to) {
+    logAudit(`notify.${channel}_${ok ? "sent" : "failed"}`, "notification", null, {event, channel, to: to || ""}, "system");
+}
+
+// Demo "send": simulates an outbound send per the channel matrix and
+// logs it. In the demo nothing leaves the browser.
+function notifyEvent(event, title, message, type, link, context) {
+    notify(title, message, type, link, null);
+    const channels = notificationChannels();
+    if (!channels[event]) return;
+    if (channels[event].email) logChannelSend("email", event, true, "admin@demo");
+    if (channels[event].sms) logChannelSend("sms", event, true, "+989000000000");
+    if (channels[event].telegram) logChannelSend("telegram", event, true, "");
+}
+
 function effectiveStatus(license) {
     if (license.expires_at && new Date(license.expires_at) < new Date()) {
         return "expired";
@@ -349,13 +632,13 @@ function recordDelivery(productId, event, url) {
 
 // Audit log: newest first. Appended on every mock mutation (license /
 // product / user / api-key create/update/delete, settings changes).
-function logAudit(action, entity, entityId, details) {
+function logAudit(action, entity, entityId, details, actorOverride) {
     if (!Array.isArray(db.audit_logs)) db.audit_logs = [];
     if (!db.nextAuditLogId) db.nextAuditLogId = db.audit_logs.length + 1;
     const user = currentUser();
     db.audit_logs.unshift({
         id: db.nextAuditLogId++,
-        actor_email: user ? user.email : "system",
+        actor_email: actorOverride || (user ? user.email : "system"),
         action,
         entity,
         entity_id: entityId,
@@ -423,16 +706,63 @@ export async function mockRequest(method, endpoint, body) {
     const [path, queryString] = endpoint.split("?");
     const query = new URLSearchParams(queryString || "");
     const parts = path.split("/").filter(Boolean);
+    // v3.0.0 demo fix: callers use the real-API "/api/..." paths (e.g.
+    // Settings.js config endpoints); the mock dispatches on the bare path,
+    // so strip a leading "api" segment. No route legitimately starts with
+    // "api" as a resource name.
+    if (parts[0] === "api") parts.shift();
+
+    // v3.0: auto-strip 4-byte characters (mirrors the backend middleware):
+    // when the strip_4byte setting is on, every JSON body is stripped of
+    // emoji etc. before any handler sees it.
+    if (body && typeof body === "object" && db.settings.strip_4byte !== "off") {
+        body = strip4byteDeep(body);
+    }
 
     // ---- Auth -------------------------------------------------------------
     if (method === "POST" && path === "/auth/login") {
+        // v3.0 CAPTCHA: verified before the password is checked (when on).
+        if (!verifyLoginCaptcha(body)) fail(400, "Captcha verification failed");
         const match = db.users.find((u) => u.email === (body && body.email));
         db.currentUserId = match ? match.id : 1;
+        // v3.0: 2FA channel — totp returns the usual temp token; email/sms
+        // "send" a code (demo: the code IS the demo 2FA code, returned as
+        // demo_code so the login page can show it — demo only, never in
+        // production).
+        if (match && match.totp_enabled) {
+            const channel = db.settings.twofa_channel || "totp";
+            if (channel === "email" || channel === "sms") {
+                logAudit(`twofa.${channel}_sent`, "notification", null, {event: "twofa_code", channel, to: channel === "email" ? match.email : (match.phone || "")}, "system");
+                save();
+                return {access_token: "", token_type: "bearer", requires_2fa: true, temp_token: "demo-temp-token", twofa_channel: channel, demo_code: DEMO_2FA_CODE};
+            }
+            save();
+            return {access_token: "", token_type: "bearer", requires_2fa: true, temp_token: "demo-temp-token", twofa_channel: "totp"};
+        }
         save();
         return {access_token: "demo-token", token_type: "bearer"};
     }
     if (method === "GET" && path === "/users/me") {
         return {...currentUser()};
+    }
+
+    // ---- CAPTCHA (v3.0, public) -------------------------------------------
+    if (method === "GET" && path === "/captcha/config") {
+        return publicCaptchaConfig();
+    }
+    if (method === "POST" && path === "/captcha/challenge") {
+        return generateCaptchaChallenge(captchaConfig().model);
+    }
+
+    // ---- Maintenance mode (v3.0) ------------------------------------------
+    // When on, every API call except the login flow, captcha and the
+    // public maintenance status is 503 for non-admins (admin bypass).
+    if (db.settings.maintenance_mode === "on") {
+        const exempt = path.startsWith("/auth/") || path.startsWith("/captcha/")
+            || path === "/system/maintenance" || path === "/system/ready";
+        if (!exempt && currentUser().role !== "admin") {
+            fail(503, db.settings.maintenance_message || "Maintenance");
+        }
     }
 
     // ---- Dashboard ----------------------------------------------------------
@@ -512,6 +842,10 @@ export async function mockRequest(method, endpoint, body) {
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin", "manager"]);
             if (!body || !body.name) fail(400, "Product name is required");
+            // v3.0: notes are rejected while the notes feature is disabled.
+            if (body.notes && db.settings.product_notes_enabled === "off") {
+                fail(400, "Product & license notes are disabled in Settings → General");
+            }
             const cycles = (body.billing_cycles || []).filter((c) => BILLING_CYCLES.includes(c));
             const created = {
                 id: db.nextProductId++,
@@ -528,6 +862,7 @@ export async function mockRequest(method, endpoint, body) {
                 key_segments: Number(body.key_segments) || 4,
                 key_segment_length: Number(body.key_segment_length) || 4,
                 max_reissues: Number(body.max_reissues) || 0,
+                notes: body.notes || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
@@ -554,6 +889,9 @@ export async function mockRequest(method, endpoint, body) {
             }
             if (method === "PUT") {
                 requireRole(["admin", "manager"]);
+                if (body && body.notes && db.settings.product_notes_enabled === "off") {
+                    fail(400, "Product & license notes are disabled in Settings → General");
+                }
                 Object.assign(product, body || {}, {updated_at: new Date().toISOString()});
                 if (body && body.billing_cycles) {
                     product.billing_cycles = body.billing_cycles.filter((c) => BILLING_CYCLES.includes(c));
@@ -758,6 +1096,10 @@ export async function mockRequest(method, endpoint, body) {
         }
         if (method === "POST" && parts.length === 1) {
             requireRole(["admin", "manager", "support"]);
+            // v3.0: notes are rejected while the notes feature is disabled.
+            if (body && body.notes && db.settings.product_notes_enabled === "off") {
+                fail(400, "Product & license notes are disabled in Settings → General");
+            }
             const productId = body && body.product_id ? Number(body.product_id) : null;
             let product = null;
             let expiresAt = null;
@@ -796,12 +1138,13 @@ export async function mockRequest(method, endpoint, body) {
                 allowed_ips: splitList(body && body.allowed_ips),
                 install_path: (body && body.install_path) || null,
                 reissue_count: 0,
+                notes: (body && body.notes) || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
             db.licenses.unshift(created);
             logAudit("license.create", "license", created.id, {product: created.product, owner_email: created.owner_email});
-            notify("License created", `License ${created.key} (${created.product}) was created.`, "success", "/licenses");
+            notifyEvent("license_created", "License created", `License ${created.key} (${created.product}) was created.`, "success", "/licenses");
             if (product && product.webhook_url) recordDelivery(product.id, "license.created", product.webhook_url);
             save();
             return {...created};
@@ -813,6 +1156,9 @@ export async function mockRequest(method, endpoint, body) {
             if (method === "GET") return withEffectiveStatus(license);
             if (method === "PUT") {
                 requireRole(["admin", "manager", "support"]);
+                if (body && body.notes && db.settings.product_notes_enabled === "off") {
+                    fail(400, "Product & license notes are disabled in Settings → General");
+                }
                 const updates = {...(body || {})};
                 if (updates.allowed_domains !== undefined) updates.allowed_domains = splitList(updates.allowed_domains);
                 if (updates.allowed_ips !== undefined) updates.allowed_ips = splitList(updates.allowed_ips);
@@ -892,7 +1238,7 @@ export async function mockRequest(method, endpoint, body) {
             license.reissue_count = (license.reissue_count || 0) + 1;
             license.updated_at = new Date().toISOString();
             logAudit("license.reissue", "license", id, {product: license.product});
-            notify("License reissued", `License ${license.key} (${license.product}) was reissued.`, "info", "/licenses");
+            notifyEvent("license_reissued", "License reissued", `License ${license.key} (${license.product}) was reissued.`, "info", "/licenses");
             save();
             return withEffectiveStatus(license);
         }
@@ -1064,6 +1410,8 @@ export async function mockRequest(method, endpoint, body) {
         if (method === "PUT" && parts.length === 2 && parts[1] === "me") {
             const me = currentUser();
             if (body && body.display_name !== undefined) me.display_name = body.display_name || null;
+            // v3.0: phone number for SMS 2FA codes / SMS notifications.
+            if (body && body.phone !== undefined) me.phone = (body.phone || "").trim() || null;
             if (body && body.avatar_url !== undefined) {
                 const url = body.avatar_url || "";
                 if (url) {
@@ -1085,6 +1433,21 @@ export async function mockRequest(method, endpoint, body) {
                 return {preferences: db.preferences[me.id] || {}};
             }
             if (method === "PUT") {
+                // v3.0 per-admin themes: same validation as the backend —
+                // unknown preset/mode or a non-hex custom colour is a 400.
+                if (body.key === "theme") {
+                    const v = body.value || {};
+                    const presets = ["default", "ocean", "forest", "sunset", "graphite", "rose", "teal", "amber", "lime", "ruby", "custom"];
+                    if (v.preset !== undefined && !presets.includes(v.preset)) fail(400, `unknown theme preset: ${v.preset}`);
+                    if (v.mode !== undefined && !["light", "dark", "auto"].includes(v.mode)) fail(400, `unknown theme mode: ${v.mode}`);
+                    if (v.custom !== undefined) {
+                        if (!v.custom || typeof v.custom !== "object") fail(400, "theme.custom must be an object");
+                        for (const [k, c] of Object.entries(v.custom)) {
+                            if (!["accent", "accent2", "bg", "surface"].includes(k)) fail(400, `unknown theme.custom field: ${k}`);
+                            if (typeof c !== "string" || !/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c)) fail(400, `theme.custom.${k} must be a hex colour`);
+                        }
+                    }
+                }
                 const prefs = db.preferences[me.id] || (db.preferences[me.id] = {});
                 prefs[body.key] = body.value;
                 save();
@@ -1110,6 +1473,7 @@ export async function mockRequest(method, endpoint, body) {
                 role_id: roleRow ? roleRow.id : null,
                 display_name: body.display_name || null,
                 avatar_url: null,
+                phone: body.phone || null,
                 totp_enabled: false,
                 last_login_at: null,
                 is_active: true,
@@ -1117,7 +1481,7 @@ export async function mockRequest(method, endpoint, body) {
             };
             db.users.push(created);
             logAudit("user.create", "user", created.id, {email: created.email, role: created.role});
-            notify("User created", `User ${created.email} (${created.role}) was created.`, "info", "/users");
+            notifyEvent("user_created", "User created", `User ${created.email} (${created.role}) was created.`, "info", "/users");
             save();
             return {...created};
         }
@@ -1223,7 +1587,7 @@ export async function mockRequest(method, endpoint, body) {
             // a bare array, response_model=list[str]): the Roles page reads
             // it with Array.isArray, and a wrapped {permissions: [...]}
             // object silently produced an empty checklist (v2.3.1 defect).
-            return ["api_keys:create", "api_keys:write", "audit:read", "downloads:read", "languages:write", "licenses:create", "licenses:delete", "licenses:renew", "licenses:write", "products:write", "roles:write", "settings:write", "system:check-expiring", "users:write"];
+            return ["api_keys:create", "api_keys:write", "audit:delete", "audit:read", "downloads:read", "languages:write", "licenses:create", "licenses:delete", "licenses:renew", "licenses:write", "products:write", "roles:write", "settings:write", "system:check-expiring", "users:write"];
         }
         if (method === "GET" && parts.length === 1) {
             requireRole(["admin"]);
@@ -1277,10 +1641,6 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- Two-factor auth, demo mode (v2.3) ----------------------------------
-    // Honest demo copy: the demo secret is DEMO2FASECRET and the only
-    // accepted code is 123456 — the Profile page says so.
-    const DEMO_2FA_SECRET = "DEMO2FASECRET";
-    const DEMO_2FA_CODE = "123456";
     if (parts[0] === "auth" && parts[1] === "2fa") {
         const me = currentUser();
         if (method === "GET" && parts[2] === "status") {
@@ -1341,31 +1701,193 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- Settings -----------------------------------------------------------
-    if (parts[0] === "settings") {
+    // v3.0: predefined settings only — PUT rejects unknown keys (404) and
+    // system-managed keys (400); there is no DELETE endpoint any more.
+    if (parts[0] === "settings" && parts[1] === "captcha-config") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            return publicCaptchaConfig();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            const patch = body || {};
+            if (patch.type != null && !CAPTCHA_TYPES.includes(patch.type)) fail(400, "captcha type must be off, custom, recaptcha-v2 or recaptcha-v3");
+            if (patch.model != null && !CAPTCHA_MODELS.includes(patch.model)) fail(400, "captcha model must be math, text or reverse");
+            if (patch.v3_threshold != null && (Number.isNaN(Number(patch.v3_threshold)) || Number(patch.v3_threshold) < 0 || Number(patch.v3_threshold) > 1)) fail(400, "v3_threshold must be a number between 0 and 1");
+            const cfg = captchaConfig();
+            if (patch.type != null) cfg.type = patch.type;
+            if (patch.model != null) cfg.model = patch.model;
+            if (patch.site_key != null) cfg.site_key = String(patch.site_key).slice(0, 200);
+            if (patch.secret_key != null) {
+                if (patch.secret_key === "__CLEAR__") cfg.secret_key = "";
+                else if (patch.secret_key !== "") cfg.secret_key = String(patch.secret_key).slice(0, 500);
+            }
+            if (patch.v3_threshold != null) cfg.v3_threshold = Math.min(1, Math.max(0, Number(patch.v3_threshold)));
+            db.settings.captcha_config = JSON.stringify(cfg);
+            logAudit("setting.update", "setting", "captcha_config", {value: publicCaptchaConfig()});
+            save();
+            return publicCaptchaConfig();
+        }
+    }
+    // Specific config routes (sms/email/telegram/notification-channels,
+    // handled below) must not be swallowed by this generic single-setting
+    // block — it runs first in the file.
+    const CONFIG_ROUTES = ["sms-config", "email-config", "telegram-config", "notification-channels"];
+    if (parts[0] === "settings" && !CONFIG_ROUTES.includes(parts[1])) {
         if (method === "GET" && parts.length === 1) {
-            return {...db.settings};
+            const {captcha_config: _hidden, sms_config: _sms, email_config: _email, telegram_config: _tg, ...rest} = db.settings;
+            return {...rest};
         }
         if (parts.length === 2) {
             const key = decodeURIComponent(parts[1]);
+            if (key === "captcha_config") fail(404, "Setting not found");
             if (method === "GET") {
                 if (!(key in db.settings)) fail(404, "Setting not found");
                 return {key, value: db.settings[key]};
             }
             if (method === "PUT") {
                 requireRole(["admin", "manager"]);
-                db.settings[key] = String(body && body.value !== undefined ? body.value : "");
+                if (SYSTEM_MANAGED_SETTINGS.includes(key)) fail(400, `Setting '${key}' is managed by the system and cannot be edited`);
+                if (!EDITABLE_SETTINGS.includes(key)) fail(404, "Setting not found");
+                validateSettingValue(key, body && body.value !== undefined ? body.value : "");
+                let value = String(body && body.value !== undefined ? body.value : "");
+                if (key === "system_encoding") value = value.toLowerCase();
+                db.settings[key] = value;
                 logAudit("setting.update", "setting", key, {value: db.settings[key]});
                 save();
                 return {key, value: db.settings[key]};
             }
-            if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
-                if (!(key in db.settings)) fail(404, "Setting not found");
-                delete db.settings[key];
-                logAudit("setting.delete", "setting", key, null);
-                save();
-                return {message: `Setting '${key}' deleted successfully`};
+        }
+    }
+
+    // ---- SMS / Email / Telegram configs + notification channels (v3.0) ----
+    if (parts[0] === "settings" && parts[1] === "sms-config") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            return publicSmsConfig();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            const patch = body || {};
+            const cfg = smsConfig();
+            if (patch.active_provider != null) {
+                if (!["", ...SMS_PROVIDERS].includes(patch.active_provider)) fail(400, `Unknown SMS provider: ${patch.active_provider}`);
+                cfg.active_provider = patch.active_provider;
             }
+            for (const [name, fields] of Object.entries(patch.providers || {})) {
+                if (!SMS_PROVIDERS.includes(name)) fail(400, `Unknown SMS provider: ${name}`);
+                for (const [field, value] of Object.entries(fields || {})) {
+                    // "configured" is a read-only computed flag the GET
+                    // response adds; the UI echoes the whole provider object
+                    // back on save, so ignore it here (as the real backend
+                    // does with unknown read-only fields).
+                    if (field === "configured") continue;
+                    if (!SMS_PROVIDER_FIELDS[name].includes(field)) fail(400, `Unknown field ${field} for provider ${name}`);
+                    if (value === "__CLEAR__") delete cfg.providers[name][field];
+                    else if (value !== "" && value != null) cfg.providers[name][field] = String(value);
+                }
+            }
+            db.settings.sms_config = JSON.stringify(cfg);
+            logAudit("setting.update", "setting", "sms_config", {active_provider: cfg.active_provider});
+            save();
+            return publicSmsConfig();
+        }
+    }
+    if (parts[0] === "settings" && parts[1] === "email-config") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            return publicEmailConfig();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            const patch = body || {};
+            const cfg = emailConfig();
+            if (patch.reset_templates) {
+                delete cfg.templates;
+                delete cfg.signature;
+            }
+            for (const key of ["smtp_host", "username", "from_address", "from_name", "signature"]) {
+                if (patch[key] != null) cfg[key] = String(patch[key]);
+            }
+            if (patch.smtp_port != null) {
+                const port = Number(patch.smtp_port);
+                if (!Number.isInteger(port) || port < 1 || port > 65535) fail(400, "smtp_port must be 1-65535");
+                cfg.smtp_port = port;
+            }
+            if (patch.encryption != null) {
+                if (!["none", "tls", "ssl"].includes(patch.encryption)) fail(400, "encryption must be none, tls or ssl");
+                cfg.encryption = patch.encryption;
+            }
+            if (patch.password != null) {
+                if (patch.password === "__CLEAR__") cfg.password = "";
+                else if (patch.password !== "") cfg.password = String(patch.password);
+            }
+            if (patch.templates != null) {
+                const stored = cfg.templates || {};
+                for (const [name, tpl] of Object.entries(patch.templates)) {
+                    if (!(name in DEFAULT_TEMPLATES)) fail(400, `Unknown template: ${name}`);
+                    stored[name] = {subject: String(tpl.subject || ""), body: String(tpl.body || "")};
+                }
+                cfg.templates = stored;
+            }
+            db.settings.email_config = JSON.stringify(cfg);
+            logAudit("setting.update", "setting", "email_config", {});
+            save();
+            return publicEmailConfig();
+        }
+    }
+    if (parts[0] === "settings" && parts[1] === "telegram-config") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            return publicTelegramConfig();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            const patch = body || {};
+            const cfg = telegramConfig();
+            if (patch.bot_token != null) {
+                if (patch.bot_token === "__CLEAR__") cfg.bot_token = "";
+                else if (patch.bot_token !== "") cfg.bot_token = String(patch.bot_token);
+            }
+            if (patch.chat_ids != null) {
+                let ids = patch.chat_ids;
+                if (typeof ids === "string") ids = ids.split(",").map((s) => s.trim()).filter(Boolean);
+                if (!Array.isArray(ids)) fail(400, "chat_ids must be a list of chat IDs");
+                cfg.chat_ids = ids.map(String);
+            }
+            db.settings.telegram_config = JSON.stringify(cfg);
+            logAudit("setting.update", "setting", "telegram_config", {chat_ids: cfg.chat_ids});
+            save();
+            return publicTelegramConfig();
+        }
+        if (method === "POST" && parts.length === 3 && parts[2] === "test") {
+            requireRole(["admin", "manager"]);
+            const cfg = telegramConfig();
+            // Demo: no real Telegram call — "sent" when a token + chats exist.
+            const sent = Boolean(cfg.bot_token) && cfg.chat_ids.length > 0;
+            logAudit(`notify.telegram_${sent ? "sent" : "failed"}`, "notification", null, {event: "telegram_test", channel: "telegram", to: ""}, "system");
+            save();
+            return {sent};
+        }
+    }
+    if (parts[0] === "settings" && parts[1] === "notification-channels") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(["admin", "manager"]);
+            return notificationChannels();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin"]); // admin-only: managers can read, not change
+            const patch = body || {};
+            for (const event of Object.keys(patch)) {
+                if (!NOTIFY_EVENTS.includes(event)) fail(400, `Unknown notification event: ${event}`);
+                for (const channel of Object.keys(patch[event] || {})) {
+                    if (!NOTIFY_CHANNELS.includes(channel)) fail(400, `Unknown channel: ${channel}`);
+                }
+            }
+            db.settings.notification_channels = JSON.stringify(patch);
+            logAudit("setting.update", "setting", "notification_channels", {});
+            save();
+            return notificationChannels();
         }
     }
 
@@ -1374,25 +1896,119 @@ export async function mockRequest(method, endpoint, body) {
         requireRole(["admin", "manager"]);
         const entity = query.get("entity");
         const actor = query.get("actor");
+        const channel = query.get("channel");
         let list = [...(db.audit_logs || [])];
         if (entity) list = list.filter((l) => l.entity === entity);
         if (actor) list = list.filter((l) => (l.actor_email || "").toLowerCase().includes(actor.toLowerCase()));
+        if (channel) {
+            const prefixes = {email: "notify.email_", sms: "notify.sms_", telegram: "notify.telegram_", twofa: "twofa.", system: "service_status."};
+            if (!(channel in prefixes)) fail(400, `Unknown channel: ${channel}`);
+            list = list.filter((l) => (l.action || "").startsWith(prefixes[channel]));
+        }
         return paginate(list, query);
+    }
+    // v3.0: single delete + clear-all (admin only).
+    if (parts[0] === "audit-logs" && method === "DELETE" && parts.length === 2) {
+        requireRole(["admin"]);
+        const id = Number(parts[1]);
+        const before = (db.audit_logs || []).length;
+        db.audit_logs = (db.audit_logs || []).filter((l) => l.id !== id);
+        if (db.audit_logs.length === before) fail(404, `Audit log ${id} not found`);
+        save();
+        return {message: `Audit log ${id} deleted successfully`};
+    }
+    if (parts[0] === "audit-logs" && method === "DELETE" && parts.length === 1) {
+        requireRole(["admin"]);
+        const count = (db.audit_logs || []).length;
+        db.audit_logs = [];
+        save();
+        return {message: `Deleted ${count} audit log(s)`, deleted: count};
     }
 
     // ---- System -------------------------------------------------------------
+    if (method === "GET" && path === "/system/maintenance") {
+        return {enabled: db.settings.maintenance_mode === "on", message: db.settings.maintenance_message || ""};
+    }
+    // v3.0: service status (demo — simulated from configuration: a service
+    // with credentials configured shows connected; the demo has no live
+    // network, so nothing is really probed).
+    if (method === "GET" && path === "/system/service-status") {
+        requireRole(["admin"]);
+        const emailCfg = emailConfig();
+        const smsCfg = smsConfig();
+        const tgCfg = telegramConfig();
+        const services = [
+            {key: "database", label: "Database", status: "connected", detail: "Query answered (demo)"},
+            {key: "email", label: "Email (SMTP)", status: emailCfg.smtp_host ? "connected" : "not_configured", detail: emailCfg.smtp_host ? `Connected to ${emailCfg.smtp_host} (demo)` : "No SMTP host configured"},
+            {key: "sms", label: `SMS (${smsCfg.active_provider || "none"})`, status: smsCfg.active_provider ? "connected" : "not_configured", detail: smsCfg.active_provider ? `${smsCfg.active_provider} reachable (demo)` : "No SMS provider active"},
+            {key: "telegram", label: "Telegram bot", status: tgCfg.bot_token ? "connected" : "not_configured", detail: tgCfg.bot_token ? "Bot OK (demo)" : "No bot token configured"},
+            {key: "github", label: "GitHub (updates)", status: "connected", detail: "GitHub reachable (demo)"},
+        ];
+        return {services, checked_at: new Date().toISOString()};
+    }
+    // v3.0: ippanel SMS balance + test-send (demo: clearly mocked — the
+    // balance is a fixed demo number, marked demo:true; no real SMS is
+    // ever sent from the demo). Both the bare path and the /api-prefixed
+    // path are accepted: Dashboard calls /sms/balance, Settings calls
+    // /api/sms/test.
+    if (method === "GET" && (path === "/sms/balance" || path === "/api/sms/balance")) {
+        requireRole(["admin"]);
+        const cfg = smsConfig();
+        const ip = cfg.providers.ippanel || {};
+        const base = {provider: "ippanel", configured: Boolean((ip.api_key || "").trim()), active: cfg.active_provider === "ippanel", available: false, credit: null, unit: "rial", checked_at: null, cached: false, error: null, demo: true};
+        if (!base.configured) return {...base, error: "not_configured"};
+        return {...base, available: true, credit: 1250000, checked_at: new Date().toISOString()};
+    }
+    if (method === "POST" && (path === "/sms/test" || path === "/api/sms/test")) {
+        requireRole(["admin"]);
+        const cfg = smsConfig();
+        const sent = Boolean(cfg.active_provider);
+        logAudit(`notify.sms_${sent ? "sent" : "failed"}`, "notification", null, {event: "sms_test", channel: "sms", to: (body && body.to) || ""}, "system");
+        save();
+        return {sent, provider: cfg.active_provider || ""};
+    }
+    // v3.0: sending stats — per-day, per-channel sent/failed counts
+    // aggregated from the demo audit-log channel stream.
+    if (method === "GET" && path === "/system/sending-stats") {
+        requireRole(["admin"]);
+        const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
+        const dates = [];
+        const today = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+            dates.push(d.toISOString().slice(0, 10));
+        }
+        const channels = ["email", "sms", "telegram"];
+        const series = {};
+        for (const ch of [...channels, "total"]) {
+            series[ch] = dates.map((date) => ({date, sent: 0, failed: 0}));
+        }
+        const index = Object.fromEntries(dates.map((d, i) => [d, i]));
+        for (const row of db.audit_logs || []) {
+            const match = String(row.action || "").match(/^(?:notify|twofa)\.(\w+)_(sent|failed)$/);
+            if (!match) continue;
+            const [, channel, outcome] = match;
+            if (!channels.includes(channel)) continue;
+            const day = String(row.created_at || "").slice(0, 10);
+            if (!(day in index)) continue;
+            series[channel][index[day]][outcome] += 1;
+            series.total[index[day]][outcome] += 1;
+        }
+        return {days, dates, series};
+    }
     if (method === "GET" && path === "/system/info") {
-        return {version: db.settings.app_version, lastUpdated: db.settings.last_updated};
+        // v3.0: version comes from code (APP_VERSION), never from settings.
+        return {version: APP_VERSION, lastUpdated: db.settings.last_updated, panel_domain: db.settings.panel_domain || ""};
     }
     if (method === "GET" && path === "/system/check-updates") {
-        return {updateAvailable: db.settings.latest_version !== db.settings.app_version};
+        return {updateAvailable: db.settings.latest_version !== APP_VERSION, currentVersion: APP_VERSION, latestVersion: db.settings.latest_version};
     }
     if (method === "GET" && path === "/system/update-check") {
         // The demo has no newer release: it is always up to date.
         return {
-            current_version: db.settings.app_version,
+            current_version: APP_VERSION,
             latest_version: db.settings.latest_version,
-            update_available: db.settings.latest_version !== db.settings.app_version,
+            update_available: db.settings.latest_version !== APP_VERSION,
             release_url: "https://github.com/rzatkv/LicenseManagerPro/releases/latest",
             release_notes: null,
             published_at: null,

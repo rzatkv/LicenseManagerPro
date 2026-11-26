@@ -1,6 +1,11 @@
+[English](#english) | [فارسی](#فارسی)
+
+![License Manager Pro](docs/banner.svg)
+
+<a id="english"></a>
 # License Manager Pro
 
-**License Manager Pro** is a comprehensive system for managing API keys, licenses, and system settings. Specifically designed for teams and organizations, this tool provides precise and secure management of software access and user permissions. Built with **React.js** on the frontend and **FastAPI** on the backend, it offers high performance and flexibility.
+**License Manager Pro** is a comprehensive system for managing API keys, licenses, and system settings. Specifically designed for teams and organizations, this tool provides precise and secure management of software access and user permissions. Built with **React.js** on the frontend and **FastAPI** on the backend, it offers high performance and flexibility. The license check is a public call (no API key, no JWT) with the blacklist and license locks still enforced; everything else needs a JWT or a scoped module key.
 
 ## Live demo
 
@@ -12,163 +17,45 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v2.3.0
+## What's new in v3.0.0
 
-The biggest release yet — a redesign of the header, themes, roles, security and the module system, built on v2.2.2:
+Major release: zero scroll on every page, the Settings rebuild, real SMS (IPPanel), CAPTCHA, maintenance mode, and the license check going public — plus the last notes from the v2.3.3 phone check and no money anywhere in the product (this is not a financial system):
 
-- **Two stubborn defects finally fixed (live-DOM measured, not guessed):** the RTL checkbox stacking was a `Wizard.css` rule (`.wizard-body input {width: 100%}`) stretching the checkbox to the full label width and squeezing the label text to 0px — and the tables were overflowing because a stale service-worker cache served old CSS. Both are gone by construction: checkbox groups are now **chip/pill multi-selects** (tappable rounded pills, gradient + ✓ when selected, `white-space: nowrap`, whole-unit wrapping — a label can never stack character by character), single booleans are styled toggle switches, and the frontend **unregisters any service worker on every load** so a stale bundle can never shadow a fix again.
-- **Header redesign:** no page title in the topbar; **global search** (licenses by key/customer, products, users — keyboard navigable, ↑/↓/Enter/Esc); an **animated theme toggle** (light/dark/auto with a sun/moon cross-fade); a **profile menu** (avatar with photo-or-initials, Profile / Settings / Logout). The language selector moved into Settings.
-- **Themes:** Gmail-style theme picker — presets Default (magenta/violet), Ocean, Forest, Sunset, Graphite, plus a **custom theme builder** (accent, accent 2, background, surface). Theme + mode persist per user (localStorage and the backend) and animate smoothly on change.
-- **Customizable dashboard:** widgets resize (S/M/L), chart time-range switcher (7/14/30/90 days), drag-to-reorder; layout persists per user. New widgets: activations trend and webhook delivery success rate. The **Estimated MRR card is removed** — this is not a financial system.
-- **Roles page:** full CRUD for custom roles (permission checklist, built-ins protected, cannot delete a role assigned to users); the Users page assigns roles from the role list; permission checks use the role's permission list server-side.
-- **TOTP 2FA:** enable from the Profile page (QR code + manual key, verify a code to enable, backup codes hashed + single-use, disable with password + code); login asks for the TOTP step when 2FA is enabled. Demo mode accepts code `123456` with an honest note.
-- **License security modes:** global settings + per-product overrides — strict/lenient validation, domain/IP/install-path/activation-limit toggles, missing-lock behavior — enforced in license validate and API-key check-access, with tests.
-- **Profiles:** display name, avatar upload (raster PNG/JPEG/WebP only, ≤2 MB, magic-byte checked), role display, 2FA status, last login; header avatar shows the photo or initials.
-- **About page redesigned:** version, what's-new, system info, update-check card, links, credits — polished in both languages and both themes.
-- **Filters on every list:** Licenses, Products, API keys, Users, Audit logs, Notifications, Blacklist — search + status/type filters + sorting, in the split-not-squeeze style.
-- **Stunning login:** animated gradient-mesh / floating-orbs background, glass card, rotating feature slides with smooth crossfades, staggered entrance — in both languages, both themes, phone + desktop. Animations everywhere are GPU-friendly (transform/opacity) and respect `prefers-reduced-motion`.
-- **Billing-cycle sync:** license create/renew accept an explicit `billing_cycle`; expiry follows that cycle, and a cycle the product doesn't list is **added to the product server-side** (the sync). Unknown cycles are rejected with 422. WHMCS passes the service's cycle; WooCommerce passes the order's billing period.
-- **Module auth — API key only:** WHMCS/WooCommerce connect with a scoped module key, never an admin email/password. Module keys are time-limited (30/90/180/365 days, default 90), support an optional IP allowlist and optional HMAC-signed requests (5-minute timestamp replay protection), rotate from the API Keys page (secret shown once), and are **stored hashed** (SHA-256) with a startup migration. Every module call is audit-logged; module keys can never call admin endpoints.
-- **WHMCS product dropdown:** the module's per-product settings show a live dropdown of the backend's products (cached a few minutes, manual fallback if the API is unreachable) instead of typed IDs.
-- **All 10 platform modules, in MVC:** WHMCS, WooCommerce, WordPress (no WooCommerce), Joomla, PrestaShop, Magento, OpenCart, Shopware, Drupal, Odoo — each with `version.json` == app version, a README, and a branded admin UI. Each gets its own ZIP in the GitHub release (`scripts/build-module-zips.sh`), and the Downloads page links **directly to the GitHub release asset** built from the installed app version (version parity).
-- **One-time install script:** `install.sh` — `curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/install.sh | bash` — an interactive wizard (separate backend/frontend domains, MySQL 8, admin account, optional Let's Encrypt HTTPS) that does the whole install. See "Install on your own server" below.
-- **Security audit (top priority):** API keys hashed, failed-login lockout (5 in 15 min → 15-min lock), login no longer reveals whether an email exists, TOTP replay protection + constant-time compares, LIKE-wildcard injection fixed on every search, privilege-escalation guards on user management, secret settings hidden from non-privileged users, webhook SSRF guard (private/loopback/link-local hosts blocked), avatar/logo raster-only validation, self-update tarball member checks, audit logs for failed logins / 2FA / key rotation / module calls / self-update. Adversarial tests in `backend/tests/test_security_adversarial.py` + `test_module_keys.py` — every attack in them must fail closed. `pip audit` findings fixed by upgrading PyJWT → 2.15.0, python-dotenv → 1.2.2, FastAPI → 0.165.0 (starlette 1.10.0); `npm audit` could not run in the build VM (registry policy blocks the audit endpoint) — run it before publishing if your network allows. Known limits are listed in the Security section of the release notes (see below).
-- **Version bump process (for 2.3.4 → 2.3.20 / 3.0.0):** one version constant per side — `APP_VERSION` in `backend/config.py`, `version` in `frontend/package.json`, `modules.json` + every `modules/<platform>/version.json`, and the demo storage key `lmp-demo-db-v13` in `frontend/src/utils/demoData.js` (increment the suffix each release).
-
-### Install on your own server
-
-One command, one interactive wizard, one install:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/install.sh | bash
-```
-
-The wizard asks for, in order: backend domain and frontend domain **separately**, MySQL 8 host/port/database/user/password, the first admin email/password, and whether to enable HTTPS via Let's Encrypt (certbot) when domains are given. It then installs system deps (Python 3.11+, Node, Nginx, MySQL client), creates the backend venv + systemd service, builds the frontend, writes Nginx vhosts for both domains (backend as API reverse proxy, frontend as static site), generates `backend/.env` (random `SECRET_KEY`, mode 600, never printed), creates the database and runs migrations, and prints a final summary with the URLs + login.
-
-- **Idempotent-safe:** re-run with `--repair` to refresh code/deps/build/vhosts/migrations — it never drops the database, never regenerates `backend/.env` secrets, never recreates the admin account. A fresh run refuses if the install marker already exists (use `--repair` instead).
-- **MySQL only:** SQLite/PostgreSQL are refused, same rule as `deploy.sh`.
-- **Dry run:** `bash install.sh --dry-run` prints every step (including the exact Nginx/systemd configs) and changes nothing; `--help` lists all options (every prompt also has a `--flag` form for unattended runs).
-- A full run on a real server was not possible in the build VM (no public domains); everything testable here was tested (`bash -n`, `--dry-run` end to end).
-
-### Security — what was checked, fixed, and what remains
-
-Checked and fixed in v2.3.0 (tests in `test_security_adversarial.py` / `test_module_keys.py`): API-key plaintext storage → SHA-256 hashed + prefix display + migration; login user enumeration → dummy bcrypt verify + identical 401s + lockout; TOTP replay → last-code window; LIKE injection → `escape_like` on all 6 sites; user-management privilege escalation → admin-only delete + admin-equivalence guards; settings secret leak → secret-looking keys hidden; avatar/logo SVG → raster-only magic-byte validation; webhook SSRF → public-hosts-only guard; self-update tarball → member checks (no absolute/`..`/symlink/device entries); audit-log gaps → failed logins, 2FA, rotation, module calls, update staging.
-
-Known limitations (honest): logout is client-side token deletion (stateless JWT, 60-min TTL — no server-side revocation list); the webhook SSRF guard checks DNS immediately before the request but cannot close the DNS-rebinding TOCTOU window; GitHub auto-generated release tarballs carry no published checksum, so the update check is gzip+tar validity over HTTPS from the releases API, not a hash comparison; module-key HMAC replay cache is per-process (in-memory); `npm audit` could not run in the build VM (see above).
-
-## What's new in v2.3.4
-
-Small fix round: the last note from the v2.3.3 phone check, plus no money anywhere in the product — this is not a financial system:
-
-- **Login language dropdown can no longer touch the hero headline:** the v2.3.3 phone check found the open menu still covering part of the hero headline text (measured live-DOM: 3,700–5,700 px² over two lines at 360/400px, both languages) — the tile itself was already clear. While the menu is open the slides (+ dots) now drop 110px inside the hero's own slack (the hero is 420px tall on phones from flex-basis, its content ~180px), so the first headline line starts below the dropdown's bottom edge. The page layout does not grow and nothing scrolls or clips; the slides rise back the moment the menu closes. Verified 0 px² overlap at 360/400px, en + fa, light + dark.
-- **Money is gone from the whole product:** no money column in the Products table, no money field in the product wizard or edit form, no money in the product details popup or the license wizard's product picker, no money in the demo data, and no money wording in the UI or docs (en + fa). The backend drops the product money fields and the dashboard revenue estimate entirely (the API no longer returns them); pre-v2.3.4 databases have the two columns dropped on startup. Module admin dropdowns (WHMCS, WooCommerce) show the product name + billing cycles only.
-- **Version bump:** 2.3.4 everywhere, demo storage key `lmp-demo-db-v13`, `smoke_test_234.py`, mock next-release v2.3.5, all 10 module ZIPs rebuilt at 2.3.4 parity.
-
-## What's new in v2.3.3
-
-Small fix round for the two minor observations the v2.3.2 phone check left — no new features:
-
-- **Licenses/Products tables are consistent across the whole phone range:** the column set is a deterministic function of CSS viewport width (pure media queries — verified identical across repeated fresh visits at a fixed width), but the old ≤480px rule hid Status only below 480px, so a phone at 479px vs 481px rendered a different table — and 480px sits inside real phone CSS widths (360–480px). The whole phone range (≤640px) now shows exactly Key + Actions (Licenses) / Name + Actions (Products); everything else lives in the details popup. Root cause of the checker's "different columns on different visits": the two visits ran at different effective CSS widths (the real device viewport is ~360px; the 886px figure is the physical width) — each width's table was correct, the boundary just sat in the wrong place.
-- **Login language dropdown can no longer touch the hero logo:** the open dropdown's corner overlapped the hero tile's corner by 18–64px at 320–400px (measured live-DOM, both languages) because the centered hero put the 64px logo directly under the top-corner controls. On phones (≤768px) the hero is now start-aligned, so the logo sits at the inline-start side, opposite the dropdown, at any width, language or theme. The dropdown itself is also capped (`max-height: min(60vh, 320px)`, scrolls inside) so a long custom-language list can never run off-screen.
-- **Fixed a v2.3.2 version-bump mistake:** the blanket `2.3.1 → 2.3.2` sed had rewritten four real dependency versions in `frontend/package-lock.json` (json-parse-even-better-errors, punycode, regex-parser, webpack-sources) to 2.3.2 — versions that do not exist, which would have broken a fresh `npm ci`. They are restored to 2.3.1 (verified against the installed `node_modules`); the lockfile carries no app-version field (root package is `license-manager-pro-frontend@1.0.0`), so it must never be blanket-sedded again.
-
-## What's new in v2.3.2
-
-Polish round for the six items the v2.3.0 phone check (886×1920) found — no new features:
-
-- **Tables finally fit on real phones (live-DOM measured):** the 886px figure from earlier checks is the *physical* screen width — the layout viewport on the phone is ~360–500 CSS px (DPR ~2). At those widths the fixed column widths designed for 886px (Products 112+104+204, Licenses 230+112+172) squeezed the flexible column to 0–14px, which is exactly the "Name invisible / headers collide" the checker saw. The split goes further below 640px: Products shows Name + Status + eye only (edit, test, view-licenses, delete move into the details popup); Licenses shows Key + Status + eye only (product, renew, reissue, delete move into the popup, which gains a Delete button); Roles shows Name + Users + actions only (slug and permission pills move into the edit form) and its text buttons become the same 32px icon buttons as the other lists. The page itself never scrolls sideways at any width (verified 360–1920px, en + fa, light + dark).
-- **Header Demo badge:** hidden below 640px (it covered the end of the search box on phones) and the global search may shrink to zero width instead of pushing the topbar past the viewport. The demo state is still shown on the login page and the About page.
-- **Login hero dots:** the slides now stack in one grid cell so the container sizes to the tallest slide — long slides (and every Persian slide) no longer overflow onto the pagination dots.
-- **Downloads are real links:** each module card is now a plain `<a href>` to the direct GitHub release asset (version parity 2.3.2) instead of a button calling `window.open`, which in-app browsers silently swallowed — the v2.3.0 button appeared to do nothing. The demo note now says the ZIP downloads directly from the GitHub release.
-- **Roles delete verified end to end:** delete exists only for custom roles (built-ins stay protected, by design) — a custom role is created and deleted in the Playwright checks, confirm modal included.
-- **Dashboard banner** now says "New in v2.3" (ten platform modules, module keys, 2FA) instead of the stale "New in v2.2".
-
-## What's new in v2.2.1
-
-UI polish round for v2.2.0, from a phone-browser visual check (886×1920) of the live demo:
-
-- **Notification dropdown no longer clips off-screen:** the panel is now fixed-positioned and clamped inside the viewport in JS (right-aligned to the bell when there is room, otherwise pushed in from the edge); titles wrap instead of truncating.
-- **Sidebar gains Notifications + Product Groups:** Notifications links to the `/notifications` page (previously reachable only via the bell); Product Groups is now a dedicated `/product-groups` route — the manager moved out of the Products page, which keeps only its group filter and group column.
-- **Products table rows are compact again:** name/slug cells truncate with ellipsis, billing-cycle pills sit in one small horizontal wrap, and the five text action buttons are now 32px icon buttons (eye / edit / test webhook / view licenses / delete) with title tooltips and aria-labels — the actions cell fits without sideways scrolling.
-- **Checkbox groups fixed for real in RTL:** the `<fieldset>` is gone (its UA `min-inline-size: min-content` and legend box kept long labels overflowing even with `min-width: 0`). Groups are now plain bordered divs, every label is a flex row with a shrinkable text span (`overflow-wrap: anywhere`), and `min-width: 0` runs through the whole chain (card → group → label). Applies to the product wizard, the API-key wizard and the inline edit forms.
-- **Drawer brand row fits:** the gradient text moved from the brand container onto the name span itself (the container-level `background-clip: text` let the logo overlap the name), and the span is now a real flex item with `min-width: 0` — long site names ellipsize instead of overflowing the 248px sidebar.
-- **Dashboard nits:** the 14-day trend chart's y-axis no longer shows a duplicated "1" (unique integer ticks only).
-- **License wizard polish:** step 1 cannot advance without a product selected or a name typed (with an inline error message instead of a silently disabled Next); the customer step's fields have visible labels; the review step labels a name-only license "Expires in 365 days" instead of calling it a billing cycle.
-
-## What's new in v2.2.2
-
-Second polish round for v2.2.1, from a phone-browser visual check (886×1920) of the live demo — 4 of the 8 v2.2.1 fixes passed, 4 failed, plus new defects:
-
-- **RTL checkbox groups fixed for real (severe v2.2.1 regression):** the v2.2.1 fix made it *worse* — a flex-wrap row with `min-width: 0` labels and `anywhere` wrapping let every label shrink to a one-character column, so each label rendered as a vertical single-character stack with ~450px rows. Checkbox groups are now a CSS grid with a real minimum column width (`repeat(auto-fill, minmax(170px, 1fr))`), and label text uses `break-word` (breaks only when a word alone overflows its line) — `anywhere` is gone from every label rule. Long tokens like `license.validated_failed` fit whole in a 170px cell.
-- **Products table fits the viewport by splitting, not squeezing:** at 886px only the essential columns stay — name, status, actions. Slug, group, cycles, webhook and license count live in a beautiful animated details popup (the eye button opens it, with the full record plus the webhook-deliveries list); the same popup pattern carries the license detail view. Nothing is compressed: rows keep their comfortable height and the actions stay 32px icons. The Licenses table gets the same treatment: keys truncate with ellipsis (full key one tap away via the copy button) instead of wrapping over five lines, the ID / created columns hide under 1024px, and the four text action buttons are now 32px icon buttons.
-- **Drawer brand title fully readable:** the v2.2.1 ellipsis only changed overlap into truncation ("License Ma…" / "…anager Pro"). The sidebar is now 280px and the brand name wraps onto two lines instead of truncating — the full name renders in both languages, and a long custom site name wraps gracefully too.
-- **Notification dropdown is opaque:** the `glass-card` translucency is gone from the panel (solid surface background, no backdrop blur) so page content no longer bleeds through, and the header uses the theme text colour with the "Mark all read" button kept from shrinking it.
-- **License wizard step 3 has visible labels:** the domains / IPs / install-path fields are now labelled field groups (not placeholder-only), and the hints wrap inside the card instead of being cut off at its edge.
-- **"Manage groups" link no longer clipped:** `.btn-ghost` now carries its own padding, so links and labels styled as ghost buttons render like real buttons (they previously got no padding from the `button` base rule, so the text sat on the border edge).
-- **Dashboard trend chart x-axis labels readable:** every third day only, at 11px instead of every other day at 9px, with more bottom padding — Persian date labels ("۴ آذر" etc.) are no longer tiny and cramped.
-- **License wizard Review verified, unchanged:** with an Annual billing cycle selected the Review correctly shows "Billing Cycle: Annual"; the "Expires in 365 days" line only applies to standalone licenses without a product, and that case was verified working in code.
-
-## What's new in v2.2.0
-
-- **Real WHMCS module + WooCommerce plugin (downloadable):** the Downloads page in the admin panel serves both as ZIPs built on the fly (`GET /api/downloads/{whmcs,woocommerce}`), with versions tracked in `modules.json` and an "update available" badge when GitHub has a newer one. The WHMCS server module (`modules/whmcs/`) implements the full lifecycle — CreateAccount (creates the license, stores the key in the service's password field), Suspend/Unsuspend, Terminate, Renew, ChangePackage, TestConnection and an admin Services tab — with `RequiresServer = false` and the API URL + admin credentials configured per product. The WooCommerce plugin (`modules/woocommerce/`) creates one license per mapped line item when an order completes, stores the key in order item meta, shows it in the order details / order email, and adds a My Account → Licenses tab with live status, expiry and per-installation deactivate. Both are built from a competitor study (WHMCS Software Licensing addon + marketplace modules, License Manager for WooCommerce / Gatemi / LicenseKit, Keygen.sh, Cryptlex, LemonSqueezy).
-- **Product groups:** products can be grouped (`/api/product-groups`, CRUD, delete blocked while products reference the group); the Products page has a group filter + group column and a Groups manager (create/edit/delete with a colour picker).
-- **Per-product key generators:** each product defines a key prefix, segment count and segment length (`CPN-XXXX-XXXX-XXXX`); license keys are generated from the product's format.
-- **License reissue + activations:** `POST /api/licenses/{id}/reissue` issues a new key (the old one stops working, honouring the product's max-reissues limit) and licenses track activation instances (fingerprint records with activate/deactivate and a max-activations limit) — visible in the license detail panel and in the WooCommerce My Account tab.
-- **IP/domain blacklist:** admin-only `/api/blacklist` (exact IP, CIDR ranges and exact-or-subdomain matching); a blacklisted IP or domain is rejected by license validate and by API-key check-access with reason `blocked: blacklisted`.
-- **Notification center:** a bell in the topbar with an unread badge + dropdown, plus a Notifications page. Notifications fire on license created, license expiring/expired (from check-expiring), webhook delivery failed and new user created (`GET /api/notifications`, `POST /{id}/read`, `POST /read-all`).
-- **Logo + branding:** a designed SVG logo (key glyph in the magenta → violet gradient) used in the login page, the sidebar and as the favicon. `site_name` and `logo_url` are settings — change them from Settings, including uploading a logo image (stored as a data URL) or resetting to the default.
-- **Self-update (real):** `GET /api/system/update-check` compares the running version with the latest GitHub release live; `POST /api/system/update` downloads and verifies the release tarball into `./updates/` (staged, never overwriting live code) and `scripts/update.sh` applies it, excluding `.env`, `*.db` and `updates/` itself. The backend only runs the script automatically when `LMP_ALLOW_SELF_UPDATE=1`; otherwise the About → Updates card shows the one-command instruction. Module versions are checked against `modules.json` on GitHub (`GET /api/downloads/versions`).
-- **Wizards:** creating a license, a product, a product group or an API key is now a guided multi-step flow (shared `Wizard` component with per-step validation and a review step; the generated API key is shown once, with a copy button). Edit forms stay inline.
-- **App-like shell:** the whole app is `100dvh` — sidebar and topbar fixed, the page content is the only scroll region, long tables scroll inside their own card. The v2.1.1 visual re-check defects are all fixed in this release: the drawer overlay tap now closes the drawer (backdrop moved last in the DOM, z-index raised above the page, tap-on-content closes it, and the lingering `animation-fill-mode: both` transforms that created stray stacking contexts were removed); the Products checkbox groups no longer clip in RTL (`fieldset {min-width: 0}` + wrapping flex rows); table rows are short again (horizontal compact row-action groups); license keys break after hyphens only (`overflow-wrap: break-word` instead of `break-all`); the About version date is localized; the drawer title no longer runs under the × button.
-- **Better dashboard charts:** a 14-day licenses-created area/line chart (dots + hover tooltips, localized day labels) from `GET /dashboard/license-trend`, value labels on bars, and full product names on the by-product chart (wrapped onto two lines instead of truncated).
-
-## What's new in v2.1.1
-
-- **RTL fix (the big one):** the layout shell is now fully logical — sidebar docks to the inline-start side (right in Persian, left in English), the mobile drawer breakpoint is 1024px so narrow portrait phones (~886px) get the drawer instead of a squeezed docked sidebar, and `overflow-x: hidden` on the page root stops a wide element from shifting the whole page sideways in RTL.
-- **Sidebar drawer now closes properly:** the dimmed overlay closes on click (and is removed from the DOM when closed, so it can never block taps afterwards), Escape closes it, and there is a visible × button inside the drawer.
-- **Dates are formatted:** no more raw ISO timestamps (`2026-11-25T08:37:36.534Z`) anywhere — every table shows locale dates (Persian calendar/digits for fa, e.g. `۴ آذر ۱۴۰۵`), and chart month labels follow the current language.
-- **Mobile tables:** every data table lives in a horizontally scrollable container; long license/API keys wrap cleanly (`word-break: break-all`) with a copy button; "15 days" / "49 USD" cells never split across lines; search inputs go full width on narrow screens; webhook-event checkboxes are proper flex rows.
-- **Dashboard stat cards** are a responsive grid that fills the available width instead of fixed 200px boxes.
-- **Persian ZWNJ audit:** all 375 fa strings re-checked programmatically — plurals (`لایسنس‌ها`), verb prefixes (`می‌شود`) and compounds all use the correct half-space; the four strings named in the visual check were already correct in the dictionary.
-
-## What's new in v2.1.0
-
-- **Design refresh (the project design language):** glassmorphism surfaces with backdrop blur, the signature magenta → pink → violet gradient as the primary accent, 16–24px radii, pill chips/buttons, soft layered shadows — in both light and dark themes, and in RTL. Pure-CSS animations throughout: page fade/slide, staggered cards, button lift + glow, shimmer skeletons, animated charts, crossfading highlights slider, pulsing active-status dots, smooth theme transitions.
-- **Complete translations:** 375 UI strings in English and Persian (was 259) — including the full ApiDocs prose, toasts, validation errors, confirm dialogs and empty states — with `npm run check-i18n` parity-checking every key. New shared components: Toasts, ConfirmModal, Skeleton, CopyButton, EmptyState, ErrorBoundary.
-- **Production hardening:** paginated lists (`skip`/`limit`, `X-Total-Count` header), in-memory rate limiting on login/register (10/min) and license-validate/check-access (60/min, env-overridable), security-headers + request-ID/logging middleware, `GET /api/system/ready` readiness probe, and a full audit log (`GET /api/audit-logs`, admin/manager only) recording every create/update/delete and role change, with its own Audit Logs page in the sidebar.
-- **Lists:** search/filter on Licenses, Products, API Keys, Users and Audit Logs, with server pagination (10 per page).
-
-### Production checklist
-
-Before running the API in production: (1) set a long random `SECRET_KEY` in `.env` (the app logs a warning at startup if the shipped default is still in use); (2) set `CORS_ORIGINS` explicitly to your frontend origin(s); (3) use MySQL (`DATABASE_URL=mysql+pymysql://...`) instead of SQLite; (4) run `POST /api/system/check-expiring?days=7` from cron daily so expiry webhooks fire; (5) back up the database regularly; (6) put the API behind HTTPS (e.g. Nginx as a reverse proxy); (7) tune the rate limits (`RATE_LIMIT_AUTH_PER_MINUTE`, `RATE_LIMIT_VALIDATE_PER_MINUTE`) for your traffic.
-
-## What's new in v2.0.0
-
-- **Products & billing cycles:** products with monthly / quarterly / semiannual / annual / biennial / lifetime cycles; license expiry is computed automatically from the product's cycle. Licenses can still be created without a product (the old flow).
-- **CRM shell:** sidebar + topbar layout (Dashboard, Products, Licenses, API Keys, Users, Languages, API Docs, Settings, About) with a mobile hamburger menu, theme toggle and language switcher in the topbar. Navigation hides Users and Languages for roles that cannot use them.
-- **Bilingual + language management:** full English / Persian UI (RTL for Persian) with a Language Management page — built-in en/fa are read-only, custom languages can be added (cloned from English), edited key by key (grouped by section, with search) and deleted. Missing keys fall back to English.
-- **Dark / light / auto theme:** CSS-variable theming across every page; Auto follows the OS setting.
-- **Roles & permissions:** admin / manager / support / viewer, enforced on write endpoints (403 otherwise), with a permission matrix on the Users page.
-- **License locking:** allowed domains, allowed IPs and install path per license; validate checks the locks and reports a reason on mismatch.
-- **Webhooks:** per-product webhook URL, events and secret; test-webhook button, recent-deliveries list, HMAC signature verification docs, and a daily `POST /api/system/check-expiring?days=7` cron endpoint.
-- **In-app API docs:** authentication (JWT + the `api-key` header check-access endpoint), endpoint reference, cURL examples, and WHMCS / WordPress-WooCommerce PHP templates.
-- **Dashboard v2:** license-by-status donut, licenses-per-month and licenses-by-product bar charts (hand-rolled SVG, no new dependencies) plus an auto-rotating highlights slider.
-
-### Existing-database auto-migration on startup
-
-On startup the backend creates any missing tables/columns for v2.0 automatically (products, webhook deliveries, languages, and the new license fields), so an existing v1.x database keeps working — no manual migration step is needed. Back up your database before upgrading anyway, as with any release.
+- **Login language dropdown can no longer touch the hero headline — and the login page no longer scrolls on phones:** the v2.3.3 phone check found the open menu still covering part of the hero headline text (measured live-DOM: 3,700–5,700 px² over two lines at 360/400px, both languages) — the tile itself was already clear. While the menu is open the slides (+ dots) now drop 110px inside the hero's own slack (the hero is 288px tall on phones, its content ~180px), so the first headline line starts below the dropdown's bottom edge. Verified 0 px² overlap at 360/400px, en + fa, light + dark. The stacked phone layout also used to overflow an 800px viewport by 215px (420px hero + 543px form); the hero is now a fixed 288px, the form logo is hidden on the stacked layout (the hero logo sits right above it), and the form spacing is trimmed — the page fits 360–768px widths at 800px height with room to spare.
+- **Money is gone from the whole product:** no money column in the Products table, no money field in the product wizard or edit form, no money in the product details popup or the license wizard's product picker, no money in the demo data, and no money wording in the UI or docs (en + fa). The backend drops the product money fields and the dashboard revenue estimate entirely (the API no longer returns them); pre-v3.0.0 databases have the two columns dropped on startup. Module admin dropdowns (WHMCS, WooCommerce) show the product name + billing cycles only.
+- **Zero scroll everywhere — measured, not claimed:** Dashboard, API Docs, About and every list page fit the viewport at 360–1920px, en + fa, light + dark — content is split into tabs and responsive pagination, never squeezed. The dashboard is tabbed (Overview, Highlights, Trends, Status, Monthly, Activity, API Keys, Users, Services, Sending) and the live demo's scrolling dashboard is fixed by it. API Docs verified with a Playwright sweep: 476 tab × mini-view × width × language × theme combinations, 0 scroll failures — the page is a flex column that fills the content region, long samples scroll inside their own block, the endpoints table paginates 3/6/12 rows by width and viewport height, and the module-auth and locking guides are split into their own mini-views.
+- **Notifications bell fixed on laptops:** the dropdown was clipped 124px off the right edge in EN (the topbar's `backdrop-filter` made it the containing block for the fixed panel) — it is now portaled to `document.body`, so the viewport clamp is correct at every width. Menu hover no longer underlines (the background/slide feedback stays).
+- **Settings rebuilt:** Languages live in Settings as their own tab (no standalone menu entry); the Add Setting form, per-setting delete buttons and the settings DELETE endpoint are gone — settings are predefined, updated only through the one Save button at the bottom of each form with a toast confirmation; app version / released version / last updated are no longer shown in Settings at all (version lives only on About, read from code); Day request limit moved to the Security tab; every label is a proper translated string, never a raw key. New: Panel domain (validated hostname) in General, maintenance mode + custom message (server-side guard, admin bypass; visitors see the maintenance page, admins sign in through it), and CAPTCHA (custom math/text/reverse models + Google reCAPTCHA v2/v3, server-side verified, off by default).
+- **Real SMS — IPPanel, for real:** the SMS tab has three providers (IPPanel, Kavenegar, Faraz) with exactly one active at a time. IPPanel is a real integration against the official Edge API (`https://edge.ippanel.com/v1`, API key in the raw `Authorization` header, `POST /api/send` for webservice + pattern sends, `GET /api/payment/credit/mine` for balance) — the key and sender number live server-side only, never reach the frontend and are never logged. 2FA-via-SMS and per-event notification SMS really send through it; the test-send button really sends. Failures are surfaced honestly (logged + returned as errors, never a fake "sent"). The dashboard shows a live IPPanel balance widget (balance + unit, last-checked time, re-check button, ~5-minute cache, loads asynchronously and never blocks the page; "not configured" when no key is set; a clearly-mocked balance in demo mode). Kavenegar/Faraz stay as before (host-reachability check).
+- **Email, Telegram, and per-event notifications:** the Email tab has SMTP settings, templates + signature (actually used when sending), and per-event toggles; the Telegram tab has a bot token (server-side), a test-send, and per-event toggles; SMS and email sending can be toggled per event. The Logs menu carries per-channel streams (All / Email / SMS / Telegram / 2FA / System) — no new menu.
+- **License check is public:** `POST /api/licenses/validate` needs no API key and no JWT — any server can check a license with one call. The blacklist still applies, the 60/min rate limit stays, and the domain/IP/install-path locks are still enforced (strict or lenient per the license-security settings).
+- **2FA by email or SMS, not just TOTP:** the login 2FA step can deliver its code by email or SMS in addition to the authenticator app; the channel is chosen in Settings → Security.
+- **Calendars, encoding, and input hygiene:** dates can render in Gregorian, Jalali, or Lunar Hijri calendars (Settings → General); the system encoding setting (UTF-8 default, allowlisted) never touches the database charset; 4-byte characters (emoji) are stripped from inputs server-side by default (toggleable).
+- **Product & license notes — really gated:** a notes field on products and licenses, shown only while the General-tab toggle is on. When it is off the field is hidden everywhere and the API rejects notes with 400 — the toggle is enforced in the model, the schemas, and the service, not just the UI.
+- **Popups, not inline forms — on every list page:** Add User, Add to Blacklist and Add Language open as animated popups from a toolbar button placed first; the permission-matrix section is removed from Users (Roles is the single place for access levels). **Licenses finally has an edit action:** an edit button on every row (and in the details popup) opens the edit form in the animated popup — product, billing cycle, owner, status, new expiry, max activations, locks, notes — backed by `PUT /api/licenses/{id}`; the key itself is shown read-only, never editable. API Keys edit stays in its popup, and the key is still shown only once at creation.
+- **Audit logs can be deleted:** per-row delete + clear-all (admin-only, confirmed), backend + demo mock.
+- **API Docs rewritten:** tabbed, no-scroll, code samples in cURL, Python, JavaScript, PHP and Go for the REST API and for HMAC webhook verification; the WHMCS/WordPress guides are gone (one-line pointer to Downloads instead).
+- **Dashboard:** service-status widget (email / SMS / Telegram / database / webhooks / GitHub, with a re-check button and a 5-minute timer, async and non-blocking), per-channel sending charts with real data, an independent persisted time range under each chart, and a gear popup for widget visibility (persisted per admin).
+- **Themes:** ten built-in presets (Default, Ocean, Forest, Sunset, Graphite, Rose, Teal, Amber, Lime, Ruby) plus the custom theme builder — and each admin's theme is stored separately per admin (backend is the source of truth), so one admin's choice never mixes with another's.
+- **Animations:** popups and dropdowns animate open *and* closed, the bell rings and its badge pops, tabs fade/slide — all transform/opacity-based, snappy (~150–300ms), and skipped under `prefers-reduced-motion`.
+- **Version bump:** 3.0.0 everywhere, demo storage key `lmp-demo-db-v14`, `smoke_test_300.py`, mock next-release v3.0.1, all 10 module ZIPs rebuilt at 3.0.0 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Key Features
-- **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit.
-- **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, renew, and validate license keys.
-- **User Management:** Admin-only user CRUD with roles (admin/user); nobody can delete their own account or the last admin.
-- **System Settings:** Dynamically update system configurations.
+- **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit. Module-scoped keys (time-limited, optional HMAC signing + IP allowlist) are the only way modules connect.
+- **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, edit in a popup, renew, reissue, validate (public endpoint), and track activations. Notes on products and licenses (toggleable).
+- **Public license check:** `POST /api/licenses/validate` needs no key — blacklist, rate limit and locks still enforced.
+- **Real SMS (IPPanel):** webservice + pattern sends and live balance, with Kavenegar/Faraz alongside; 2FA-via-SMS and per-event SMS notifications.
+- **User Management:** Admin-only user CRUD with roles (admin/manager/support/viewer + custom roles); nobody can delete their own account or the last admin.
+- **Roles:** Full CRUD for custom roles with permission lists; built-ins protected.
+- **System Settings:** Predefined settings only (General, Language, Languages, Theme, Security, SMS, Email, Telegram tabs) — one Save button per form, toast confirmation, no delete.
+- **CAPTCHA:** Custom models + Google reCAPTCHA v2/v3, server-side verified, off by default.
+- **Maintenance mode:** Server-side guard with a custom message and admin bypass.
+- **Notifications:** Bell + Notifications page; per-channel (email/SMS/Telegram) delivery and per-channel log streams.
 - **Update Check:** Compare the running version against a configured latest version and record an applied update.
-- **High Security:** JWT authentication (Bearer tokens), bcrypt password hashing, and protected API routes.
-- **Modern UI:** Responsive and user-friendly interface with a graphical dashboard.
+- **High Security:** JWT authentication (Bearer tokens), bcrypt password hashing, TOTP 2FA (+ email/SMS codes), and protected API routes. Security is the top priority: every release is checked against an adversarial test suite that must fail closed.
+- **Modern UI:** Responsive, zero-scroll, tabbed and popup-split interface with a graphical dashboard; ten built-in theme presets plus a custom theme builder, stored separately per admin; full English/Persian UI with RTL.
 
 ---
-
 ## Project Layout
 
 ```
@@ -183,8 +70,8 @@ LicenseManagerPro/
 │   ├── pyproject.toml       # ruff config (B008 ignored: FastAPI Depends idiom)
 │   ├── Dockerfile
 │   ├── .env.example
-│   ├── routers/             # auth (+2FA), api_keys (+rotate), licenses, users, dashboard, settings, system, products, product_groups, blacklist, notifications, downloads, roles, search, audit_logs, languages, webhooks
-│   ├── services/            # api_keys (hashing/scopes/signing), licenses (validate + billing sync), users, settings, products, product_groups, blacklist, notifications, updates, downloads (direct GitHub URLs), webhooks (SSRF guard), license_security, roles, twofa, search
+│   ├── routers/             # auth (+2FA), api_keys (+rotate), licenses, users, dashboard, settings, system, products, product_groups, blacklist, notifications, downloads, roles, search, audit_logs, languages, webhooks, sms (balance + test-send)
+│   ├── services/            # api_keys (hashing/scopes/signing), licenses (validate + billing sync), users, settings, products, product_groups, blacklist, notifications, updates, downloads (direct GitHub URLs), webhooks (SSRF guard), license_security, roles, twofa, search, sms (provider abstraction), sms_ippanel (real IPPanel Edge client), service_status
 │   ├── utils/               # auth (JWT + hashing), permissions (role permission lists), rate_limit (login lockout + 2FA bucket), module_auth (require_actor: JWT or module key)
 │   └── tests/               # pytest suite (temporary SQLite DB; run one at a time — shared test.db)
 ├── frontend/                # React 18 frontend (react-scripts)
@@ -194,12 +81,12 @@ LicenseManagerPro/
 │       ├── App.js           # Routes + ProtectedRoute (/roles, /profile)
 │       ├── config.js        # API_BASE_URL (REACT_APP_API_URL or http://127.0.0.1:8000/api)
 │       ├── index.js         # React 18 createRoot entrypoint; unregisters any service worker on load
-│       ├── theme.js         # ThemeProvider (mode light/dark/auto + preset + custom, per-user persist)
-│       ├── pages/           # Login (animated hero + 2FA step), Dashboard (customizable widgets), Products, Settings (tabs: General/Language/Theme/License Security/Advanced), LicenseList, APIKeyList (rotate + show-once), UserManagement, Roles, Profile (2FA setup), Languages, ApiDocs, About, Blacklist, Downloads (direct GitHub links), Notifications, ProductGroups
+│       ├── theme.js         # ThemeProvider (mode light/dark/auto + 10 presets + custom, per-user persist)
+│       ├── pages/           # Login (animated hero + 2FA step + maintenance page), Dashboard (tabbed, customizable widgets, service status, SMS balance, sending charts), Products, Settings (tabs: General/Language/Languages/Theme/Security/SMS/Email/Telegram), LicenseList (edit in popup), APIKeyList (rotate + show-once), UserManagement, Roles, Profile (2FA setup), Languages, ApiDocs (tabbed, zero-scroll), About, Blacklist, Downloads (direct GitHub links), Notifications, ProductGroups
 │       ├── components/      # Layout (sidebar + topbar: GlobalSearch, ThemeToggle, ProfileMenu), Wizard, NotificationsBell, ChipSelect, ToggleSwitch, Modal, Toast, ConfirmModal
-│       ├── i18n/            # translations.js (en/fa, 660+ keys) + LanguageContext
+│       ├── i18n/            # translations.js (en/fa, 877 keys) + LanguageContext
 │       ├── styles/
-│       └── utils/           # api.js (get/post/put/del), auth.js, demoData.js (in-browser mock, storage key lmp-demo-db-v9), format.js
+│       └── utils/           # api.js (get/post/put/del), auth.js, demoData.js (in-browser mock, storage key lmp-demo-db-v14), format.js
 ├── modules/                 # Downloadable integrations, one per platform, each with version.json == app version
 │   ├── whmcs/               # WHMCS server module (PHP, MVC) + version.json
 │   ├── woocommerce/         # WordPress/WooCommerce plugin (PHP, MVC) + version.json
@@ -217,6 +104,7 @@ LicenseManagerPro/
 │   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
 ├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
+├── CHANGELOG.md             # Release history (v2.0.0 – v2.3.3; v3.0.0 lives above)
 └── README.md
 ```
 
@@ -224,19 +112,18 @@ LicenseManagerPro/
 
 ## Architecture
 
-Layers and patterns (v2.3.0), so a new developer can follow the structure:
+Layers and patterns (v3.0.0), so a new developer can follow the structure:
 
-- **Backend — thin routers, fat services.** Route handlers only parse/authorize and delegate; all business logic lives in `services/` (one service per domain: licenses, api_keys, users, products, webhooks, …). Services depend on abstractions where it matters: `require_actor` (in `utils/module_auth.py`) is the single dual-auth dependency for module-facing routes — JWT path and API-key path converge there, and every route declares exactly which permission or module scope it needs (`jwt_perm` / `module_scope`).
+- **Backend — thin routers, fat services.** Route handlers only parse/authorize and delegate; all business logic lives in `services/` (one service per domain: licenses, api_keys, users, products, webhooks, sms, …). Services depend on abstractions where it matters: `require_actor` (in `utils/module_auth.py`) is the single dual-auth dependency for module-facing routes — JWT path and API-key path converge there, and every route declares exactly which permission or module scope it needs (`jwt_perm` / `module_scope`). The license-validate route is the deliberate exception: public by design, with the blacklist, rate limit and locks enforced inside the service.
 - **Repository-ish data access:** queries live in the service that owns the entity (SQLAlchemy 2.x style, parameterized only — no raw SQL string building anywhere; `escape_like()` for every LIKE pattern). `ensure_schema()` auto-migrates existing databases on startup.
 - **Strategy for license security:** `services/license_security.py` resolves the effective config (global → per-product override) and `validate_license` applies the strict/lenient strategy; modes are data (a settings JSON document), not branches scattered through handlers.
-- **Observer / event dispatch:** `notify()` fans out notifications; webhook dispatch signs (HMAC-SHA256, constant-time compare on the receiving side) and records a `WebhookDelivery` row per attempt. Nothing in a request handler knows about delivery mechanics.
+- **Observer / event dispatch:** `notify()` fans out notifications; webhook dispatch signs (HMAC-SHA256, constant-time compare on the receiving side) and records a `WebhookDelivery` row per attempt. Nothing in a request handler knows about delivery mechanics. SMS goes through the provider abstraction in `services/sms.py` (real IPPanel client in `services/sms_ippanel.py`); notification sending is gated per event and per channel.
 - **Factory for key generation:** per-product key generators (prefix/segments/length) build keys with `secrets`; API-key secrets are generated with `secrets.token_urlsafe` and stored only as SHA-256 hashes.
 - **Dependency injection:** FastAPI `Depends()` everywhere (DB session, current user, rate limiters, `require_actor`); services take a `Session` and never construct their own.
-- **Frontend — presentational components + hooks/utils.** Pages own layout and data fetching; shared behavior lives in `components/` (ChipSelect, ToggleSwitch, Wizard, Modal) and `utils/` (api, auth, format, theme). State that must persist per user (theme, dashboard layout) goes through `PUT /users/me/preferences` with a localStorage fallback so demo mode works identically. No class components; no `var`; no `dangerouslySetInnerHTML` with user data anywhere.
+- **Frontend — presentational components + hooks/utils.** Pages own layout and data fetching; shared behavior lives in `components/` (ChipSelect, ToggleSwitch, Wizard, Modal) and `utils/` (api, auth, format, theme). State that must persist per user (theme, dashboard layout) goes through `PUT /users/me/preferences` with a localStorage fallback so demo mode works identically. No class components; no `var`; no `dangerouslySetInnerHTML` with user data anywhere. Zero scroll is structural: pages are flex columns that fill the content region, tall content scrolls inside its own block, and anything that does not fit is split (tabs, pagination, wizards, popups) — never squeezed.
 - **Modules — one shared spec, native MVC per platform.** Every module implements the same contract (API-key auth, billing-cycle sync, optional HMAC signing, fail-closed on 401/403, TLS verified) in the platform's own MVC shape: Model = API client + data layer, Controller = admin/front handlers & hooks, View = templates. Shared behavior is specified once (see `backend/services/api_keys.py` for the signing algorithm and `modules.json` for versions); no module invents its own auth.
 - **Clean-code rules enforced in review:** SOLID (single responsibility per file), DRY (shared helpers, no duplicated validation), no magic numbers/strings (constants in `config.py` / service modules), no dead code, no commented-out blocks, no TODOs in shipped code, full type hints on new Python, linted with ruff (`backend/pyproject.toml`; `ruff check` clean) and formatted with `ruff format` on all new files. The legacy backend was not reformatted wholesale (65 files predate the formatter) — new code follows the formatter; a full-repo format pass is a future cleanup, not a release blocker.
-- **Versioning:** one version constant per side (see the v2.3.0 notes above); the demo storage key increments with the version so a new demo never reads a stale schema.
-
+- **Versioning:** one version constant per side — `APP_VERSION` in `backend/config.py`, `version` in `frontend/package.json`, `modules.json` + every `modules/<platform>/version.json`, and the demo storage key `lmp-demo-db-v14` in `frontend/src/utils/demoData.js` (increment the suffix each release).
 
 ---
 
@@ -338,14 +225,14 @@ except where noted.
 - **GET** `/api/licenses?filter=&status=&search=` — List licenses. `filter` is `all` (default), `active`, `inactive`, `daily`, `weekly`, or `monthly`.
 - **POST** `/api/licenses` — Create a license (a key is generated when omitted).
 - **GET** `/api/licenses/{id}` — Get one license.
-- **PUT** `/api/licenses/{id}` — Update a license.
+- **PUT** `/api/licenses/{id}` — Update a license (product, billing cycle, owner, status, expiry, max activations, locks, notes).
 - **DELETE** `/api/licenses/{id}` — Delete a license.
 - **POST** `/api/licenses/{id}/renew` — Extend expiry (`{"extend_days": 30}`).
 - **POST** `/api/licenses/{id}/reissue` — Issue a new key (the old one stops working; blocked when the product's max-reissues limit is reached).
 - **GET** `/api/licenses/{id}/activations` — List activation instances.
 - **POST** `/api/licenses/{id}/activations` — Register an activation (`{"fingerprint": "...", "label": "..."}`; same fingerprint returns the existing record).
 - **DELETE** `/api/licenses/{id}/activations/{activation_id}` — Remove one activation (frees a slot).
-- **POST** `/api/licenses/validate` — Validate a license key (`{"key": "..."}`).
+- **POST** `/api/licenses/validate` — **Public: no API key, no JWT.** Validate a license key (`{"key": "...", "domain": "...", "ip": "...", "install_path": "..."}`). The blacklist always applies; 60 checks/min per IP; domain/IP/install-path locks enforced (strict or lenient).
 
 ### Product Groups
 - **GET** `/api/product-groups` — List groups (sorted by `sort_order`).
@@ -359,6 +246,10 @@ except where noted.
 - **POST** `/api/blacklist` — Add an entry (`{"type": "ip"|"domain", "value": "203.0.113.0/24", "reason": "..."}`).
 - **DELETE** `/api/blacklist/{id}` — Remove an entry.
 - Enforcement: license validate and API-key check-access reject a blacklisted IP (exact or CIDR) or domain (exact or subdomain) with reason `blocked: blacklisted`.
+
+### SMS (admin only)
+- **GET** `/api/sms/balance` — The active provider's credit balance (`{provider, configured, active, available, credit, unit, checked_at, cached}`; cached ~5 minutes; `not_configured` when no key is set).
+- **POST** `/api/sms/test` — Really send a test SMS through the active provider (`{"to": "...", "message": "..."}`).
 
 ### Notifications
 - **GET** `/api/notifications?skip=&limit=` — Unread first, then newest (`{notifications, total, unread}`).
@@ -382,9 +273,9 @@ except where noted.
 - **GET** `/api/dashboard/license-trend?days=14` — `{points: [{date, count}]}` of licenses created per day (admin only).
 
 ### System Settings
-- **GET** `/api/settings` — All settings as a `{key: value}` object.
+- **GET** `/api/settings` — All settings as a `{key: value}` object (secret-looking keys hidden from users without `settings:write`).
 - **GET** `/api/settings/{key}` — One setting.
-- **PUT** `/api/settings/{key}` — Create or update a setting (`{"key": ..., "value": ...}`).
+- **PUT** `/api/settings/{key}` — Update one **predefined** setting (`{"key": ..., "value": ...}`). Unknown keys are rejected (404) and system-managed keys with 400; settings can never be created or deleted through the API.
 
 ### System Updates
 - **GET** `/api/system/info` — `{version, lastUpdated}` (admin only).
@@ -423,7 +314,7 @@ Ten platform modules live in `modules/`, one per platform, each with `version.js
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it.
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.0).
 
 ```bash
 cd backend
@@ -434,11 +325,13 @@ Frontend checks (all must pass before a release):
 
 ```bash
 cd frontend
-npm run check-i18n   # every key exists in en and fa
+npm run check-i18n   # every key exists in en and fa (877 keys)
 npm run check-demo   # the in-browser demo mock (search, roles, 2FA, license security, billing sync, API-key rotation, downloads)
 npm run build        # normal build
 REACT_APP_DEMO_MODE=true npm run build   # demo build; the bundle must contain the current lmp-demo-db-vN key
 ```
+
+Live smoke test (35 checks, spins up the real backend on a temp DB): `python backend/smoke_test_300.py` — **35 passed**.
 
 Lint (backend): `ruff check backend/` and `ruff format --check` on the new files — see `backend/pyproject.toml`. Module ZIPs: `bash scripts/build-module-zips.sh` (verifies `version.json` == app version in every ZIP). Install script: `bash -n install.sh` + `bash install.sh --dry-run`.
 
@@ -452,3 +345,93 @@ Lint (backend): `ruff check backend/` and `ruff format --check` on the new files
 ## License
 
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+
+---
+<div dir="rtl" lang="fa">
+
+<a id="فارسی"></a>
+# لایسنس منیجر پرو
+
+**لایسنس منیجر پرو** یک سیستم جامع برای مدیریت کلیدهای API، لایسنس‌ها و تنظیمات سیستم است. این ابزار به‌طور خاص برای تیم‌ها و سازمان‌ها طراحی شده و مدیریت دقیق و امن دسترسی به نرم‌افزار و مجوزهای کاربر را فراهم می‌کند. فرانت‌اند با **React.js** و بک‌اند با **FastAPI** ساخته شده است و کارایی و انعطاف‌پذیری بالایی دارد. بررسی لایسنس یک فراخوانی عمومی است (بدون کلید API و بدون JWT) و بلاک‌لیست و قفل‌های لایسنس همچنان اعمال می‌شوند؛ بقیهٔ کارها به JWT یا کلید ماژول نیاز دارند.
+
+[English](#english) | [فارسی](#فارسی)
+
+## نسخهٔ آزمایشی زنده
+
+نسخهٔ فرانت‌اند را مستقیم در مرورگر امتحان کنید — بدون نصب، بدون بک‌اند:
+
+**https://rzatkv.github.io/LicenseManagerPro/**
+
+این نسخه در حالت آزمایشی اجرا می‌شود: همهٔ فراخوانی‌های API را یک موک داخل مرورگر پاسخ می‌دهد (`frontend/src/utils/demoData.js`)، پس می‌توانید با حساب آزمایشی از پیش پرشده (`demo@demo.com` / `demo1234`) وارد شوید، داشبورد را ببینید، لایسنس و کلید API بسازید/حذف کنید و کاربران را مدیریت کنید. داده‌های نمونه فقط در مرورگر خودتان (localStorage) ذخیره می‌شوند؛ هیچ‌چیز از دستگاه شما خارج نمی‌شود. فرانت‌اند به‌صورت PWA هم قابل نصب است (مانیفست + سرویس‌ورکر + آیکن‌ها) — با «Install app» در مرورگر آن را به صفحهٔ اصلی اضافه کنید. برای اجرای همین نسخهٔ آزمایشی به‌صورت محلی: `cd frontend && REACT_APP_DEMO_MODE=true npm run build` (یا `npm start` با `REACT_APP_DEMO_MODE=true`). استقرار با `.github/workflows/pages-demo.yml` خودکار است؛ تنظیم یک‌بارهٔ مخزن: Settings → Pages → Source: GitHub Actions.
+
+---
+
+## تازه‌های نسخهٔ ۳٫۰٫۰
+
+نسخهٔ بزرگ: بدون اسکرول در همهٔ صفحات، بازسازی تنظیمات، پیامک واقعی (آی‌پنل)، کپچا، حالت تعمیرات، و عمومی‌شدن بررسی لایسنس — به‌علاوهٔ آخرین نکته‌های بررسی تلفنی نسخهٔ ۲٫۳٫۳ و نبود هیچ مبلغی در کل محصول (این یک سیستم مالی نیست):
+
+- **منوی زبان در صفحهٔ ورود دیگر روی تیتر هیرو نمی‌افتد:** بررسی تلفنی نسخهٔ ۲٫۳٫۳ نشان داد منوی باز هنوز بخشی از متن تیتر هیرو را می‌پوشاند (اندازه‌گیری زنده: ۳٬۷۰۰ تا ۵٬۷۰۰ پیکسل‌مربع روی دو خط در ۳۶۰/۴۰۰ پیکسل، هر دو زبان) — خود کاشی از قبل تمیز بود. تا وقتی منو باز است، اسلایدها (+ نقطه‌ها) ۱۱۰ پیکسل داخل فضای خالی خود هیرو پایین می‌روند (هیرو در تلفن ۴۲۰ پیکسل ارتفاع دارد، محتوایش ~۱۸۰ پیکسل)، پس اولین خط تیتر زیر لبهٔ پایین منو شروع می‌شود. چیدمان صفحه بزرگ نمی‌شود و چیزی اسکرول یا بریده نمی‌شود؛ با بسته‌شدن منو اسلایدها فوراً بالا می‌روند. در ۳۶۰/۴۰۰ پیکسل، فارسی + انگلیسی، روشن + تیره، هم‌پوشانی ۰ پیکسل‌مربع تأیید شده است.
+- **مبلغ از کل محصول حذف شده است:** نه ستون مبلغ در جدول محصولات، نه فیلد مبلغ در ویزارد یا فرم ویرایش محصول، نه در پنجرهٔ جزئیات محصول یا انتخاب محصول در ویزارد لایسنس، نه در داده‌های آزمایشی، و نه در متن رابط کاربری یا مستندات (فارسی + انگلیسی). بک‌اند فیلدهای مبلغ محصول و برآورد درآمد داشبورد را کاملاً حذف کرده است (API دیگر آن‌ها را برنمی‌گرداند)؛ پایگاه‌های دادهٔ پیش از ۳٫۰٫۰ دو ستون را در راه‌اندازی حذف می‌کنند. منوهای مدیریت ماژول‌ها (WHMCS، ووکامرس) فقط نام محصول + دوره‌های پرداخت را نشان می‌دهند.
+- **بدون اسکرول در همه‌جا — اندازه‌گیری‌شده، نه ادعاشده:** داشبورد، مستندات API، درباره و همهٔ صفحات لیست در ۳۶۰ تا ۱۹۲۰ پیکسل، فارسی + انگلیسی، روشن + تیره، داخل ویوپورت جا می‌شوند — محتوا به تب و صفحه‌بندی تقسیم شده، هرگز فشرده نشده است. داشبورد تب‌دار است (نمای کلی، برجسته‌ها، روندها، وضعیت، ماهانه، فعالیت، کلیدهای API، کاربران، سرویس‌ها، ارسال) و اسکرول داشبورد نسخهٔ آزمایشی زنده با همین تب‌ها درست شده است. مستندات API با یک پیمایش Playwright تأیید شده است: ۴۷۶ ترکیب تب × زیرنما × عرض × زبان × تم، ۰ خطای اسکرول — صفحه یک ستون فلکس است که ناحیهٔ محتوا را پر می‌کند، نمونه‌های بلند داخل بلوک خودشان اسکرول می‌شوند، جدول اندپوینت‌ها بر اساس عرض و ارتفاع ویوپورت ۳/۶/۱۲ ردیف صفحه‌بندی می‌کند، و راهنمای احراز هویت ماژول و قفل‌ها به زیرنماهای جداگانه تقسیم شده‌اند.
+- **زنگ اعلان‌ها در لپ‌تاپ درست شد:** منوی کشویی در انگلیسی ۱۲۴ پیکسل از لبهٔ راست بریده می‌شد (خاصیت `backdrop-filter` نوار بالایی آن را به بلوک مرجع پنل ثابت تبدیل کرده بود) — حالا به `document.body` منتقل شده است، پس محدودهٔ داخل ویوپورت در هر عرضی درست است. هاور منو دیگر زیرخط ندارد (بازخورد پس‌زمینه/لغزش می‌ماند).
+- **تنظیمات بازسازی شد:** زبان‌ها در تنظیمات تب خودشان را دارند (دیگر ورودی جداگانه در منو نیست)؛ فرم «افزودن تنظیم»، دکمه‌های حذف تکی و اندپوینت DELETE تنظیمات حذف شده‌اند — تنظیمات از پیش تعریف‌شده‌اند و فقط با یک دکمهٔ ذخیره در پایین هر فرم و تأیید با توست به‌روز می‌شوند؛ نسخهٔ برنامه / نسخهٔ منتشرشده / آخرین به‌روزرسانی دیگر اصلاً در تنظیمات دیده نمی‌شوند (نسخه فقط در «درباره»، خوانده‌شده از کد، هست)؛ محدودیت درخواست روزانه به تب امنیت منتقل شد؛ هر برچسب یک رشتهٔ ترجمه‌شدهٔ درست است، هرگز یک کلید خام نیست. جدید: دامنهٔ پنل (نام میزبان اعتبارسنجی‌شده) در عمومی، حالت تعمیرات + پیام دلخواه (نگهبان سمت سرور، عبور مدیر؛ بازدیدکنندگان صفحهٔ تعمیرات را می‌بینند، مدیران از همان‌جا وارد می‌شوند)، و کپچا (مدل‌های سفارشی ریاضی/متن/معکوس + گوگل reCAPTCHA نسخهٔ ۲ و ۳، اعتبارسنجی سمت سرور، پیش‌فرض خاموش).
+- **پیامک واقعی — آی‌پنل، واقعاً:** تب پیامک سه ارائه‌دهنده دارد (آی‌پنل، کاوه‌نگار، فراز) که دقیقاً یکی فعال است. آی‌پنل یک اتصال واقعی به Edge API رسمی است (`https://edge.ippanel.com/v1`، کلید API در هدر خام `Authorization`، `POST /api/send` برای ارسال وب‌سرویس + الگو، `GET /api/payment/credit/mine` برای موجودی) — کلید و شمارهٔ فرستنده فقط سمت سرور می‌مانند، هرگز به فرانت‌اند نمی‌رسند و هرگز لاگ نمی‌شوند. ورود دومرحله‌ای با پیامک و پیامک‌های اعلان هر رویداد واقعاً از همین مسیر ارسال می‌شوند؛ دکمهٔ «ارسال آزمایشی» واقعاً ارسال می‌کند. خطاها صادقانه نشان داده می‌شوند (لاگ + برگشت به‌عنوان خطا، هرگز یک «ارسال شد» جعلی). داشبورد یک ویجت زندهٔ موجودی آی‌پنل دارد (موجودی + واحد، زمان آخرین بررسی، دکمهٔ بررسی دوباره، کش ~۵ دقیقه‌ای، بارگذاری ناهمگام و بدون مسدودکردن صفحه؛ وقتی کلیدی تنظیم نشده «پیکربندی نشده» نشان می‌دهد؛ در حالت آزمایشی یک موجودی مشخصاً ساختگی). کاوه‌نگار/فراز مثل قبل می‌مانند (بررسی دسترسی به میزبان).
+- **ایمیل، تلگرام، و اعلان هر رویداد:** تب ایمیل تنظیمات SMTP، قالب‌ها + امضا (که واقعاً در ارسال استفاده می‌شوند) و کلید هر رویداد را دارد؛ تب تلگرام توکن ربات (سمت سرور)، ارسال آزمایشی و کلید هر رویداد را دارد؛ ارسال پیامک و ایمیل را می‌توان برای هر رویداد جداگانه روشن/خاموش کرد. منوی «لاگ‌ها» جریان‌های هر کانال را دارد (همه / ایمیل / پیامک / تلگرام / دومرحله‌ای / سیستم) — بدون منوی جدید.
+- **بررسی لایسنس عمومی شد:** `POST /api/licenses/validate` نه کلید API می‌خواهد نه JWT — هر سروری با یک فراخوانی می‌تواند لایسنس را بررسی کند. بلاک‌لیست همچنان اعمال می‌شود، محدودیت ۶۰ بررسی در دقیقه سر جایش است، و قفل‌های دامنه/IP/مسیر نصب همچنان اجرا می‌شوند (سخت‌گیرانه یا با اغماض، طبق تنظیمات امنیت لایسنس).
+- **ورود دومرحله‌ای با ایمیل یا پیامک، نه فقط TOTP:** مرحلهٔ دومرحله‌ای ورود می‌تواند کد را با ایمیل یا پیامک هم بفرستد، علاوه بر اپ احراز هویت؛ کانال در تنظیمات → امنیت انتخاب می‌شود.
+- **تقویم‌ها، کدگذاری، و بهداشت ورودی:** تاریخ‌ها می‌توانند در تقویم میلادی، جلالی یا هجری قمری نمایش داده شوند (تنظیمات → عمومی)؛ تنظیم کدگذاری سیستم (پیش‌فرض UTF-8، فهرست مجاز) هرگز به کدگذاری پایگاه داده دست نمی‌زند؛ کاراکترهای ۴ بایتی (ایموجی) به‌طور پیش‌فرض سمت سرور از ورودی‌ها حذف می‌شوند (قابل تغییر).
+- **یادداشت محصول و لایسنس — واقعاً مشروط:** فیلد یادداشت روی محصولات و لایسنس‌ها، فقط وقتی کلید تب عمومی روشن است نشان داده می‌شود. وقتی خاموش است، فیلد همه‌جا پنهان می‌شود و API یادداشت را با خطای ۴۰۰ رد می‌کند — کلید در مدل، اسکیما و سرویس اعمال می‌شود، نه فقط در رابط کاربری.
+- **پنجره‌های بازشو، نه فرم‌های درون‌صفحه‌ای — در همهٔ صفحات لیست:** افزودن کاربر، افزودن به بلاک‌لیست و افزودن زبان به‌صورت پنجرهٔ بازشوی متحرک از دکمهٔ نوار ابزار (اول) باز می‌شوند؛ بخش ماتریس دسترسی از کاربران حذف شد (نقش‌ها تنها جای سطوح دسترسی است). **لایسنس بالاخره ویرایش دارد:** دکمهٔ ویرایش روی هر ردیف (و در پنجرهٔ جزئیات) فرم ویرایش را در پنجرهٔ بازشوی متحرک باز می‌کند — محصول، دورهٔ پرداخت، مالک، وضعیت، انقضای جدید، حداکثر فعال‌سازی، قفل‌ها، یادداشت — با پشتیبانی `PUT /api/licenses/{id}`؛ خود کلید فقط خواندنی نشان داده می‌شود، هرگز قابل ویرایش نیست. ویرایش کلیدهای API در پنجرهٔ خودش می‌ماند و کلید هنوز فقط یک‌بار موقع ساخت نشان داده می‌شود.
+- **لاگ‌های حسابرسی قابل حذف‌اند:** حذف هر ردیف + پاک‌کردن همه (فقط مدیر، با تأیید)، بک‌اند + موک آزمایشی.
+- **مستندات API بازنویسی شد:** تب‌دار، بدون اسکرول، نمونه‌های کد در cURL، پایتون، جاوااسکریپت، PHP و Go برای API و برای اعتبارسنجی وب‌هوک HMAC؛ راهنماهای WHMCS/وردپرس حذف شدند (به‌جایش یک خط اشاره به دانلودها).
+- **داشبورد:** ویجت وضعیت سرویس (ایمیل / پیامک / تلگرام / پایگاه داده / وب‌هوک / گیت‌هاب، با دکمهٔ بررسی دوباره و تایمر ۵ دقیقه‌ای، ناهمگام و بدون مسدودکردن)، نمودارهای ارسال هر کانال با دادهٔ واقعی، بازهٔ زمانی مستقل و ماندگار زیر هر نمودار، و پنجرهٔ چرخ‌دنده برای دیده‌شدن ویجت‌ها (ماندگار برای هر مدیر).
+- **تم‌ها:** ده پیش‌تنظیم داخلی (پیش‌فرض، اقیانوس، جنگل، غروب، گرافیت، رز، فیروزه‌ای، کهربایی، لایم، یاقوتی) به‌علاوهٔ سازندهٔ تم سفارشی — و تم هر مدیر جداگانه برای همان مدیر ذخیره می‌شود (بک‌اند مرجع حقیقت است)، پس انتخاب یک مدیر هرگز با دیگری قاطی نمی‌شود.
+- **انیمیشن‌ها:** پنجره‌ها و منوها با انیمیشن باز *و* بسته می‌شوند، زنگ می‌لرزد و نشانش می‌پرد، تب‌ها محو/لغزش دارند — همه بر پایهٔ transform/opacity، سریع (~۱۵۰ تا ۳۰۰ میلی‌ثانیه)، و زیر `prefers-reduced-motion` حذف می‌شوند.
+- **بالابردن نسخه:** ۳٫۰٫۰ در همه‌جا، کلید ذخیرهٔ آزمایشی `lmp-demo-db-v14`، `smoke_test_300.py`، موکِ نسخهٔ بعدی ۳٫۰٫۱، هر ۱۰ فایل ZIP ماژول با هم‌ترازی ۳٫۰٫۰ بازسازی شد. نسخه‌های قدیمی در [CHANGELOG.md](CHANGELOG.md) هستند.
+
+## ویژگی‌های کلیدی
+- **مدیریت کلید API:** ساخت، فهرست، به‌روزرسانی و حذف کلیدهای API با حقوق دسترسی، انقضا، محدودیت IP/دامنه/دایرکتوری، کلید یک‌بارمصرف و محدودیت درخواست روزانه. کلیدهای ماژول (زمان‌دار، امضای HMAC اختیاری + فهرست مجاز IP) تنها راه اتصال ماژول‌ها هستند.
+- **مدیریت لایسنس:** ساخت و فیلتر لایسنس‌ها (همه/فعال/غیرفعال، امروز/این هفته/این ماه)، مشاهدهٔ جزئیات، ویرایش در پنجرهٔ بازشو، تمدید، صدور دوباره، اعتبارسنجی (اندپوینت عمومی) و ردیابی فعال‌سازی‌ها. یادداشت روی محصولات و لایسنس‌ها (قابل خاموش‌کردن).
+- **بررسی عمومی لایسنس:** `POST /api/licenses/validate` کلید نمی‌خواهد — بلاک‌لیست، محدودیت نرخ و قفل‌ها همچنان اعمال می‌شوند.
+- **پیامک واقعی (آی‌پنل):** ارسال وب‌سرویس + الگو و موجودی زنده، همراه کاوه‌نگار/فراز؛ ورود دومرحله‌ای با پیامک و اعلان پیامکی هر رویداد.
+- **مدیریت کاربر:** CRUD کاربران فقط برای مدیر با نقش‌ها (مدیر/مدیر میانی/پشتیبان/بیننده + نقش‌های سفارشی)؛ هیچ‌کس نمی‌تواند حساب خودش یا آخرین مدیر را حذف کند.
+- **نقش‌ها:** CRUD کامل نقش‌های سفارشی با فهرست دسترسی؛ نقش‌های داخلی محافظت‌شده‌اند.
+- **تنظیمات سیستم:** فقط تنظیمات از پیش تعریف‌شده (تب‌های عمومی، زبان، زبان‌ها، تم، امنیت، پیامک، ایمیل، تلگرام) — یک دکمهٔ ذخیره در هر فرم، تأیید با توست، بدون حذف.
+- **کپچا:** مدل‌های سفارشی + گوگل reCAPTCHA نسخهٔ ۲ و ۳، اعتبارسنجی سمت سرور، پیش‌فرض خاموش.
+- **حالت تعمیرات:** نگهبان سمت سرور با پیام دلخواه و عبور مدیر.
+- **اعلان‌ها:** زنگ + صفحهٔ اعلان‌ها؛ تحویل هر کانال (ایمیل/پیامک/تلگرام) و لاگ‌های هر کانال.
+- **بررسی به‌روزرسانی:** مقایسهٔ نسخهٔ در حال اجرا با آخرین نسخهٔ پیکربندی‌شده و ثبت به‌روزرسانی اعمال‌شده.
+- **امنیت بالا:** احراز هویت JWT (توکن Bearer)، هش رمز عبور bcrypt، ورود دومرحله‌ای TOTP (+ کد ایمیل/پیامک) و مسیرهای محافظت‌شده. امنیت بالاترین اولویت است: هر انتشار با یک مجموعهٔ تست خصمانه بررسی می‌شود که باید بسته (fail closed) بماند.
+- **رابط کاربری مدرن:** واکنش‌گرا، بدون اسکرول، تب‌دار و پنجره‌ای با داشبورد گرافیکی؛ ده پیش‌تنظیم تم + سازندهٔ تم سفارشی، ذخیره‌شده جداگانه برای هر مدیر؛ رابط کامل فارسی/انگلیسی با راست‌به‌چپ.
+
+## راه‌اندازی (خلاصه)
+
+```bash
+git clone https://github.com/rzatkv/LicenseManagerPro.git
+cd LicenseManagerPro
+cd backend && cp .env.example .env   # یک SECRET_KEY طولانی و تصادفی بگذارید
+python -m venv ../.venv && ../.venv/bin/pip install -r requirements.txt
+../.venv/bin/uvicorn main:app --reload   # API روی http://127.0.0.1:8000
+cd ../frontend && npm install && npm start   # برنامه روی http://localhost:3000
+```
+
+اولین حساب مدیر: رمز پیش‌فرضی وجود ندارد. وقتی پایگاه داده خالی است، ثبت‌نام باز است و همیشه مدیر می‌سازد؛ بعد از آن ثبت‌نام به توکن JWT مدیر نیاز دارد. جزئیات کامل در بخش انگلیسی بالا (Setup / First Admin Account) آمده است.
+
+## ماژول‌ها
+
+ده ماژول برای WHMCS، ووکامرس، وردپرس، جوملا، پرستاشاپ، مجنتو، اپن‌کارت، شاپ‌ور، دروپال و اودو — هر کدام با `version.json` برابر نسخهٔ برنامه — از صفحهٔ **دانلودها** در پنل مدیریت قابل دریافت‌اند (پیوند مستقیم به فایل ضمیمهٔ انتشار گیت‌هاب برای همان نسخه). همهٔ ماژول‌ها فقط با کلید API متصل می‌شوند — هرگز با ایمیل/رمز عبور مدیر.
+
+## آزمایش‌ها
+
+- بک‌اند: `cd backend && ../.venv/bin/python -m pytest tests/ -q` — **۲۸۴ تست، همه قبول**.
+- فرانت‌اند: `npm run check-i18n` (۸۷۷ کلید) و `npm run check-demo` (۸۵ بررسی) — همه قبول.
+- تست دود زنده: `python backend/smoke_test_300.py` — **۳۵ بررسی، همه قبول**.
+
+## مشارکت‌کنندگان
+- **رضا کریمی** - [rzatkv](https://github.com/rzatkv)
+
+## مجوز
+
+این پروژه تحت [مجوز MIT](https://opensource.org/licenses/MIT) منتشر شده است.
+
+</div>

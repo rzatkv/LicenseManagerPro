@@ -1,6 +1,15 @@
+/* Zero-scroll (v3.0.0): flex column filling the content region; the
+   table takes the leftover height (no fixed 100dvh-300px cap) and
+   scrolls inside itself. */
 .api-key-list-container {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
+.api-key-list-container .table-wrap { flex: 1; min-height: 0; min-width: 0; max-height: none; }
 
 .api-key-list-container h1 {
     text-align: center;

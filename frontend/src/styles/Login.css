@@ -122,7 +122,23 @@
 .demo-notice { color: var(--muted); font-size: 13px; }
 
 @media (max-width: 768px) {
-    .login-layout { flex-direction: column; gap: 20px; padding: 16px; }
+    .login-layout { flex-direction: column; gap: 16px; padding: 12px; }
+    /* Zero-scroll (v3.0.0): stacked hero (420px flex-basis) + form
+       (543px) = 1015px on an 800px viewport — 215px of page scroll.
+       The hero is fixed to 288px: its content is ~176–187px, so the
+       110px language-menu shift below still fits inside the slack
+       (288 − 187 = 101… the last 9px grow the hero, absorbed by the
+       41px of total slack). The form logo is hidden on the stacked
+       layout — the hero logo sits 16px above the card, so it is a
+       duplicate, not information (the maintenance card keeps its logo:
+       it has no hero above it). Form padding/margins trim ~28px.
+       Total: 24 + 288 + 16 + ~431 = ~759px ≤ 800. */
+    .login-hero { flex: 0 0 288px; max-width: 340px; }
+    .login-form:not(.maintenance-card) .login-logo { display: none; }
+    .login-form { padding: 24px; }
+    .login-form h1 { margin-bottom: 14px; }
+    .login-form .login-subtitle { margin-bottom: 12px; }
+    .login-form .form-group { margin-bottom: 12px; }
     /* Hero stays start-aligned on phones (v2.3.3): the old centered
        hero put the 64px logo tile in the middle of the page, directly
        under the top-corner language dropdown — the open dropdown's
@@ -132,7 +148,7 @@
        the open menu can never reach it at any width, language or
        theme. The dots follow the same alignment. */
     .login-hero { max-width: 340px; }
-    /* Open language dropdown vs hero headline (v2.3.4): the v2.3.3
+    /* Open language dropdown vs hero headline (v3.0.0): the v2.3.3
        phone check found the open menu still covering part of the hero
        headline text (measured live-DOM: 3,700–5,700 px² over two lines
        at 360/400px, both languages) — the tile itself was already
@@ -159,3 +175,26 @@
     .login-anim { animation: none; }
     .login-hero-slide { transition: none; }
 }
+
+/* v3.0 captcha block on the login form (custom models + reCAPTCHA). */
+.captcha-box { display: flex; flex-direction: column; gap: 8px; }
+.captcha-prompt { margin: 0; font-size: 14px; color: var(--muted); }
+.captcha-display {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    text-align: center;
+    color: var(--text);
+    user-select: none;
+}
+.captcha-row { display: flex; gap: 8px; align-items: center; }
+.captcha-row input { flex: 1; min-width: 0; }
+
+/* v3.0 maintenance page: the custom message + admin sign-in. */
+.maintenance-card { text-align: center; }
+.maintenance-card .login-subtitle { font-size: 16px; line-height: 1.6; }

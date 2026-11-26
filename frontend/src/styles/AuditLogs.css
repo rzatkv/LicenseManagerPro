@@ -1,7 +1,14 @@
-.audit-logs-container { padding: 20px; }
+/* Zero-scroll (v3.0.0): flex column filling the content region; the
+   table takes the leftover height (no fixed 500px cap) and scrolls
+   inside itself, so title + channel tabs + toolbar never push the
+   page past the viewport. */
+.audit-logs-container { padding: 20px; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.audit-logs-container h1 { flex-shrink: 0; }
+.audit-logs-container .mini-tabs { flex-shrink: 0; min-width: 0; /* margin:0 auto in index.css sizes a flex item to max-content (431px of tabs) instead of stretching to the container — the 360px X-overflow. Kill the auto margins, keep the 16px bottom gap. */ margin: 0 0 16px; }
+.audit-logs-container .toolbar { flex-shrink: 0; }
+.audit-logs-container .table-wrap { flex: 1; min-height: 0; min-width: 0; max-height: none; }
 .audit-logs-container h1 { text-align: center; margin-bottom: 20px; }
 .audit-logs-container .toolbar { justify-content: center; }
-.audit-details { direction: ltr; text-align: start; font-family: ui-monospace, monospace; font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Filter bar (v2.3): wrapping flex row — the search input grows, selects
    stay auto-width, Clear appears only while a filter is active. */
@@ -33,3 +40,6 @@
 .toolbar .search-wrap .search-input {
     max-width: none;
 }
+
+/* Details popup: pretty-printed JSON, wraps instead of overflowing. */
+.audit-details-pre { white-space: pre-wrap; overflow-wrap: break-word; font-size: 13px; line-height: 1.5; margin: 0; padding: 12px; border-radius: 12px; background: var(--surface-2); }

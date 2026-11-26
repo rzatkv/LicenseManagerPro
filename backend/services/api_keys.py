@@ -245,10 +245,11 @@ def _warn_key_expiring(db: Session, entry: ApiKey) -> None:
         return
     if entry.expiry_warned_at and (utcnow() - entry.expiry_warned_at) < timedelta(days=1):
         return
-    from services import notifications as notification_service
+    from services import notify_channels as notify_channels_service
 
-    notification_service.notify_admins(
+    notify_channels_service.notify_event(
         db,
+        "api_key_expiring",
         "Module API key expiring soon",
         f"Module API key {entry.key}… expires in {remaining} day(s). Rotate it from the API Keys page.",
         type_="warning",

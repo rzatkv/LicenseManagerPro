@@ -13,6 +13,23 @@
   box-shadow: none;
 }
 .notif-bell-btn:hover:not(:disabled) { box-shadow: var(--shadow); transform: none; }
+/* v3.0 micro-animations: the bell swings briefly when clicked, and the
+   unread badge pops whenever the count changes (key={unread} remounts
+   the badge, replaying the animation). */
+.bell-ringing svg { animation: bellRing 0.5s ease; transform-origin: top center; }
+@keyframes bellRing {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(14deg); }
+    40% { transform: rotate(-12deg); }
+    60% { transform: rotate(8deg); }
+    80% { transform: rotate(-6deg); }
+}
+.notif-badge { animation: badgePop 0.3s ease; }
+@keyframes badgePop {
+    0% { transform: scale(0.4); }
+    60% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
 .notif-badge {
   position: absolute;
   top: -4px;

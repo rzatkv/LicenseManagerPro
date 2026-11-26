@@ -55,3 +55,89 @@ def test_preferences_require_auth(client):
         client.put("/api/users/me/preferences", json={"key": "theme", "value": {}}).status_code
         == 401
     )
+
+
+def _login_as(client, email, password):
+    """Log in as a second user; returns Authorization headers."""
+    response = client.post(
+        "/api/auth/login", json={"email": email, "password": password}
+    )
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_preferences_theme_isolated_per_user(client, auth_headers):
+    """v3.0 per-admin themes: admin A picking ocean must not change
+    admin B's theme, and vice versa — preferences are keyed by user."""
+    created = client.post(
+        "/api/users",
+        json={"email": "second@example.com", "password": "secondpass123", "role": "admin"},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    second_headers = _login_as(client, "second@example.com", "secondpass123")
+
+    put_a = client.put(
+        "/api/users/me/preferences",
+        json={"key": "theme", "value": {"preset": "ocean", "mode": "dark"}},
+        headers=auth_headers,
+    )
+    assert put_a.status_code == 200, put_a.text
+    put_b = client.put(
+        "/api/users/me/preferences",
+        json={"key": "theme", "value": {"preset": "forest", "mode": "light"}},
+        headers=second_headers,
+    )
+    assert put_b.status_code == 200, put_b.text
+
+    prefs_a = client.get("/api/users/me/preferences", headers=auth_headers).json()["preferences"]
+    prefs_b = client.get("/api/users/me/preferences", headers=second_headers).json()["preferences"]
+    assert prefs_a["theme"] == {"preset": "ocean", "mode": "dark"}
+    assert prefs_b["theme"] == {"preset": "forest", "mode": "light"}
+
+
+def test_preferences_theme_validation(client, auth_headers):
+    """v3.0: unknown preset/mode, bad hex colour and unknown custom
+    fields are rejected; a well-formed theme (incl. custom) is stored."""
+    base = "/api/users/me/preferences"
+    assert (
+        client.put(base, json={"key": "theme", "value": {"preset": "nope"}}, headers=auth_headers).status_code
+        == 400
+    )
+    assert (
+        client.put(base, json={"key": "theme", "value": {"mode": "sepia"}}, headers=auth_headers).status_code
+        == 400
+    )
+    assert (
+        client.put(
+            base,
+            json={"key": "theme", "value": {"custom": {"accent": "red"}}},
+            headers=auth_headers,
+        ).status_code
+        == 400
+    )
+    assert (
+        client.put(
+            base,
+            json={"key": "theme", "value": {"custom": {"evil": "#FFFFFF"}}},
+            headers=auth_headers,
+        ).status_code
+        == 400
+    )
+    assert (
+        client.put(
+            base,
+            json={"key": "theme", "value": {"preset": "custom", "custom": {"accent": "#F43F5E"}}},
+            headers=auth_headers,
+        ).status_code
+        == 200
+    )
+    # A non-theme key is unaffected by theme validation.
+    assert (
+        client.put(
+            base,
+            json={"key": "dashboard_layout", "value": {"order": ["summary"]}},
+            headers=auth_headers,
+        ).status_code
+        == 200
+    )

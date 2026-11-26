@@ -52,8 +52,8 @@ final class ApiClient {
     return $this->request('GET', $path, NULL, $query, $overrides);
   }
 
-  public function post(string $path, array $data = [], array $query = [], array $overrides = []): ?array {
-    return $this->request('POST', $path, $data, $query, $overrides);
+  public function post(string $path, array $data = [], array $query = [], array $overrides = [], bool $public = false): ?array {
+    return $this->request('POST', $path, $data, $query, $overrides, $public);
   }
 
   public function put(string $path, array $data = [], array $query = [], array $overrides = []): ?array {
@@ -115,7 +115,12 @@ final class ApiClient {
    * One HTTP call. Returns the decoded JSON body on HTTP 2xx, NULL on
    * any failure (see getLastError()). Never throws for HTTP errors.
    */
-  private function request(string $method, string $path, ?array $data, array $query, array $overrides): ?array {
+  /**
+   * One HTTP call. $public = true marks a PUBLIC endpoint
+   * (POST /licenses/validate): no X-API-Key header and no HMAC
+   * signature are sent.
+   */
+  private function request(string $method, string $path, ?array $data, array $query, array $overrides, bool $public = false): ?array {
     $this->lastError = NULL;
     $api_url = $overrides['api_url'] ?? $this->config->getApiUrl();
     $api_key = $overrides['api_key'] ?? $this->config->getApiKey();
@@ -134,7 +139,7 @@ final class ApiClient {
     $url_path = (string) parse_url($url, PHP_URL_PATH);
 
     $options = [
-      'headers' => $this->buildHeaders($method, $url_path, $body, (string) $api_key, (bool) $signed),
+      'headers' => $this->buildHeaders($method, $url_path, $body, (string) $api_key, (bool) $signed, $public),
       'timeout' => static::REQUEST_TIMEOUT_SECONDS,
       'http_errors' => FALSE,
       // TLS verification is never disabled.
@@ -175,12 +180,17 @@ final class ApiClient {
   /**
    * @return array<string, string>
    */
-  private function buildHeaders(string $method, string $path, string $body, string $api_key, bool $signed): array {
+  private function buildHeaders(string $method, string $path, string $body, string $api_key, bool $signed, bool $public = false): array {
     $headers = [
       'Content-Type' => 'application/json',
       'Accept' => 'application/json',
-      static::HEADER_API_KEY => $api_key,
     ];
+    if ($public) {
+      // PUBLIC endpoint (POST /licenses/validate, v3.0): no API key,
+      // no HMAC signature — the check is open to any server.
+      return $headers;
+    }
+    $headers[static::HEADER_API_KEY] = $api_key;
     if ($signed) {
       $timestamp = (string) time();
       $headers[static::HEADER_TIMESTAMP] = $timestamp;

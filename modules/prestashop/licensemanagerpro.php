@@ -31,7 +31,7 @@ class LicenseManagerPro extends Module
     {
         $this->name = 'licensemanagerpro';
         $this->tab = 'administration';
-        $this->version = '2.3.4';
+        $this->version = '3.0.0';
         $this->author = 'LicenseManagerPro';
         $this->need_instance = 0;
         $this->bootstrap = true;

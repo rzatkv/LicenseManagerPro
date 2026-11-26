@@ -94,9 +94,9 @@ class LMP_Api
         return $this->request('GET', $path);
     }
 
-    public function post($path, $data = array())
+    public function post($path, $data = array(), $public = false)
     {
-        return $this->request('POST', $path, $data);
+        return $this->request('POST', $path, $data, $public);
     }
 
     public function put($path, $data = array())
@@ -129,8 +129,13 @@ class LMP_Api
      * WP_Error with a readable message otherwise. A 401/403 always
      * fails closed with a clear message and is written to the PHP
      * error log; nothing is created or changed on the backend.
+     *
+     * $public = true marks a PUBLIC endpoint (POST /licenses/validate):
+     * no X-API-Key header and no HMAC signature are sent — the license
+     * check is open to any server, and the blacklist still applies
+     * server-side. Every other endpoint sends the module key.
      */
-    private function request($method, $path, $data = null)
+    private function request($method, $path, $data = null, $public = false)
     {
         if (!$this->is_configured()) {
             return new WP_Error(
@@ -144,9 +149,11 @@ class LMP_Api
         $headers = array(
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
-            'X-API-Key' => $this->api_key,
         );
-        if ($this->signed_requests) {
+        if (!$public) {
+            $headers['X-API-Key'] = $this->api_key;
+        }
+        if ($this->signed_requests && !$public) {
             $timestamp = (string) time();
             $headers['X-LMP-Timestamp'] = $timestamp;
             $headers['X-LMP-Signature'] = $this->sign($method, $url, $timestamp, $raw_body);
@@ -226,7 +233,10 @@ class LMP_Api
 
     /**
      * Validate a license key (optionally with the site domain).
-     * Returns array('valid' => bool, 'detail' => string, 'license' => ...).
+     * PUBLIC endpoint (v3.0): POST /licenses/validate sends no API key
+     * and no signature — the check is open to any server; the blacklist
+     * still applies server-side. Returns
+     * array('valid' => bool, 'detail' => string, 'license' => ...).
      */
     public function validate_license($key, $domain = null)
     {
@@ -234,6 +244,6 @@ class LMP_Api
         if ($domain) {
             $body['domain'] = $domain;
         }
-        return $this->post('/licenses/validate', $body);
+        return $this->post('/licenses/validate', $body, true);
     }
 }

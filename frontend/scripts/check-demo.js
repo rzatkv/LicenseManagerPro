@@ -42,13 +42,13 @@ function check(name, cond, extra) {
 }
 
 (async () => {
-  console.log("Demo mock checks (v2.3 flows):");
+  console.log("Demo mock checks (v3.0 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.3.4
+  // 1. Seed versions bumped to 3.0.0
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.3.4", settings.app_version === "2.3.4", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.3.4", settings.latest_version === "2.3.4", JSON.stringify(settings.latest_version));
+  check("seed app_version is 3.0.0", settings.app_version === "3.0.0", JSON.stringify(settings.app_version));
+  check("seed latest_version is 3.0.0", settings.latest_version === "3.0.0", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -78,11 +78,18 @@ function check(name, cond, extra) {
   const u1 = await mockRequest("GET", "/users?skip=0&limit=10");
   check("users page 1: 4 items, total 4", u1.items && u1.items.length === 4 && u1.total === 4, JSON.stringify(u1 && u1.total));
 
-  // 9. Audit logs seeded with the full contract shape
+  // 9. Audit logs seeded with the full contract shape: 5 legacy rows +
+  // 11 per-channel send rows (v3.0 per-channel logs), 16 total.
   const a1 = await mockRequest("GET", "/audit-logs?skip=0&limit=10");
   const row = a1.items && a1.items[0];
   const shapeOk = row && ["id", "actor_email", "action", "entity", "entity_id", "details", "created_at"].every((f) => f in row);
-  check("audit logs seeded (5 rows) with contract fields", a1.items && a1.items.length === 5 && a1.total === 5 && shapeOk, JSON.stringify(a1 && a1.total));
+  const allShapeOk = (a1.items || []).every((r) => ["id", "actor_email", "action", "entity", "entity_id", "details", "created_at"].every((f) => f in r));
+  check("audit logs seeded (16 rows: 5 legacy + 11 channel) with contract fields", a1.items && a1.items.length === 10 && a1.total === 16 && shapeOk && allShapeOk, JSON.stringify(a1 && a1.total));
+  // 9b. Channel filter separates the streams (v3.0 per-channel logs).
+  const aEmail = await mockRequest("GET", "/audit-logs?channel=email&skip=0&limit=50");
+  check("audit logs channel=email returns only email rows", aEmail.items && aEmail.items.length > 0 && aEmail.items.every((r) => (r.action || "").startsWith("notify.email_")), JSON.stringify(aEmail && aEmail.total));
+  const aSms = await mockRequest("GET", "/audit-logs?channel=sms&skip=0&limit=50");
+  check("audit logs channel=sms returns only sms rows", aSms.items && aSms.items.length > 0 && aSms.items.every((r) => (r.action || "").startsWith("notify.sms_")), JSON.stringify(aSms && aSms.total));
   // 10. Audit logs: entity filter
   const aLic = await mockRequest("GET", "/audit-logs?entity=license&skip=0&limit=10");
   check("audit logs entity=license filters", aLic.items && aLic.items.length > 0 && aLic.items.every((r) => r.entity === "license"), JSON.stringify(aLic && aLic.total));
@@ -96,10 +103,16 @@ function check(name, cond, extra) {
   const afterCreate = await mockRequest("GET", "/audit-logs?skip=0&limit=1");
   check("product create appends audit row", afterCreate.total === before + 1 && afterCreate.items[0].action === "product.create" && afterCreate.items[0].entity_id === createdProduct.id, JSON.stringify(afterCreate.items && afterCreate.items[0]));
 
-  // 13. Mutation appends license.create
+  // 13. Mutation appends license.create — the notify() path appends
+  // notify.email_sent rows AFTER the license.create row, so the create row
+  // is no longer the newest; it must still be present, and the notify row
+  // for the event must exist too.
   const createdLicense = await mockRequest("POST", "/licenses", {product_id: 1, billing_cycle: "annual", owner_email: "audit@example.com"});
-  const afterLic = await mockRequest("GET", "/audit-logs?skip=0&limit=1");
-  check("license create appends audit row", afterLic.items[0].action === "license.create" && afterLic.items[0].entity_id === createdLicense.id, JSON.stringify(afterLic.items && afterLic.items[0]));
+  const afterLic = await mockRequest("GET", "/audit-logs?skip=0&limit=5");
+  const licRow = (afterLic.items || []).find((r) => r.action === "license.create" && r.entity_id === createdLicense.id);
+  const licNotify = (afterLic.items || []).find((r) => r.action === "notify.email_sent" && r.details && r.details.event === "license_created");
+  check("license create appends audit row", !!licRow, JSON.stringify(afterLic.items && afterLic.items[0]));
+  check("license create triggers email notify row", !!licNotify, JSON.stringify(afterLic.items && afterLic.items.map((r) => r.action)));
 
   // 14. Mutation appends license.delete
   await mockRequest("DELETE", `/licenses/${createdLicense.id}`);
@@ -111,10 +124,12 @@ function check(name, cond, extra) {
   const afterSet = await mockRequest("GET", "/audit-logs?skip=0&limit=1");
   check("settings change appends audit row", afterSet.items[0].action === "setting.update" && afterSet.items[0].entity === "setting", JSON.stringify(afterSet.items && afterSet.items[0]));
 
-  // 16. User create + role_change + delete append audit rows
+  // 16. User create + role_change + delete append audit rows — same
+  // notify-after-create ordering as licenses (see 13).
   const createdUser = await mockRequest("POST", "/users", {email: "audituser@example.com", password: "password123", role: "viewer"});
-  const afterUser = await mockRequest("GET", "/audit-logs?skip=0&limit=1");
-  check("user create appends audit row", afterUser.items[0].action === "user.create" && afterUser.items[0].entity_id === createdUser.id, JSON.stringify(afterUser.items && afterUser.items[0]));
+  const afterUser = await mockRequest("GET", "/audit-logs?skip=0&limit=5");
+  const userRow = (afterUser.items || []).find((r) => r.action === "user.create" && r.entity_id === createdUser.id);
+  check("user create appends audit row", !!userRow, JSON.stringify(afterUser.items && afterUser.items[0]));
   await mockRequest("PUT", `/users/${createdUser.id}`, {role: "support"});
   const afterRole = await mockRequest("GET", "/audit-logs?skip=0&limit=1");
   check("user role change appends user.role_change row", afterRole.items[0].action === "user.role_change", JSON.stringify(afterRole.items && afterRole.items[0]));
@@ -149,7 +164,7 @@ function check(name, cond, extra) {
   await mockRequest("DELETE", `/product-groups/${newGroup.id}`);
   check("empty product group deletes", true);
 
-  // 20. v2.2: 14-day trend (estimated MRR removed in v2.3.4 — not a
+  // 20. v2.2: 14-day trend (estimated MRR removed in v3.0.0 — not a
   // financial system, so the summary carries counts only).
   const summary = await mockRequest("GET", "/dashboard/summary");
   check("dashboard summary has counts, no estimated_mrr", typeof summary.activeLicenses === "number" && typeof summary.inactiveLicenses === "number" && !("estimated_mrr" in summary), JSON.stringify(summary));
@@ -180,13 +195,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v2.3.4", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.4/licensemanagerpro-whmcs-2.3.4.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v3.0.0", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.0/licensemanagerpro-whmcs-3.0.0.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 2.3.4", versions.whmcs && versions.whmcs.local === "2.3.4" && versions.odoo && versions.odoo.latest === "2.3.4", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 3.0.0", versions.whmcs && versions.whmcs.local === "3.0.0" && versions.odoo && versions.odoo.latest === "3.0.0", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.4", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.0", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 

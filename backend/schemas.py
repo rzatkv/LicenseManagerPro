@@ -9,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    # v3.0 CAPTCHA (only checked when captcha is enabled server-side):
+    # custom models send challenge id + answer; reCAPTCHA sends the token.
+    captcha_challenge_id: str | None = None
+    captcha_answer: str | None = None
+    captcha_token: str | None = None
 
 
 class TokenResponse(BaseModel):
@@ -19,6 +24,9 @@ class TokenResponse(BaseModel):
     # for a JWT at POST /api/auth/verify-2fa.
     requires_2fa: bool = False
     temp_token: str | None = None
+    # v3.0: which channel the 2FA code uses (totp | email | sms) when
+    # requires_2fa is true; the login page shows the matching prompt.
+    twofa_channel: str | None = None
 
 
 class RegisterRequest(BaseModel):
@@ -42,6 +50,8 @@ class UserUpdateRequest(BaseModel):
     # v2.3 profile fields.
     display_name: str | None = None
     avatar_url: str | None = None
+    # v3.0: phone number for SMS 2FA codes / SMS notifications.
+    phone: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -53,6 +63,7 @@ class UserResponse(BaseModel):
     role_id: int | None = None
     display_name: str | None = None
     avatar_url: str | None = None
+    phone: str | None = None
     totp_enabled: bool = False
     last_login_at: datetime | None = None
     is_active: bool
@@ -262,6 +273,9 @@ class ProductCreateRequest(BaseModel):
     # v2.3: per-product license-security overrides (same keys as the
     # global LicenseSecurityConfig); keys present here override global.
     security_overrides: dict | None = None
+    # v3.0: admin notes; accepted only when the product_notes_enabled
+    # setting is "on" (the service layer enforces this).
+    notes: str | None = None
 
 
 class ProductUpdateRequest(BaseModel):
@@ -279,6 +293,7 @@ class ProductUpdateRequest(BaseModel):
     key_segment_length: int | None = Field(default=None, ge=2, le=8)
     max_reissues: int | None = Field(default=None, ge=0)
     security_overrides: dict | None = None
+    notes: str | None = None
 
 
 class ProductResponse(BaseModel):
@@ -299,6 +314,7 @@ class ProductResponse(BaseModel):
     key_segment_length: int = 4
     max_reissues: int | None = None
     security_overrides: dict | None = None
+    notes: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -378,6 +394,8 @@ class LicenseCreateRequest(BaseModel):
     status: str = Field(default="active", description="active / inactive / revoked")
     expires_in_days: int | None = Field(default=None, description="Days until expiry")
     max_activations: int = Field(default=1, ge=1)
+    # v3.0: admin notes; accepted only when product_notes_enabled is "on".
+    notes: str | None = None
 
     @field_validator("allowed_domains", "allowed_ips", mode="before")
     @classmethod
@@ -396,6 +414,7 @@ class LicenseUpdateRequest(BaseModel):
     status: str | None = None
     expires_in_days: int | None = None
     max_activations: int | None = Field(default=None, ge=1)
+    notes: str | None = None
 
     @field_validator("allowed_domains", "allowed_ips", mode="before")
     @classmethod
@@ -435,6 +454,7 @@ class LicenseResponse(BaseModel):
     max_activations: int
     activations: int
     reissue_count: int = 0
+    notes: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -483,6 +503,37 @@ class DashboardTrendResponse(BaseModel):
 class SystemInfoResponse(BaseModel):
     version: str
     lastUpdated: str
+    # v3.0: the admin-configured panel domain ("" when unset).
+    panel_domain: str = ""
+
+
+class MaintenanceStatusResponse(BaseModel):
+    enabled: bool
+    message: str
+
+
+class CaptchaPublicConfigResponse(BaseModel):
+    type: str
+    model: str
+    site_key: str
+    v3_threshold: float
+    secret_configured: bool
+
+
+class CaptchaChallengeResponse(BaseModel):
+    challenge_id: str
+    model: str
+    prompt: str
+    display: str
+
+
+class CaptchaAdminConfigRequest(BaseModel):
+    type: str | None = None
+    model: str | None = None
+    site_key: str | None = None
+    # Empty string keeps the stored secret; "__CLEAR__" removes it.
+    secret_key: str | None = None
+    v3_threshold: float | None = None
 
 
 class CheckUpdatesResponse(BaseModel):
@@ -616,6 +667,8 @@ class TwoFADisableRequest(BaseModel):
 class TwoFAStatusResponse(BaseModel):
     enabled: bool
     backup_codes_remaining: int = 0
+    # v3.0: the channel codes are delivered on (totp | email | sms).
+    channel: str = "totp"
 
 
 class TwoFALoginRequest(BaseModel):

@@ -2,6 +2,7 @@ import React, {useState, useEffect, useRef, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import {get} from "../utils/api";
+import {useAnimatedOpen} from "../utils/useAnimatedOpen";
 import "./GlobalSearch.css";
 
 /** Global search in the header (v2.3): searches licenses (key/customer),
@@ -12,6 +13,8 @@ function GlobalSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const showDropdown = open && query.trim().length >= 2;
+  const {visible: dropdownVisible, closing: dropdownClosing} = useAnimatedOpen(showDropdown);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState({licenses: [], products: [], users: []});
   const [active, setActive] = useState(0);
@@ -113,8 +116,8 @@ function GlobalSearch() {
           >×</button>
         )}
       </div>
-      {open && query.trim().length >= 2 && (
-        <div className="global-search-dropdown" role="listbox">
+      {dropdownVisible && (
+        <div className={`global-search-dropdown${dropdownClosing ? " dropdown-closing" : ""}`} role="listbox">
           {flat.length === 0 && !loading && (
             <div className="global-search-empty">{t("search.noResults")}</div>
           )}
