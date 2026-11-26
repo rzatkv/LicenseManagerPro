@@ -12,7 +12,7 @@ LICENSE = {
 def _make_locked_license(client, auth_headers):
     product = client.post(
         "/api/products",
-        json={"name": "SecProd", "billing_cycles": ["monthly"], "price": 10},
+        json={"name": "SecProd", "billing_cycles": ["monthly"]},
         headers=auth_headers,
     )
     assert product.status_code == 201, product.text
@@ -127,7 +127,7 @@ def test_license_security_config_roundtrip(client, auth_headers):
 def test_activation_limit_toggle(client, auth_headers):
     product = client.post(
         "/api/products",
-        json={"name": "ActProd", "billing_cycles": ["monthly"], "price": 1},
+        json={"name": "ActProd", "billing_cycles": ["monthly"]},
         headers=auth_headers,
     ).json()
     lic = client.post(

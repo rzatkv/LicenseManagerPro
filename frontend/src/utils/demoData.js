@@ -11,8 +11,8 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v12";
-const APP_VERSION = "2.3.3";
+const STORAGE_KEY = "lmp-demo-db-v13";
+const APP_VERSION = "2.3.4";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
 // One module per platform (v2.3): the Downloads page links DIRECTLY to
 // the GitHub release asset, so the module version always matches the
@@ -111,9 +111,9 @@ function seed() {
         {id: 2, name: "Business Apps", slug: "business-apps", description: "CRM, helpdesk and office tools.", color: "#C1165E", sort_order: 1, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
     ];
     const products = [
-        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", price: 49, currency: "USD", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, security_overrides: null, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
-        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", price: 29, currency: "USD", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, security_overrides: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
-        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", price: 19, currency: "USD", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, security_overrides: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
+        {id: 1, name: "CloudPanel Pro", slug: "cloudpanel-pro", description: "Server control panel with license management.", status: "active", billing_cycles: ["monthly", "quarterly", "annual", "lifetime"], webhook_url: "https://example.com/hooks/lmp", webhook_events: ["license.created", "license.renewed", "license.expiring"], webhook_secret: "whsec_demo_cloudpanel", group_id: 1, key_prefix: "CPN", key_segments: 4, key_segment_length: 4, max_reissues: 3, security_overrides: null, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(2)},
+        {id: 2, name: "CRM Suite", slug: "crm-suite", description: "Customer relationship management suite.", status: "active", billing_cycles: ["monthly", "semiannual", "annual"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 2, key_prefix: null, key_segments: 4, key_segment_length: 4, max_reissues: 0, security_overrides: null, created_at: isoDaysAgo(20), updated_at: isoDaysAgo(5)},
+        {id: 3, name: "HelpDesk", slug: "helpdesk", description: "Support ticket system for small teams.", status: "active", billing_cycles: ["monthly", "annual", "biennial"], webhook_url: null, webhook_events: [], webhook_secret: null, group_id: 1, key_prefix: "HDK", key_segments: 3, key_segment_length: 4, max_reissues: 1, security_overrides: null, created_at: isoDaysAgo(12), updated_at: isoDaysAgo(1)},
     ];
     const lic = (id, productId, product, owner, status, expires, created, extra) => ({
         id, key: randomLicenseKey(products.find((p) => p.id === productId)), product, product_id: productId,
@@ -405,21 +405,6 @@ function isBlacklisted(ip, domain) {
     return false;
 }
 
-// Estimated MRR (mirrors the backend): sum over active licenses of their
-// product's price normalized to monthly by billing cycle.
-function estimatedMrr() {
-    const months = {monthly: 1, quarterly: 3, semiannual: 6, annual: 12, biennial: 24, lifetime: 0};
-    let total = 0;
-    for (const lic of db.licenses) {
-        if (effectiveStatus(lic) !== "active") continue;
-        const product = db.products.find((p) => p.id === lic.product_id);
-        if (!product || !product.price) continue;
-        const m = months[lic.billing_cycle] || 0;
-        if (m > 0) total += product.price / m;
-    }
-    return Math.round(total * 100) / 100;
-}
-
 // ?skip&limit pagination shared by the list endpoints. When neither param
 // is present the full list is returned (backward compat for get()).
 // When present, returns {items, total} like the real API's X-Total-Count.
@@ -458,7 +443,6 @@ export async function mockRequest(method, endpoint, body) {
             usersCount: db.users.length,
             activeLicenses: active,
             inactiveLicenses: db.licenses.length - active,
-            estimated_mrr: estimatedMrr(),
         };
     }
     if (method === "GET" && path === "/dashboard/license-trend") {
@@ -534,8 +518,6 @@ export async function mockRequest(method, endpoint, body) {
                 name: body.name,
                 slug: body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                 description: body.description || null,
-                price: Number(body.price) || 0,
-                currency: body.currency || "USD",
                 status: body.status || "active",
                 billing_cycles: cycles,
                 webhook_url: body.webhook_url || null,

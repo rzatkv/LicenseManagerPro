@@ -129,8 +129,8 @@ class LMP_Admin
     /**
      * License Manager Pro products for the mapping dropdowns, cached
      * for 10 minutes. Returns array('products' => [...], 'error' =>
-     * ''|'message'). Each product is array('slug', 'name', 'price',
-     * 'currency', 'billing_cycles'). On API failure 'products' is
+     * ''|'message'). Each product is array('slug', 'name',
+     * 'billing_cycles'). On API failure 'products' is
      * empty and 'error' explains why — the View then falls back to a
      * plain text field per row instead of breaking the page.
      */
@@ -150,8 +150,6 @@ class LMP_Admin
                 $products[] = array(
                     'slug' => (string) $product['slug'],
                     'name' => (string) $product['name'],
-                    'price' => isset($product['price']) ? $product['price'] : null,
-                    'currency' => isset($product['currency']) ? (string) $product['currency'] : '',
                     'billing_cycles' => (isset($product['billing_cycles']) && is_array($product['billing_cycles']))
                         ? $product['billing_cycles']
                         : array(),
@@ -163,18 +161,12 @@ class LMP_Admin
     }
 
     /**
-     * Label for one dropdown option: name plus a price/cycle hint,
-     * e.g. "CloudPanel Pro — 29.00 USD (monthly, annual)".
+     * Label for one dropdown option: name plus a cycle hint,
+     * e.g. "CloudPanel Pro (monthly, annual)".
      */
     public static function product_option_label($product)
     {
         $label = $product['name'];
-        if ($product['price'] !== null && $product['price'] !== '') {
-            $label .= ' — ' . $product['price'];
-            if ($product['currency'] !== '') {
-                $label .= ' ' . $product['currency'];
-            }
-        }
         if (!empty($product['billing_cycles'])) {
             $label .= ' (' . implode(', ', $product['billing_cycles']) . ')';
         }

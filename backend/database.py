@@ -129,6 +129,30 @@ def ensure_schema():
                 conn.execute(text(ddl)
                 )
 
+        # Retired columns (v2.3.4): two product columns were removed —
+        # this is not a financial system. Drop them from pre-v2.3.4
+        # databases when present; a failure is logged, never fatal.
+        retired = {"products": ("price", "currency")}
+        for table_name, columns in retired.items():
+            if table_name not in existing_tables:
+                continue
+            present = {c["name"] for c in inspector.get_columns(table_name)}
+            for column_name in columns:
+                if column_name not in present:
+                    continue
+                drop_ddl = (
+                    f"ALTER TABLE {preparer.quote(table_name)} "
+                    f"DROP COLUMN {preparer.quote(column_name)}"
+                )
+                try:
+                    conn.execute(text(drop_ddl))
+                    logger.info("Schema migration: %s", drop_ddl)
+                except Exception as e:  # noqa: BLE001 - old engines may lack DROP COLUMN
+                    logger.warning(
+                        "Could not drop retired column %s.%s: %s",
+                        table_name, column_name, e,
+                    )
+
 
 def seed_settings(db):
     """Seed the system settings the app depends on, if they are missing."""

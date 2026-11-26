@@ -111,7 +111,7 @@ def test_custom_role_permissions_gate_api(client, auth_headers):
     # licenses:create is allowed (permission held)...
     product = client.post(
         "/api/products",
-        json={"name": "P", "billing_cycles": ["monthly"], "price": 1},
+        json={"name": "P", "billing_cycles": ["monthly"]},
         headers=auth_headers,
     )
     assert product.status_code == 201

@@ -320,7 +320,7 @@ function LicenseList() {
                             </select>
                             <select value={wProductId} onChange={(e) => { setWProductId(e.target.value); setWCycle(""); }}>
                                 <option value="">{t("licenses.noProduct")}</option>
-                                {wizardProducts.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.price} {p.currency})</option>)}
+                                {wizardProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                             {!wProductId && (
                                 <input type="text" placeholder={t("licenses.productName")} value={wProduct} onChange={(e) => setWProduct(e.target.value)} required />

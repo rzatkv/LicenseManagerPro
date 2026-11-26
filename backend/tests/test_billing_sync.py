@@ -10,7 +10,7 @@ from services.licenses import add_months
 def _create_product(client, auth_headers, cycles=None):
     response = client.post(
         "/api/products",
-        json={"name": "SyncProd", "billing_cycles": cycles or ["monthly"], "price": 10},
+        json={"name": "SyncProd", "billing_cycles": cycles or ["monthly"]},
         headers=auth_headers,
     )
     assert response.status_code == 201, response.text

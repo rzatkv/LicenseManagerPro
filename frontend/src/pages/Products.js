@@ -29,7 +29,7 @@ const ALL_EVENTS = ["license.created", "license.renewed", "license.revoked", "li
 const PAGE_SIZE = 10;
 
 const emptyForm = {
-  name: "", slug: "", description: "", price: "", currency: "USD", status: "active",
+  name: "", slug: "", description: "", status: "active",
   billing_cycles: ["monthly", "annual"], webhook_url: "", webhook_events: [], webhook_secret: "",
   group_id: "", key_prefix: "", key_segments: 4, key_segment_length: 4, max_reissues: 0,
 };
@@ -115,7 +115,7 @@ function Products() {
     setEditingId(p.id);
     setForm({
       name: p.name, slug: p.slug || "", description: p.description || "",
-      price: String(p.price ?? ""), currency: p.currency || "USD", status: p.status || "active",
+      status: p.status || "active",
       billing_cycles: p.billing_cycles || [], webhook_url: p.webhook_url || "",
       webhook_events: p.webhook_events || [], webhook_secret: p.webhook_secret || "",
       group_id: p.group_id ? String(p.group_id) : "",
@@ -131,8 +131,6 @@ function Products() {
     name: f.name,
     slug: f.slug || undefined,
     description: f.description || undefined,
-    price: Number(f.price) || 0,
-    currency: f.currency || "USD",
     status: f.status,
     billing_cycles: f.billing_cycles,
     webhook_url: f.webhook_url || undefined,
@@ -216,7 +214,6 @@ function Products() {
     [t("products.name"), wizardForm.name],
     [t("products.slug"), wizardForm.slug || "-"],
     [t("products.description"), wizardForm.description || "-"],
-    [t("products.price"), `${wizardForm.price || 0} ${wizardForm.currency}`],
     [t("products.group"), groupName(wizardForm.group_id ? Number(wizardForm.group_id) : null)],
     [t("products.cycles"), wizardForm.billing_cycles.map((c) => t(`cycle.${c}`)).join(", ")],
     [t("products.keyFormat"), wizardForm.key_prefix ? `${wizardForm.key_prefix}-XXXX × ${wizardForm.key_segments}` : t("products.notConfigured")],
@@ -253,8 +250,6 @@ function Products() {
               </div>
               <input type="text" placeholder={t("products.description")} value={wizardForm.description} onChange={(e) => setWizardForm({...wizardForm, description: e.target.value})} />
               <div className="form-row">
-                <input type="number" min="0" step="0.01" placeholder={t("products.price")} value={wizardForm.price} onChange={(e) => setWizardForm({...wizardForm, price: e.target.value})} />
-                <input type="text" placeholder={t("common.currency")} value={wizardForm.currency} onChange={(e) => setWizardForm({...wizardForm, currency: e.target.value})} />
                 <select value={wizardForm.status} onChange={(e) => setWizardForm({...wizardForm, status: e.target.value})}>
                   <option value="active">{t("common.active")}</option>
                   <option value="inactive">{t("common.inactive")}</option>
@@ -319,8 +314,6 @@ function Products() {
           </div>
           <input type="text" placeholder={t("products.description")} value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} />
           <div className="form-row">
-            <input type="number" min="0" step="0.01" placeholder={t("products.price")} value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} />
-            <input type="text" placeholder={t("common.currency")} value={form.currency} onChange={(e) => setForm({...form, currency: e.target.value})} />
             <select value={form.status} onChange={(e) => setForm({...form, status: e.target.value})}>
               <option value="active">{t("common.active")}</option>
               <option value="inactive">{t("common.inactive")}</option>
@@ -393,7 +386,6 @@ function Products() {
               <th>{t("products.name")}</th>
               <th className="col-slug">{t("products.slug")}</th>
               <th className="col-group">{t("products.group")}</th>
-              <th className="col-price">{t("products.price")}</th>
               <th className="col-cycles">{t("products.cycles")}</th>
               <th>{t("products.status")}</th>
               <th className="col-webhook">{t("products.webhook")}</th>
@@ -407,7 +399,6 @@ function Products() {
                 <td className="cell-ellipsis cell-name">{p.name}</td>
                 <td className="cell-ellipsis cell-slug col-slug">{p.slug}</td>
                 <td className="col-group">{groupName(p.group_id)}</td>
-                <td className="nowrap col-price">{p.price} {p.currency}</td>
                 <td className="col-cycles"><span className="cycle-chips">{(p.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></td>
                 <td>{p.status === "active" ? t("common.active") : t("common.inactive")}</td>
                 <td className="col-webhook">
@@ -443,7 +434,6 @@ function Products() {
           <div className="detail-row"><strong>{t("products.slug")}</strong><span>{detailsProduct.slug || "-"}</span></div>
           <div className="detail-row"><strong>{t("products.group")}</strong><span>{groupName(detailsProduct.group_id)}</span></div>
           <div className="detail-row"><strong>{t("products.description")}</strong><span>{detailsProduct.description || "-"}</span></div>
-          <div className="detail-row"><strong>{t("products.price")}</strong><span className="nowrap">{detailsProduct.price} {detailsProduct.currency}</span></div>
           <div className="detail-row"><strong>{t("products.cycles")}</strong><span className="detail-chips">{(detailsProduct.billing_cycles || []).map((c) => <span key={c} className="badge badge-sm">{t(`cycle.${c}`)}</span>)}</span></div>
           <div className="detail-row"><strong>{t("products.status")}</strong><span>{detailsProduct.status === "active" ? t("common.active") : t("common.inactive")}</span></div>
           <div className="detail-row"><strong>{t("products.webhookUrl")}</strong><span>{detailsProduct.webhook_url || t("products.notConfigured")}</span></div>

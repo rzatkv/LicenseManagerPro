@@ -73,8 +73,6 @@ def serialize_product(product: Product) -> dict:
         "name": product.name,
         "slug": product.slug,
         "description": product.description,
-        "price": product.price,
-        "currency": product.currency,
         "status": product.status,
         "billing_cycles": cycles,
         "webhook_url": product.webhook_url,
@@ -159,8 +157,6 @@ def create_product(request: ProductCreateRequest, db: Session) -> Product:
         name=request.name,
         slug=slug,
         description=request.description,
-        price=request.price,
-        currency=request.currency or "USD",
         status=request.status,
         billing_cycles=json.dumps(cycles),
         webhook_url=request.webhook_url,
@@ -199,10 +195,6 @@ def update_product(product_id: int, request: ProductUpdateRequest, db: Session) 
         product.slug = request.slug
     if request.description is not None:
         product.description = request.description
-    if request.price is not None:
-        product.price = request.price
-    if request.currency is not None:
-        product.currency = request.currency
     if request.status is not None:
         if request.status not in PRODUCT_STATUSES:
             raise HTTPException(

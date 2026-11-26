@@ -33,5 +33,5 @@
     "start": "react-scripts start",
     "test": "react-scripts test"
   },
-  "version": "2.3.3"
+  "version": "2.3.4"
 }

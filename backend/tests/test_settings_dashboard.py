@@ -6,7 +6,7 @@ def test_settings_crud(client, auth_headers):
     assert response.status_code == 200
     settings = response.json()
     assert settings["daily_request_limit"] == "100"
-    assert settings["app_version"] == "2.3.3"
+    assert settings["app_version"] == "2.3.4"
 
     response = client.put(
         "/api/settings/daily_request_limit",
@@ -82,7 +82,7 @@ def test_dashboard_summary(client, auth_headers):
 def test_system_info_and_check_updates(client, auth_headers):
     response = client.get("/api/system/info", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["version"] == "2.3.3"
+    assert response.json()["version"] == "2.3.4"
     assert response.json()["lastUpdated"]
 
     response = client.get("/api/system/check-updates", headers=auth_headers)
@@ -92,12 +92,12 @@ def test_system_info_and_check_updates(client, auth_headers):
     # Publish a newer version via the settings, then an update is available.
     client.put(
         "/api/settings/latest_version",
-        json={"key": "latest_version", "value": "2.3.4"},
+        json={"key": "latest_version", "value": "2.3.5"},
         headers=auth_headers,
     )
     response = client.get("/api/system/check-updates", headers=auth_headers)
     assert response.json()["updateAvailable"] is True
-    assert response.json()["latestVersion"] == "2.3.4"
+    assert response.json()["latestVersion"] == "2.3.5"
 
 
 def test_system_update_when_up_to_date(client, auth_headers, monkeypatch):
@@ -111,11 +111,11 @@ def test_system_update_when_up_to_date(client, auth_headers, monkeypatch):
         return httpx.Response(
             200,
             json={
-                "tag_name": "v2.3.3",
-                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v2.3.3",
+                "tag_name": "v2.3.4",
+                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v2.3.4",
                 "body": "no changes",
                 "published_at": "2026-11-25T00:00:00Z",
-                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v2.3.3",
+                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v2.3.4",
             },
         )
 

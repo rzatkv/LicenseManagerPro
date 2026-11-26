@@ -45,10 +45,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v2.3 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 2.3.3
+  // 1. Seed versions bumped to 2.3.4
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 2.3.3", settings.app_version === "2.3.3", JSON.stringify(settings.app_version));
-  check("seed latest_version is 2.3.3", settings.latest_version === "2.3.3", JSON.stringify(settings.latest_version));
+  check("seed app_version is 2.3.4", settings.app_version === "2.3.4", JSON.stringify(settings.app_version));
+  check("seed latest_version is 2.3.4", settings.latest_version === "2.3.4", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -149,9 +149,10 @@ function check(name, cond, extra) {
   await mockRequest("DELETE", `/product-groups/${newGroup.id}`);
   check("empty product group deletes", true);
 
-  // 20. v2.2: dashboard MRR + 14-day trend
+  // 20. v2.2: 14-day trend (estimated MRR removed in v2.3.4 — not a
+  // financial system, so the summary carries counts only).
   const summary = await mockRequest("GET", "/dashboard/summary");
-  check("dashboard summary has estimated_mrr", typeof summary.estimated_mrr === "number" && summary.estimated_mrr > 0, JSON.stringify(summary.estimated_mrr));
+  check("dashboard summary has counts, no estimated_mrr", typeof summary.activeLicenses === "number" && typeof summary.inactiveLicenses === "number" && !("estimated_mrr" in summary), JSON.stringify(summary));
   const trend = await mockRequest("GET", "/dashboard/license-trend?days=14");
   check("license trend returns 14 points summing to 5", trend.points && trend.points.length === 14 && trend.points.reduce((a, p) => a + p.count, 0) === 5, JSON.stringify(trend.points && trend.points.reduce((a, p) => a + p.count, 0)));
 
@@ -179,13 +180,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v2.3.3", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.3/licensemanagerpro-whmcs-2.3.3.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v2.3.4", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v2.3.4/licensemanagerpro-whmcs-2.3.4.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 2.3.3", versions.whmcs && versions.whmcs.local === "2.3.3" && versions.odoo && versions.odoo.latest === "2.3.3", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 2.3.4", versions.whmcs && versions.whmcs.local === "2.3.4" && versions.odoo && versions.odoo.latest === "2.3.4", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.3", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "2.3.4", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 

@@ -5,7 +5,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -109,8 +108,6 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    currency: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
     status: Mapped[str] = mapped_column(
         String(50), default="active", nullable=False
     )  # active / inactive

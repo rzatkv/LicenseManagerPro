@@ -129,7 +129,7 @@ curl http://127.0.0.1:8000/api/products \\
 # Test connection:
 curl http://127.0.0.1:8000/api/system/info \\
   -H "X-API-Key: lmp_..."
-# => {"version": "2.3.3", "lastUpdated": "2026-11-25"}
+# => {"version": "2.3.4", "lastUpdated": "2026-11-26"}
 
 # Failures: 401 unknown/expired/revoked key or bad signature,
 # 403 key lacks the scope for this endpoint.`;

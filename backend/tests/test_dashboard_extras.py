@@ -13,7 +13,7 @@ def test_activations_trend_shape(client, auth_headers):
 def test_activations_trend_counts_activation(client, auth_headers):
     product = client.post(
         "/api/products",
-        json={"name": "TrendProd", "billing_cycles": ["monthly"], "price": 1},
+        json={"name": "TrendProd", "billing_cycles": ["monthly"]},
         headers=auth_headers,
     ).json()
     lic = client.post(
@@ -62,7 +62,6 @@ def test_webhook_stats_counts_deliveries(client, auth_headers, monkeypatch):
         json={
             "name": "HookProd",
             "billing_cycles": ["monthly"],
-            "price": 1,
             "webhook_url": "https://8.8.8.8/hook",
             "webhook_events": ["license.created"],
         },

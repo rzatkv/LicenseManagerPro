@@ -7,7 +7,7 @@ import pytest
 def seeded(client, auth_headers):
     product = client.post(
         "/api/products",
-        json={"name": "SearchWidget", "billing_cycles": ["monthly"], "price": 5},
+        json={"name": "SearchWidget", "billing_cycles": ["monthly"]},
         headers=auth_headers,
     ).json()
     lic = client.post(

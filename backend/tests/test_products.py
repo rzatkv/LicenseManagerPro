@@ -5,7 +5,6 @@ def _create_product(client, auth_headers, **overrides):
     body = {
         "name": "Widget Pro",
         "billing_cycles": ["monthly", "annual"],
-        "price": 49.99,
     }
     body.update(overrides)
     response = client.post("/api/products", json=body, headers=auth_headers)
@@ -17,7 +16,6 @@ def test_create_and_get_product(client, auth_headers):
     created = _create_product(client, auth_headers)
     assert created["slug"] == "widget-pro"
     assert created["billing_cycles"] == ["monthly", "annual"]
-    assert created["currency"] == "USD"
     assert created["status"] == "active"
 
     response = client.get(f"/api/products/{created['id']}", headers=auth_headers)
@@ -63,11 +61,11 @@ def test_update_product(client, auth_headers):
     created = _create_product(client, auth_headers)
     response = client.put(
         f"/api/products/{created['id']}",
-        json={"price": 99.0, "billing_cycles": ["monthly", "annual", "lifetime"]},
+        json={"description": "Updated widget", "billing_cycles": ["monthly", "annual", "lifetime"]},
         headers=auth_headers,
     )
     assert response.status_code == 200
-    assert response.json()["price"] == 99.0
+    assert response.json()["description"] == "Updated widget"
     assert response.json()["billing_cycles"] == ["monthly", "annual", "lifetime"]
 
 

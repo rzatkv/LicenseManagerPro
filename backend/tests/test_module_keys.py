@@ -49,7 +49,7 @@ def _create_legacy_key(client, auth_headers):
 def _create_product(client, auth_headers, cycles=None):
     response = client.post(
         "/api/products",
-        json={"name": "ModuleProd", "billing_cycles": cycles or ["monthly"], "price": 10},
+        json={"name": "ModuleProd", "billing_cycles": cycles or ["monthly"]},
         headers=auth_headers,
     )
     assert response.status_code == 201, response.text

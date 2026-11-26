@@ -11,8 +11,8 @@
  * every admin page load does not hammer the API and one admin's key
  * can never see another key's cached list. Only successful responses
  * are cached; failures are never cached, so the next page load retries
- * the API immediately. The cache file holds only product names, slugs,
- * prices and cycles — never the API key.
+ * the API immediately. The cache file holds only product names, slugs
+ * and cycles — never the API key.
  */
 
 if (!defined('WHMCS')) {
@@ -35,7 +35,7 @@ class LMP_ProductRepository
     /**
      * The product list for the settings dropdown, cached for 5 minutes.
      * Returns array('products' => [...], 'error' => ''|'message').
-     * Each product is array('id', 'slug', 'name', 'price', 'currency',
+     * Each product is array('id', 'slug', 'name',
      * 'billing_cycles'). On API failure 'products' is empty and
      * 'error' explains why — the caller (Loader) then falls back to
      * the already-saved slug, or reports the error, instead of
@@ -65,8 +65,6 @@ class LMP_ProductRepository
                 'id' => isset($product['id']) ? (int) $product['id'] : 0,
                 'slug' => (string) $product['slug'],
                 'name' => (string) $product['name'],
-                'price' => isset($product['price']) ? $product['price'] : null,
-                'currency' => isset($product['currency']) ? (string) $product['currency'] : '',
                 'billing_cycles' => (isset($product['billing_cycles']) && is_array($product['billing_cycles']))
                     ? $product['billing_cycles']
                     : array(),
@@ -78,8 +76,8 @@ class LMP_ProductRepository
 
     /**
      * Dropdown options for the Loader function: [slug => label].
-     * The label shows the product name plus a price/cycle hint, e.g.
-     * "CloudPanel Pro — 29.00 USD (monthly, annual)". The stored
+     * The label shows the product name plus a cycle hint, e.g.
+     * "CloudPanel Pro (monthly, annual)". The stored
      * config value is the slug.
      */
     public function dropdownOptions()
@@ -88,12 +86,6 @@ class LMP_ProductRepository
         $options = array();
         foreach ($result['products'] as $product) {
             $label = $product['name'];
-            if ($product['price'] !== null && $product['price'] !== '') {
-                $label .= ' — ' . $product['price'];
-                if ($product['currency'] !== '') {
-                    $label .= ' ' . $product['currency'];
-                }
-            }
             if (!empty($product['billing_cycles'])) {
                 $label .= ' (' . implode(', ', $product['billing_cycles']) . ')';
             }

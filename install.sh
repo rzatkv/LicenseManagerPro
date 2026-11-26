@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LicenseManagerPro — one-time install script (v2.3.3)
+# LicenseManagerPro — one-time install script (v2.3.4)
 #
 # Installs LicenseManagerPro on a real server (Ubuntu 22.04 / 24.04):
 #   FastAPI backend  (backend/, Python 3.11+, venv, systemd unit
@@ -623,11 +623,11 @@ fi
 
 # Version stamp: git tag if present, else the branch name.
 if [ "$DRY_RUN" -eq 1 ]; then
-    APP_VERSION="2.3.3"
+    APP_VERSION="2.3.4"
 else
     APP_VERSION="$(git -C "$INSTALL_DIR" describe --tags --exact-match 2>/dev/null || true)"
     APP_VERSION="${APP_VERSION:-$(grep -m1 '^APP_VERSION' "$INSTALL_DIR/backend/config.py" 2>/dev/null | sed 's/.*"\([^"]*\)".*/\1/')}"
-    APP_VERSION="${APP_VERSION:-2.3.3}"
+    APP_VERSION="${APP_VERSION:-2.3.4}"
 fi
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # LicenseManagerPro — Shopware 6 Plugin
 
-Version 2.3.3 — for LicenseManagerPro 2.3.3 and Shopware 6.5 / 6.6 (PHP 8.1+).
+Version 2.3.4 — for LicenseManagerPro 2.3.4 and Shopware 6.5 / 6.6 (PHP 8.1+).
 
 Mints a LicenseManagerPro license when a Shopware order is **paid**, and shows
 the customer their keys at **My account → Licenses** (`/account/licenses`)
@@ -27,8 +27,8 @@ is minted per mapped line item, not per unit.
 
 ## Install
 
-1. Download `lmp-license-manager-2.3.3.zip` from the LicenseManagerPro
-   admin panel (**Downloads** page) or from the GitHub release for v2.3.3
+1. Download `lmp-license-manager-2.3.4.zip` from the LicenseManagerPro
+   admin panel (**Downloads** page) or from the GitHub release for v2.3.4
    (the plugin version must match the installed app version).
 2. In the Shopware admin go to **Settings → System → Plugins**, upload the
    ZIP, then install and activate **LicenseManagerPro**.
@@ -160,7 +160,7 @@ Guests are redirected to the login page. No external assets are loaded
 
 | Path | Purpose |
 |---|---|
-| `composer.json` | Shopware plugin package (`lmp/license-manager`, 2.3.3) |
+| `composer.json` | Shopware plugin package (`lmp/license-manager`, 2.3.4) |
 | `src/LicenseManagerPro.php` | Plugin base class; creates/removes the order custom field set |
 | `src/Service/ApiClient.php` | Symfony HttpClient wrapper: API-key auth, HMAC signing, TLS verified, fail-closed |
 | `src/Service/ConfigService.php` | Reads SystemConfig (URL, key, signed toggle, product mapping) |
@@ -174,7 +174,7 @@ Guests are redirected to the login page. No external assets are loaded
 | `src/Resources/config/config.xml` | Admin settings form (URL, key, signed toggle, mapping) |
 | `src/Resources/config/routes.xml` | Loads the controller routes |
 | `src/Resources/views/storefront/page/account/licenses.html.twig` | Branded customer licenses page |
-| `version.json` | `{"version": "2.3.3"}` |
+| `version.json` | `{"version": "2.3.4"}` |
 
 ## Live-test checklist (staging shop, before production)
 

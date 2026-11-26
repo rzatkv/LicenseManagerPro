@@ -249,8 +249,6 @@ class ProductCreateRequest(BaseModel):
     name: str
     slug: str | None = None
     description: str | None = None
-    price: float | None = None
-    currency: str = "USD"
     status: str = "active"
     billing_cycles: list[str] = Field(..., description="Non-empty subset of the six cycles")
     webhook_url: str | None = None
@@ -270,8 +268,6 @@ class ProductUpdateRequest(BaseModel):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
-    price: float | None = None
-    currency: str | None = None
     status: str | None = None
     billing_cycles: list[str] | None = None
     webhook_url: str | None = None
@@ -292,8 +288,6 @@ class ProductResponse(BaseModel):
     name: str
     slug: str
     description: str | None = None
-    price: float | None = None
-    currency: str
     status: str
     billing_cycles: list[str] = Field(default_factory=list)
     webhook_url: str | None = None
@@ -474,7 +468,6 @@ class DashboardSummaryResponse(BaseModel):
     usersCount: int
     activeLicenses: int
     inactiveLicenses: int
-    estimated_mrr: float = 0.0
 
 
 class DashboardTrendPoint(BaseModel):

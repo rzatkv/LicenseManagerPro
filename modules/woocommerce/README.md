@@ -1,6 +1,6 @@
 # License Manager Pro — WooCommerce Plugin
 
-Version 2.3.3 — for License Manager Pro 2.3.0+ and WooCommerce 7.0+.
+Version 2.3.4 — for License Manager Pro 2.3.0+ and WooCommerce 7.0+.
 
 Creates a License Manager Pro license when a WooCommerce order completes,
 and shows the key to the customer in the order details, the order email
