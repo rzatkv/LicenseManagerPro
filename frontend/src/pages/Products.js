@@ -253,9 +253,12 @@ function Products() {
         <Link className="btn-ghost" to="/product-groups">{t("groups.manage")}</Link>
       </div>
 
-      {showProductWizard && (
+      {/* v3.0.1: the create wizard opens in the animated Modal (same
+          popup as Edit) — inline it pushed the whole table down the
+          page on phones. The Modal title carries the heading now, so
+          the Wizard renders without its own. */}
+      <Modal open={showProductWizard} title={t("products.create")} onClose={() => { setShowProductWizard(false); setWizardStep(0); setWizardForm(emptyForm); }}>
         <Wizard
-          title={t("products.create")}
           steps={[t("wizard.basics"), t("wizard.cycles"), t("wizard.webhook"), t("wizard.review")]}
           step={wizardStep}
           onStepChange={setWizardStep}
@@ -328,7 +331,7 @@ function Products() {
             </div>
           )}
         </Wizard>
-      )}
+      </Modal>
 
       <Modal open={editingId !== null} title={editingId !== null ? `${t("products.edit")} #${editingId}` : ""} onClose={resetForm}>
         <form className="product-form" onSubmit={handleSubmit}>

@@ -397,9 +397,12 @@ function LicenseList() {
                 </div>
             </div>
 
-            {showWizard && (
+            {/* v3.0.1: the create wizard opens in the animated Modal (same
+                popup as View/Edit) — inline it pushed the whole table
+                down the page on phones. The Modal title carries the
+                heading now, so the Wizard renders without its own. */}
+            <Modal open={showWizard} title={t("licenses.create")} onClose={() => { setShowWizard(false); resetWizard(); }}>
                 <Wizard
-                    title={t("licenses.create")}
                     steps={[t("wizard.selectProduct"), t("wizard.customer"), t("wizard.locks"), t("wizard.review")]}
                     step={wizardStep}
                     onStepChange={setWizardStep}
@@ -484,7 +487,7 @@ function LicenseList() {
                         </div>
                     )}
                 </Wizard>
-            )}
+            </Modal>
 
             {loading ? (
                 <TableSkeleton rows={5} />

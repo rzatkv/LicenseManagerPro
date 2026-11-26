@@ -90,3 +90,26 @@ table .delete-btn {
 .toolbar .search-wrap .search-input {
     max-width: none;
 }
+
+/* Icon buttons inside the table must keep their 32px size: the table
+   .delete-btn rule above sets text-button padding, and its higher
+   specificity would otherwise override .row-actions .icon-btn. */
+.user-management-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
+.user-management-container table .row-actions .icon-btn svg { display: block; }
+.user-management-container table .view-btn { background: var(--success); color: var(--on-accent); border: none; }
+
+/* Phone-range consistency (v3.0.1, same pattern as Licenses/Products
+   v2.3.3): the WHOLE phone range (≤640px) shows exactly Email + Actions.
+   ID, role and active join the View/Edit popup, so the email gets the
+   whole row and the Actions column (56px, eye only) is always visible
+   without swiping the table sideways. */
+@media (max-width: 640px) {
+  .user-management-container { padding: 12px; }
+  .user-management-container table th:nth-child(1),
+  .user-management-container table td:nth-child(1),
+  .user-management-container table th:nth-child(3),
+  .user-management-container table td:nth-child(3),
+  .user-management-container table th:nth-child(4),
+  .user-management-container table td:nth-child(4) { display: none; }
+  .user-management-container table th:nth-child(5) { width: 56px; font-size: 12px; padding-inline: 4px; }
+}

@@ -5,6 +5,7 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import EmptyState from "../components/EmptyState";
+import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Notifications.css";
@@ -18,6 +19,7 @@ function Notifications() {
     const [typeFilter, setTypeFilter] = useState("");
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);
 
     const fetchNotifications = useCallback(async () => {
         setLoading(true);
@@ -43,6 +45,11 @@ function Notifications() {
         }
     };
 
+    // v3.0.1: tapping a card opens a details popup (same pattern as the
+    // Audit Logs details modal) — it used to navigate straight to the
+    // linked page (#/downloads, #/licenses), which felt like the tap
+    // did nothing useful and lost the list. Mark-read still happens
+    // on open; the link is an explicit button inside the popup.
     const openNotification = async (n) => {
         try {
             if (!n.is_read) {
@@ -50,9 +57,9 @@ function Notifications() {
                 setNotifications((prev) => prev.map((x) => (x.id === n.id ? {...x, is_read: true} : x)));
             }
         } catch (err) {
-            // Navigation still works even if the read call fails.
+            // The popup still opens even if the read call fails.
         }
-        if (n.link) navigate(n.link);
+        setSelected(n);
     };
 
     // Distinct notification types from the loaded data (e.g. info,
@@ -124,6 +131,22 @@ function Notifications() {
                     ))}
                 </ul>
             )}
+            <Modal open={!!selected} title={selected ? selected.title : ""} onClose={() => setSelected(null)}>
+                {selected && (<>
+                    <p className="notif-modal-message">{selected.message}</p>
+                    <div className="detail-row"><strong>{t("common.status")}</strong><span>{selected.is_read ? t("common.read") : t("notifications.unread")}</span></div>
+                    <div className="detail-row"><strong>{t("audit.time")}</strong><span>{formatDateTime(selected.created_at, lang)}</span></div>
+                    {selected.type && <div className="detail-row"><strong>{t("blacklist.type")}</strong><span>{selected.type}</span></div>}
+                    <div className="row-actions modal-actions">
+                        {selected.link && (
+                            <button type="button" onClick={() => { const link = selected.link; setSelected(null); navigate(link); }}>
+                                {t("notifications.openLink")}
+                            </button>
+                        )}
+                        <button type="button" className="btn-ghost" onClick={() => setSelected(null)}>{t("common.close")}</button>
+                    </div>
+                </>)}
+            </Modal>
         </div>
     );
 }

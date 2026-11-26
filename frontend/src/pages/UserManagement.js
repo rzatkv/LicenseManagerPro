@@ -11,6 +11,14 @@ import {TableSkeleton} from "../components/Skeleton";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/UserManagement.css";
 
+// Row-action icons (same set as Products/LicenseList): 32px icon buttons;
+// at ≤640px only the eye stays in the row (global .row-action-extra
+// rule), delete lives in the View/Edit popup.
+const ICONS = {
+  view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
+
 
 function UserManagement() {
     const {t} = useLanguage();
@@ -32,6 +40,13 @@ function UserManagement() {
     const [newUserRole, setNewUserRole] = useState("manager");
     const [addOpen, setAddOpen] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
+    // View/Edit popup (v3.0.1): rows used to have no View/Edit action at
+    // all — only the inline role dropdown, Active switch and Delete. The
+    // popup shows the details and edits role/active inside it (same
+    // immediate-save behaviour as the inline controls); at ≤640px the
+    // role/active columns are hidden, so this is the only place a phone
+    // user edits them.
+    const [selectedUser, setSelectedUser] = useState(null);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -205,12 +220,17 @@ function UserManagement() {
                                 />
                             </td>
                             <td>
-                                <button
-                                    className="delete-btn"
-                                    onClick={() => setPendingDelete(user.id)}
-                                >
-                                    {t("common.delete")}
-                                </button>
+                                <div className="row-actions">
+                                    <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setSelectedUser(user)}>{ICONS.view}</button>
+                                    <button
+                                        className="delete-btn icon-btn row-action-extra"
+                                        title={t("common.delete")}
+                                        aria-label={t("common.delete")}
+                                        onClick={() => setPendingDelete(user.id)}
+                                    >
+                                        {ICONS.delete}
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -246,6 +266,36 @@ function UserManagement() {
                     </select>
                     <button onClick={handleAddUser}>{t("users.addButton")}</button>
                 </div>
+            </Modal>
+            <Modal open={!!selectedUser} title={selectedUser ? selectedUser.email : ""} onClose={() => setSelectedUser(null)}>
+                {selectedUser && (<>
+                    <div className="detail-row"><strong>ID</strong><span>{selectedUser.id}</span></div>
+                    <div className="detail-row"><strong>{t("common.email")}</strong><span>{selectedUser.email}</span></div>
+                    {selectedUser.created_at && <div className="detail-row"><strong>{t("common.createdAt")}</strong><span>{selectedUser.created_at}</span></div>}
+                    <label className="field-label">
+                        <span>{t("common.role")}</span>
+                        <select
+                            value={selectedUser.role}
+                            onChange={(e) => { const role = e.target.value; setSelectedUser({...selectedUser, role}); handleUpdateUser(selectedUser.id, {role}); }}
+                        >
+                            {BUILTIN_ROLES.map((r) => (
+                                <option key={r} value={r}>{t(`roles.${r}`)}</option>
+                            ))}
+                            {customRoles.map((r) => (
+                                <option key={r.slug || r.id} value={r.slug || r.name}>{r.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <ToggleSwitch
+                        checked={!!selectedUser.is_active}
+                        onChange={(v) => { setSelectedUser({...selectedUser, is_active: v}); handleUpdateUser(selectedUser.id, {is_active: v}); }}
+                        label={t("users.active")}
+                    />
+                    <div className="row-actions modal-actions">
+                        <button className="btn-danger" onClick={() => { const id = selectedUser.id; setSelectedUser(null); setPendingDelete(id); }}>{t("common.delete")}</button>
+                        <button type="button" className="btn-ghost" onClick={() => setSelectedUser(null)}>{t("common.close")}</button>
+                    </div>
+                </>)}
             </Modal>
             <ConfirmModal
                 open={pendingDelete !== null}

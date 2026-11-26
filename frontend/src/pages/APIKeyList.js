@@ -28,6 +28,16 @@ const ALL_ACCESS_RIGHTS = [
     "create_temporary_access_key",
 ];
 
+// Row-action icons (same set as Products/LicenseList): 32px icon buttons;
+// at ≤640px only the eye stays in the row (global .row-action-extra
+// rule), edit/rotate/delete live in the details popup.
+const ICONS = {
+  view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>,
+  rotate: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
+
 function APIKeyList() {
     const {t, lang} = useLanguage();
     const {toast} = useToast();
@@ -54,6 +64,10 @@ function APIKeyList() {
     const [editingId, setEditingId] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
     const [pendingRotate, setPendingRotate] = useState(null);
+    // Details popup (v3.0.1): the full key + rights live here; at ≤640px
+    // the table shows only Key + Actions, so this popup is the only
+    // place a phone user reaches edit/rotate/delete.
+    const [detailsKey, setDetailsKey] = useState(null);
     // Secret shown exactly once after create/rotate; cleared on dismiss.
     const [revealedSecret, setRevealedSecret] = useState(null);
     // Wizard state (create only; edit opens in an animated Modal — see
@@ -254,9 +268,14 @@ function APIKeyList() {
                 <button onClick={() => { resetWizard(); setShowWizard(true); }}>{t("apikeys.create")}</button>
             </div>
 
-            {showWizard && (
+            {/* v3.0.1: the create wizard opens in the animated Modal (same
+                popup as Edit) — inline it pushed the whole table down
+                the page on phones. The Modal title carries the heading
+                now, so the Wizard renders without its own. The
+                generated key (success state) is shown inside the same
+                popup, still only once. */}
+            <Modal open={showWizard} title={t("apikeys.create")} onClose={() => { setShowWizard(false); resetWizard(); }}>
                 <Wizard
-                    title={t("apikeys.create")}
                     steps={[t("wizard.rights"), t("wizard.restrictions"), t("wizard.review")]}
                     step={wizardStep}
                     onStepChange={setWizardStep}
@@ -315,7 +334,7 @@ function APIKeyList() {
                         </div>
                     )}
                 </Wizard>
-            )}
+            </Modal>
 
             {revealedSecret && (
                 <div className="glass-card reveal-secret" style={{margin: "16px 0"}}>
@@ -411,15 +430,10 @@ function APIKeyList() {
                             <td>{key.single_use ? t("common.yes") : t("common.no")}</td>
                             <td>
                                 <div className="row-actions">
-                                    <button className="edit-btn" onClick={() => handleEdit(key)}>
-                                        {t("common.edit")}
-                                    </button>
-                                    <button className="edit-btn" onClick={() => setPendingRotate(key.id)} title={t("apikeys.rotateConfirm")}>
-                                        {t("apikeys.rotate")}
-                                    </button>
-                                    <button className="delete-btn" onClick={() => setPendingDelete(key.id)}>
-                                        {t("common.delete")}
-                                    </button>
+                                    <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setDetailsKey(key)}>{ICONS.view}</button>
+                                    <button className="edit-btn icon-btn row-action-extra" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => handleEdit(key)}>{ICONS.edit}</button>
+                                    <button className="edit-btn icon-btn row-action-extra" title={t("apikeys.rotate")} aria-label={t("apikeys.rotate")} onClick={() => setPendingRotate(key.id)}>{ICONS.rotate}</button>
+                                    <button className="delete-btn icon-btn row-action-extra" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(key.id)}>{ICONS.delete}</button>
                                 </div>
                             </td>
                         </tr>
@@ -430,6 +444,22 @@ function APIKeyList() {
                 <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
                 </>
             )}
+            <Modal open={!!detailsKey} title={detailsKey ? `${t("apikeys.key")} #${detailsKey.id}` : ""} onClose={() => setDetailsKey(null)}>
+                {detailsKey && (<>
+                    <p className="key-cell">{detailsKey.key} <CopyButton text={detailsKey.key} /></p>
+                    <div className="detail-row"><strong>{t("apikeys.accessRights")}</strong><span>{(detailsKey.access_rights || []).join(", ") || "-"}</span></div>
+                    <div className="detail-row"><strong>{t("apikeys.expires")}</strong><span>{detailsKey.expires_at ? formatDate(detailsKey.expires_at, lang) : t("common.never")}</span></div>
+                    <div className="detail-row"><strong>{t("apikeys.singleUse")}</strong><span>{detailsKey.single_use ? t("common.yes") : t("common.no")}</span></div>
+                    <div className="detail-row"><strong>{t("apikeys.moduleKey")}</strong><span>{(detailsKey.scopes || []).includes("module") ? t("common.yes") : t("common.no")}</span></div>
+                    {detailsKey.associated_ip && <div className="detail-row"><strong>{t("apikeys.restrictIp")}</strong><span>{detailsKey.associated_ip}</span></div>}
+                    {detailsKey.associated_domain && <div className="detail-row"><strong>{t("apikeys.restrictDomain")}</strong><span>{detailsKey.associated_domain}</span></div>}
+                    <div className="row-actions modal-actions">
+                        <button onClick={() => { const k = detailsKey; setDetailsKey(null); handleEdit(k); }}>{t("common.edit")}</button>
+                        <button onClick={() => { const id = detailsKey.id; setDetailsKey(null); setPendingRotate(id); }}>{t("apikeys.rotate")}</button>
+                        <button className="btn-danger" onClick={() => { const id = detailsKey.id; setDetailsKey(null); setPendingDelete(id); }}>{t("common.delete")}</button>
+                    </div>
+                </>)}
+            </Modal>
             <ConfirmModal
                 open={pendingDelete !== null}
                 message={t("common.confirmDelete")}

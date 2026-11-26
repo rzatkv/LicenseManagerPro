@@ -5,6 +5,7 @@ import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
+import Modal from "../components/Modal";
 import Wizard from "../components/Wizard";
 import "../styles/Products.css";
 
@@ -102,9 +103,12 @@ function ProductGroups() {
                 <Link className="btn-ghost" to="/products">{t("nav.products")}</Link>
             </div>
 
-            {showGroupWizard && (
+            {/* v3.0.1: the group wizard (create AND edit) opens in the
+                animated Modal — inline it pushed the groups card down
+                the page on phones. The Modal title carries the heading
+                now, so the Wizard renders without its own. */}
+            <Modal open={showGroupWizard} title={editingGroupId !== null ? t("groups.edit") : t("groups.create")} onClose={() => { setShowGroupWizard(false); setGroupStep(0); setEditingGroupId(null); setGroupForm(emptyGroupForm); }}>
                 <Wizard
-                    title={editingGroupId !== null ? t("groups.edit") : t("groups.create")}
                     steps={[t("wizard.basics"), t("wizard.colorPreview")]}
                     step={groupStep}
                     onStepChange={setGroupStep}
@@ -135,7 +139,7 @@ function ProductGroups() {
                         </>
                     )}
                 </Wizard>
-            )}
+            </Modal>
 
             <div className="groups-card glass-card">
                 <h3>{t("groups.title")}</h3>

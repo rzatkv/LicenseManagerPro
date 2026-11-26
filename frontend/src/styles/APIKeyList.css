@@ -90,3 +90,31 @@ table .edit-btn {
 .pill-warn { background: color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent); color: var(--warning, #b45309); border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 45%, transparent); }
 .reveal-secret { border: 1.5px solid var(--accent); }
 .reveal-secret .hint { color: var(--muted); font-size: 13px; margin: 8px 0; }
+
+/* Icon buttons inside the table must keep their 32px size: the table
+   .view-btn/.delete-btn rules above set text-button padding, and their
+   higher specificity would otherwise override .row-actions .icon-btn. */
+.api-key-list-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
+.api-key-list-container table .row-actions .icon-btn svg { display: block; }
+.api-key-list-container table .view-btn { background: var(--success); color: var(--on-accent); border: none; }
+
+/* Phone-range consistency (v3.0.1, same pattern as Licenses/Products
+   v2.3.3): the WHOLE phone range (≤640px) shows exactly Key + Actions.
+   ID, rights, expiry and single-use join the details popup, so the key
+   gets the whole row and the Actions column (56px, eye only) is always
+   visible without swiping the table sideways. */
+@media (max-width: 640px) {
+  .api-key-list-container { padding: 12px; }
+  .api-key-list-container table th:nth-child(1),
+  .api-key-list-container table td:nth-child(1),
+  .api-key-list-container table th:nth-child(3),
+  .api-key-list-container table td:nth-child(3),
+  .api-key-list-container table th:nth-child(4),
+  .api-key-list-container table td:nth-child(4),
+  .api-key-list-container table th:nth-child(5),
+  .api-key-list-container table td:nth-child(5) { display: none; }
+  .api-key-list-container table th:nth-child(6) { width: 56px; font-size: 12px; padding-inline: 4px; }
+  /* No room for the row copy button in a phone key cell; the full key
+     + copy live in the details popup. */
+  .api-key-list-container table .key-cell .copy-btn { display: none; }
+}

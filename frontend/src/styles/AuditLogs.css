@@ -43,3 +43,33 @@
 
 /* Details popup: pretty-printed JSON, wraps instead of overflowing. */
 .audit-details-pre { white-space: pre-wrap; overflow-wrap: break-word; font-size: 13px; line-height: 1.5; margin: 0; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+
+/* Icon buttons inside the table must keep their 32px size (same guard as
+   Products/LicenseList). The eye opens the details popup; the delete
+   button is .row-action-extra, so only the eye stays in the row at
+   ≤640px and delete lives in the popup. */
+.audit-logs-container table .row-actions .icon-btn { padding: 0; width: 32px; height: 32px; }
+.audit-logs-container table .row-actions .icon-btn svg { display: block; }
+.audit-logs-container table .view-btn { background: var(--success); color: var(--on-accent); border: none; }
+.audit-logs-container table .delete-btn { background: var(--danger); color: var(--on-accent); border: none; }
+
+/* Phone-range consistency (v3.0.1, same pattern as Licenses/Products
+   v2.3.3): the WHOLE phone range (≤640px) shows exactly Action +
+   Actions. Time, actor, entity, entity id and the Details column join
+   the details popup, so the action badge gets the whole row and the
+   Actions column (56px, eye only) is always visible without swiping
+   the table sideways. */
+@media (max-width: 640px) {
+  .audit-logs-container { padding: 12px; }
+  .audit-logs-container table th:nth-child(1),
+  .audit-logs-container table td:nth-child(1),
+  .audit-logs-container table th:nth-child(2),
+  .audit-logs-container table td:nth-child(2),
+  .audit-logs-container table th:nth-child(4),
+  .audit-logs-container table td:nth-child(4),
+  .audit-logs-container table th:nth-child(5),
+  .audit-logs-container table td:nth-child(5),
+  .audit-logs-container table th:nth-child(6),
+  .audit-logs-container table td:nth-child(6) { display: none; }
+  .audit-logs-container table th:nth-child(7) { width: 56px; font-size: 12px; padding-inline: 4px; }
+}

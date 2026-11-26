@@ -1,10 +1,13 @@
 /* Details popup: wider than the confirm dialog, fully opaque (solid
    surface, no glass translucency — page content must never bleed
    through), body scrolls internally so the card never exceeds the
-   viewport. Entrance: the shared modalIn scale/fade. */
+   viewport. Entrance: the shared modalIn scale/fade.
+   v3.0.1: 90dvh cap (was 85dvh) — the header is a non-scrolling flex
+   sibling, so the × stays visible while the body scrolls; the card
+   itself can never be taller than the viewport. */
 .modal-card-details {
     width: min(600px, 100%);
-    max-height: 85dvh;
+    max-height: 90dvh;
     display: flex;
     flex-direction: column;
     padding: 20px;
@@ -46,6 +49,6 @@
 .detail-row span { text-align: end; overflow-wrap: break-word; min-width: 0; }
 .detail-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 
-/* Wide variant for large editors (Languages key editor): same 85dvh cap
+/* Wide variant for large editors (Languages key editor): same 90dvh cap
    and internal scroll, just a wider card. */
 .modal-card-wide { width: min(900px, 100%); }

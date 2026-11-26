@@ -4,6 +4,7 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import CopyButton from "../components/CopyButton";
+import Modal from "../components/Modal";
 import "../styles/Profile.css";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -322,6 +323,12 @@ function Profile() {
                             </button>
                         )}
 
+                        {/* v3.0.1: the 2FA setup (QR + code + Confirm/Cancel)
+                            opens in the animated Modal — inline it pushed
+                            the whole profile card down the page on phones.
+                            Verify success clears `setup`, closing the
+                            popup; Cancel does the same. */}
+                        <Modal open={!twofaEnabled && !!setup} title={t("profile.twoFactorSetup")} onClose={() => { setSetup(null); setVerifyCode(""); }}>
                         {!twofaEnabled && setup && (
                             <div className="twofa-setup">
                                 <p>{t("profile.scanQr")}</p>
@@ -362,6 +369,7 @@ function Profile() {
                                 </div>
                             </div>
                         )}
+                        </Modal>
 
                         {!twofaEnabled && backupCodes.length > 0 && (
                             <div className="backup-codes-box">

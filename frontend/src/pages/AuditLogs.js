@@ -11,6 +11,14 @@ import EmptyState from "../components/EmptyState";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/AuditLogs.css";
 
+// Row-action icons (same set as Products/LicenseList): 32px icon buttons;
+// at ≤640px only the eye stays in the row (global .row-action-extra
+// rule), delete lives in the details popup.
+const ICONS = {
+  view: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  delete: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+};
+
 const ENTITIES = ["license", "product", "user", "api_key", "setting"];
 // Per-channel log streams (v3.0): the audit trail carries notify.*,
 // twofa.* and service_status.* rows; the backend filters them with
@@ -226,7 +234,10 @@ function AuditLogs() {
                   <td>{log.entity_id ?? "-"}</td>
                   <td><button type="button" className="btn-ghost" onClick={() => setSelected(log)}>{t("common.view")}</button></td>
                   <td>
-                    <button className="delete-btn" onClick={() => setPendingDelete(log.id)}>{t("common.delete")}</button>
+                    <div className="row-actions">
+                      <button className="view-btn icon-btn" title={t("common.view")} aria-label={t("common.view")} onClick={() => setSelected(log)}>{ICONS.view}</button>
+                      <button className="delete-btn icon-btn row-action-extra" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setPendingDelete(log.id)}>{ICONS.delete}</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -245,6 +256,9 @@ function AuditLogs() {
           <p><strong>{t("audit.entityId")}:</strong> {selected.entity_id ?? "-"}</p>
           <h4>{t("audit.details")}</h4>
           <pre className="audit-details-pre">{selected.details ? JSON.stringify(selected.details, null, 2) : "-"}</pre>
+          <div className="row-actions modal-actions">
+            <button className="btn-danger" onClick={() => { const id = selected.id; setSelected(null); setPendingDelete(id); }}>{t("common.delete")}</button>
+          </div>
         </>)}
       </Modal>
       <ConfirmModal

@@ -149,8 +149,11 @@
 .chart-card-wide { flex: 1 1 100%; max-width: 1000px; }
 
 /* Customizable widgets (v2.3): the wrapper carries the size; the chart
-   card inside fills it. S/M/L = small / medium / full-width. */
-.dashboard-widget { display: flex; min-width: 0; }
+   card inside fills it. S/M/L = small / medium / full-width.
+   v3.0.1: column direction — the chart is full-width on top and the
+   per-chart range sits below it. As a row, the range (~262px) ate the
+   296px phone widget and the chart's svg measured 0x0 at 360px. */
+.dashboard-widget { display: flex; flex-direction: column; min-width: 0; }
 .dashboard-widget .chart-card { flex: 1; max-width: none; min-width: 0; width: 100%; }
 .widget-size-s { flex: 1 1 280px; max-width: 340px; }
 .widget-size-m { flex: 1 1 420px; max-width: 520px; }
@@ -271,6 +274,10 @@
 [dir="rtl"] .widget-switch.on .widget-knob { transform: translateX(-20px); }
 .modal-hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
 
+/* v3.0.1: honest hint on tabs with no movable widgets — Custom does
+   nothing there, and the user deserves to know why. */
+.dashboard-customize-hint { max-width: 1000px; margin: 0 auto 16px; padding: 12px 16px; border-radius: 14px; background: var(--surface-2); color: var(--muted); font-size: 14px; text-align: center; }
+
 /* Chart SVGs keep their aspect ratio but never grow tall on wide screens
    (preserveAspectRatio="meet" letterboxes them instead of distorting). */
 .chart-card svg { max-height: 210px; }
@@ -285,4 +292,10 @@
     .summary-box h2 { margin: 0 0 4px; font-size: 14px; }
     .summary-box p { font-size: 20px; }
     .dashboard-section table th, .dashboard-section table td { padding: 6px 4px; font-size: 14px; }
+    /* v3.0.1: all 10 tabs visible without horizontal swiping — the strip
+       used to be overflow-x:auto with a hidden scrollbar, so tabs were
+       cut off at the phone edge with no affordance. Wrap to rows with
+       tighter padding/font instead. */
+    .dashboard-tabs { flex-wrap: wrap; overflow-x: visible; gap: 4px; }
+    .dashboard-tab { padding: 7px 10px; font-size: 13px; }
 }

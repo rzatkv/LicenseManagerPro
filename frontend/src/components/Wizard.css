@@ -1,4 +1,8 @@
 .wizard { padding: 16px; margin: 16px 0; }
+/* v3.0.1: a wizard rendered inside a Modal (License/Product/Group/API
+   key create) must not draw a second glass card inside the popup — the
+   modal card already provides the surface, padding and border. */
+.modal-details-body .wizard { margin: 0; padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .wizard-title { margin-bottom: 12px; }
 .wizard-steps {
   list-style: none;

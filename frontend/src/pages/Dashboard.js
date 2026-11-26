@@ -596,16 +596,30 @@ function Dashboard() {
     const recentApiKeys = [...apiKeys].sort((a, b) => b.id - a.id).slice(0, recentCount);
     const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, recentCount);
 
+    const tabWidgets = (tab) => layout.order.filter((id) => WIDGET_TABS[id] === tab && isVisible(id));
+
     // One widget card, with its own range control directly underneath the
     // chart (v3.0: per-chart ranges, independent, persisted in the layout).
-    const renderWidget = (id, index) => {
+    const renderWidget = (id, index, tab) => {
         const size = layout.sizes[id] || "M";
+        // Position among the widgets of THIS tab (v3.0.1): the ↑/↓ buttons
+        // move the widget within its own tab, so the change is always
+        // visible on the tab the user is looking at. The old version
+        // swapped adjacent GLOBAL positions, which often moved a widget
+        // of another tab instead — layout.order changed, nothing on
+        // screen did.
+        const tabIds = tab ? layout.order.filter((x) => WIDGET_TABS[x] === tab && isVisible(x)) : [id];
+        const posInTab = tabIds.indexOf(id);
         const move = (dir) => {
             setLayout((prev) => {
                 const order = [...prev.order];
-                const j = order.indexOf(id) + dir;
-                if (j < 0 || j >= order.length) return prev;
-                [order[index], order[j]] = [order[j], order[index]];
+                const ids = order.filter((x) => WIDGET_TABS[x] === tab && !prev.hidden[x]);
+                const pos = ids.indexOf(id);
+                const j = pos + dir;
+                if (pos < 0 || j < 0 || j >= ids.length) return prev;
+                const a = order.indexOf(ids[pos]);
+                const b = order.indexOf(ids[j]);
+                [order[a], order[b]] = [order[b], order[a]];
                 return {...prev, order};
             });
         };
@@ -661,8 +675,8 @@ function Dashboard() {
                             ))}
                         </span>
                         <span className="widget-control-group">
-                            <button type="button" className="widget-move-btn" disabled={index === 0} onClick={() => move(-1)} aria-label="↑">↑</button>
-                            <button type="button" className="widget-move-btn" disabled={index === layout.order.length - 1} onClick={() => move(1)} aria-label="↓">↓</button>
+                            <button type="button" className="widget-move-btn" disabled={posInTab <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}>↑</button>
+                            <button type="button" className="widget-move-btn" disabled={posInTab >= tabIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}>↓</button>
                         </span>
                     </div>
                 )}
@@ -692,11 +706,123 @@ function Dashboard() {
                     </>
                 )}
                 {id === "webhooks" && <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} />}
+                {/* v3.0.1: Services and Sending are real widgets now — they
+                    used to be plain cards in their tabs, so Custom showed
+                    no controls on those tabs at all. Same content, now
+                    wrapped in the widget card with drag + size + ↑/↓. */}
+                {id === "services" && (
+                    <>
+                    <div className="chart-card service-status-card">
+                        <div className="service-status-header">
+                            <h3>{t("dashboard.serviceStatusTitle")}</h3>
+                            <button type="button" className="btn-ghost" onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
+                                {t("dashboard.serviceRecheck")}
+                            </button>
+                        </div>
+                        {serviceLoading && serviceStatus === null ? (
+                            <SkeletonCard lines={5} />
+                        ) : (
+                            <>
+                                <ul className="service-status-list">
+                                    {(serviceStatus || []).map((s) => (
+                                        <li key={s.key} className="service-status-row">
+                                            <span className="service-status-dot" style={{background: statusDot(s.status)}} />
+                                            <span className="service-status-label">{s.label}</span>
+                                            <span className="service-status-detail">{s.detail || ""}</span>
+                                            <span className="service-status-state">{t(`dashboard.serviceStatus.${s.status}`)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="service-status-meta">
+                                    {serviceCheckedAt
+                                        ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(serviceCheckedAt, lang)} · ${t("dashboard.serviceNextCheck")}: ${countdownText()}`
+                                        : t("dashboard.serviceNeverChecked")}
+                                </p>
+                            </>
+                        )}
+                    </div>
+                    <div className="chart-card sms-balance-card">
+                        {smsBalanceLoading && smsBalance === null ? (
+                            <SkeletonCard lines={1} />
+                        ) : (
+                            <>
+                                <div className="sms-balance-row">
+                                    <h3>{t("dashboard.smsBalanceTitle")}</h3>
+                                    <button type="button" className="btn-ghost sms-balance-recheck" onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
+                                        {t("dashboard.serviceRecheck")}
+                                    </button>
+                                </div>
+                                {smsBalance && smsBalance.available ? (
+                                    <>
+                                        <p className="sms-balance-value">
+                                            {Number(smsBalance.credit).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
+                                            {" "}
+                                            <span className="sms-balance-unit">{t("dashboard.smsBalanceUnit")}</span>
+                                            {smsBalance.demo ? <span className="demo-badge">demo</span> : null}
+                                        </p>
+                                        <p className="sms-balance-meta">
+                                            {smsBalance.checked_at
+                                                ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(smsBalance.checked_at, lang)}`
+                                                : t("dashboard.serviceNeverChecked")}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="sms-balance-empty">
+                                        {t(smsBalance && smsBalance.error === "not_configured"
+                                            ? "dashboard.smsBalanceNotConfigured"
+                                            : "dashboard.smsBalanceUnavailable")}
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    </>
+                )}
+                {id === "sending" && (
+                    <div className="sending-tab">
+                        <div className="chart-channel-row" role="group" aria-label={t("dashboard.sendingChannel")}>
+                            {["total", "email", "sms", "telegram"].map((ch) => (
+                                <button
+                                    key={ch}
+                                    type="button"
+                                    className={sendingChannel === ch ? "chart-range-btn active" : "chart-range-btn"}
+                                    aria-pressed={sendingChannel === ch}
+                                    onClick={() => setSendingChannel(ch)}
+                                >
+                                    {t(`dashboard.sendingChannel.${ch}`)}
+                                </button>
+                            ))}
+                        </div>
+                        {sendingLoading && !sendingStats ? (
+                            <SkeletonCard lines={4} />
+                        ) : (
+                            <>
+                                <SendingChart
+                                    series={(sendingStats && sendingStats[sendingChannel]) || []}
+                                    title={`${t(`dashboard.sendingChannel.${sendingChannel}`)} · ${layout.ranges.sending} ${t("common.days")}`}
+                                    t={t}
+                                />
+                                <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
+                                    <span className="chart-range-label">{t("dashboard.range")}</span>
+                                    {RANGE_OPTIONS.map((d) => (
+                                        <button
+                                            key={d}
+                                            type="button"
+                                            className={layout.ranges.sending === d ? "chart-range-btn active" : "chart-range-btn"}
+                                            aria-pressed={layout.ranges.sending === d}
+                                            onClick={() => setLayout((prev) => ({...prev, ranges: {...prev.ranges, sending: d}}))}
+                                        >
+                                            {d} {t("common.days")}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
         );
     };
-
-    const tabWidgets = (tab) => layout.order.filter((id) => WIDGET_TABS[id] === tab && isVisible(id));
 
     const countdownText = () => {
         const m = Math.floor(serviceCountdown / 60);
@@ -731,7 +857,7 @@ function Dashboard() {
                         aria-pressed={customizing}
                         onClick={() => setCustomizing((v) => !v)}
                     >
-                        {t("dashboard.customize")}
+                        {customizing ? t("dashboard.doneCustomizing") : t("dashboard.customize")}
                     </button>
                 </div>
             </div>
@@ -752,6 +878,13 @@ function Dashboard() {
             </div>
 
             <div className="dashboard-tab-panel" key={effectiveTab}>
+                {/* v3.0.1: on tabs with no widgets (Overview, Highlights,
+                    Activity, API Keys, Users), Custom used to silently do
+                    nothing — say so honestly instead of leaving the user
+                    tapping a dead button. */}
+                {customizing && !WIDGET_TABS_ONLY.includes(effectiveTab) && (
+                    <p className="dashboard-customize-hint">{t("dashboard.customizeNoWidgets")}</p>
+                )}
                 {effectiveTab === "overview" && (
                     <>
                         {/* No financial card: this is not a financial system (v2.3) —
@@ -799,8 +932,15 @@ function Dashboard() {
 
                 {effectiveTab === "trends" && (
                     <>
+                        {/* v3.0.1: mini-tab order follows layout.order (the
+                            hardcoded ["trend","activations"] ignored a
+                            reorder), and in customize mode ALL widgets of
+                            the tab stack up with controls — showing only
+                            the selected one made ↑/↓ change nothing
+                            visible. */}
+                        {!customizing && (
                         <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.trends")}>
-                            {["trend", "activations"].filter((id) => isVisible(id)).map((id) => (
+                            {tabWidgets("trends").map((id) => (
                                 <button
                                     key={id}
                                     type="button"
@@ -813,15 +953,19 @@ function Dashboard() {
                                 </button>
                             ))}
                         </div>
+                        )}
                         <div className="charts-row">
-                            {tabWidgets("trends").filter((id) => id === (isVisible(trendView) ? trendView : tabWidgets("trends")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                            {customizing
+                                ? tabWidgets("trends").map((id) => renderWidget(id, layout.order.indexOf(id), "trends"))
+                                : tabWidgets("trends").filter((id) => id === (isVisible(trendView) ? trendView : tabWidgets("trends")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "trends"))}
                         </div>
                     </>
                 )}
                 {effectiveTab === "status" && (
                     <>
+                        {!customizing && (
                         <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.status")}>
-                            {["status", "webhooks"].filter((id) => isVisible(id)).map((id) => (
+                            {tabWidgets("status").map((id) => (
                                 <button
                                     key={id}
                                     type="button"
@@ -834,15 +978,19 @@ function Dashboard() {
                                 </button>
                             ))}
                         </div>
+                        )}
                         <div className="charts-row">
-                            {tabWidgets("status").filter((id) => id === (isVisible(statusView) ? statusView : tabWidgets("status")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                            {customizing
+                                ? tabWidgets("status").map((id) => renderWidget(id, layout.order.indexOf(id), "status"))
+                                : tabWidgets("status").filter((id) => id === (isVisible(statusView) ? statusView : tabWidgets("status")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "status"))}
                         </div>
                     </>
                 )}
                 {effectiveTab === "monthly" && (
                     <>
+                        {!customizing && (
                         <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.monthly")}>
-                            {["perMonth", "byProduct"].filter((id) => isVisible(id)).map((id) => (
+                            {tabWidgets("monthly").map((id) => (
                                 <button
                                     key={id}
                                     type="button"
@@ -855,8 +1003,11 @@ function Dashboard() {
                                 </button>
                             ))}
                         </div>
+                        )}
                         <div className="charts-row">
-                            {tabWidgets("monthly").filter((id) => id === (isVisible(monthlyView) ? monthlyView : tabWidgets("monthly")[0])).map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                            {customizing
+                                ? tabWidgets("monthly").map((id) => renderWidget(id, layout.order.indexOf(id), "monthly"))
+                                : tabWidgets("monthly").filter((id) => id === (isVisible(monthlyView) ? monthlyView : tabWidgets("monthly")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "monthly"))}
                         </div>
                     </>
                 )}
@@ -949,114 +1100,13 @@ function Dashboard() {
 
                 {effectiveTab === "services" && (
                     <>
-                    <div className="chart-card service-status-card">
-                        <div className="service-status-header">
-                            <h3>{t("dashboard.serviceStatusTitle")}</h3>
-                            <button type="button" className="btn-ghost" onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
-                                {t("dashboard.serviceRecheck")}
-                            </button>
-                        </div>
-                        {serviceLoading && serviceStatus === null ? (
-                            <SkeletonCard lines={5} />
-                        ) : (
-                            <>
-                                <ul className="service-status-list">
-                                    {(serviceStatus || []).map((s) => (
-                                        <li key={s.key} className="service-status-row">
-                                            <span className="service-status-dot" style={{background: statusDot(s.status)}} />
-                                            <span className="service-status-label">{s.label}</span>
-                                            <span className="service-status-detail">{s.detail || ""}</span>
-                                            <span className="service-status-state">{t(`dashboard.serviceStatus.${s.status}`)}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <p className="service-status-meta">
-                                    {serviceCheckedAt
-                                        ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(serviceCheckedAt, lang)} · ${t("dashboard.serviceNextCheck")}: ${countdownText()}`
-                                        : t("dashboard.serviceNeverChecked")}
-                                </p>
-                            </>
-                        )}
-                    </div>
-                    <div className="chart-card sms-balance-card">
-                        {smsBalanceLoading && smsBalance === null ? (
-                            <SkeletonCard lines={1} />
-                        ) : (
-                            <>
-                                <div className="sms-balance-row">
-                                    <h3>{t("dashboard.smsBalanceTitle")}</h3>
-                                    <button type="button" className="btn-ghost sms-balance-recheck" onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
-                                        {t("dashboard.serviceRecheck")}
-                                    </button>
-                                </div>
-                                {smsBalance && smsBalance.available ? (
-                                    <>
-                                        <p className="sms-balance-value">
-                                            {Number(smsBalance.credit).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
-                                            {" "}
-                                            <span className="sms-balance-unit">{t("dashboard.smsBalanceUnit")}</span>
-                                            {smsBalance.demo ? <span className="demo-badge">demo</span> : null}
-                                        </p>
-                                        <p className="sms-balance-meta">
-                                            {smsBalance.checked_at
-                                                ? `${t("dashboard.serviceLastChecked")}: ${formatDateTime(smsBalance.checked_at, lang)}`
-                                                : t("dashboard.serviceNeverChecked")}
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="sms-balance-empty">
-                                        {t(smsBalance && smsBalance.error === "not_configured"
-                                            ? "dashboard.smsBalanceNotConfigured"
-                                            : "dashboard.smsBalanceUnavailable")}
-                                    </p>
-                                )}
-                            </>
-                        )}
-                    </div>
+                    {tabWidgets("services").map((id) => renderWidget(id, layout.order.indexOf(id), "services"))}
                     </>
                 )}
-
                 {effectiveTab === "sending" && (
-                    <div className="sending-tab">
-                        <div className="chart-channel-row" role="group" aria-label={t("dashboard.sendingChannel")}>
-                            {["total", "email", "sms", "telegram"].map((ch) => (
-                                <button
-                                    key={ch}
-                                    type="button"
-                                    className={sendingChannel === ch ? "chart-range-btn active" : "chart-range-btn"}
-                                    aria-pressed={sendingChannel === ch}
-                                    onClick={() => setSendingChannel(ch)}
-                                >
-                                    {t(`dashboard.sendingChannel.${ch}`)}
-                                </button>
-                            ))}
-                        </div>
-                        {sendingLoading && !sendingStats ? (
-                            <SkeletonCard lines={4} />
-                        ) : (
-                            <>
-                                <SendingChart
-                                    series={(sendingStats && sendingStats[sendingChannel]) || []}
-                                    title={`${t(`dashboard.sendingChannel.${sendingChannel}`)} · ${layout.ranges.sending} ${t("common.days")}`}
-                                    t={t}
-                                />
-                                <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
-                                    <span className="chart-range-label">{t("dashboard.range")}</span>
-                                    {RANGE_OPTIONS.map((d) => (
-                                        <button
-                                            key={d}
-                                            type="button"
-                                            className={layout.ranges.sending === d ? "chart-range-btn active" : "chart-range-btn"}
-                                            aria-pressed={layout.ranges.sending === d}
-                                            onClick={() => setLayout((prev) => ({...prev, ranges: {...prev.ranges, sending: d}}))}
-                                        >
-                                            {d} {t("common.days")}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <>
+                    {tabWidgets("sending").map((id) => renderWidget(id, layout.order.indexOf(id), "sending"))}
+                    </>
                 )}
             </div>
 
