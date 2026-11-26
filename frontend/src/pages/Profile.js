@@ -373,7 +373,7 @@ function Profile() {
 
                         {!twofaEnabled && backupCodes.length > 0 && (
                             <div className="backup-codes-box">
-                                <h3>{t("profile.backupCodes")}</h3>
+                                <h3>{t("profile.backupCodes")} <CopyButton text={backupCodes.join("\n")} label={t("common.copy")} /></h3>
                                 <p className="hint">{t("profile.backupCodesHint")}</p>
                                 <ul className="backup-codes-list">
                                     {backupCodes.map((code) => (

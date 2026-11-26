@@ -131,8 +131,12 @@ table td button {
 .email-template-card h4 { margin: 0; }
 .email-template-preview { border-top: 1px solid var(--border); padding-top: 10px; }
 .email-template-preview summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent); }
-.email-template-preview pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: var(--text); background: var(--surface-2); border-radius: 12px; padding: 12px; margin: 10px 0 0; }
+.email-template-preview pre { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.65; color: var(--text); background: var(--surface-2); border-radius: 12px; padding: 14px 16px; margin: 10px 0 0; }
 
 /* Telegram test-send result. */
 .test-ok { color: var(--success); font-weight: 600; font-size: 14px; }
 .test-fail { color: var(--danger); font-weight: 600; font-size: 14px; }
+
+/* v3.0.4: section headers carry a lucide icon. */
+.settings-section h3 { display: flex; align-items: center; gap: 8px; }
+.settings-section h3 svg { color: var(--accent); flex-shrink: 0; }

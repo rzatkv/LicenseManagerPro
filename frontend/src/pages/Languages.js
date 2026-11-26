@@ -5,6 +5,7 @@ import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
+import TabDropdown from "../components/TabDropdown";
 import {en as enDict, fa as faDict, SECTIONS} from "../i18n/translations";
 import "../styles/Languages.css";
 
@@ -14,7 +15,7 @@ const KEYS_PER_PAGE = 20;
 /** Language management (v3.0): lives as its own tab inside Settings
  * (Settings → Languages). The standalone /languages route redirects
  * there. The add-language form opens in an animated popup, and the
- * editor shows ONE section at a time (mini-tabs, default first
+ * editor shows ONE section at a time (dropdown, default first
  * section) with paginated keys — the full key list would force the
  * page to scroll. */
 export function LanguagesPanel() {
@@ -163,20 +164,12 @@ export function LanguagesPanel() {
           <div className="lang-editor-tools">
             <input type="text" placeholder={t("languages.searchKeys")} value={search} onChange={(e) => { setSearch(e.target.value); setKeyPage(1); }} />
           </div>
-          <div className="mini-tabs" role="tablist" aria-label={t("languages.section")}>
-            {SECTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={section === s}
-                className={section === s ? "mini-tab active" : "mini-tab"}
-                onClick={() => { setSection(s); setKeyPage(1); }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+                                        <TabDropdown
+                      ariaLabel={t("languages.section")}
+                      value={section}
+                      onChange={(s) => { setSection(s); setKeyPage(1); }}
+                      options={SECTIONS.map((s) => ({value: s, label: s}))}
+                    />
           <div className="lang-section">
             <h3>{section}</h3>
             {pageKeys.map((key) => (

@@ -8,6 +8,7 @@ import Modal from "../components/Modal";
 import ChipSelect from "../components/ChipSelect";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Roles.css";
+import {Plus} from "lucide-react";
 
 /** Compact 32px action icons (same set as Products/Licenses): text
  * buttons made the actions cell too wide on phones, and icon buttons
@@ -171,7 +172,7 @@ function Roles() {
         <div className="roles-container page-enter">
             <h1 className="gradient-text">{t("roles.title")}</h1>
             <div className="toolbar">
-                <button onClick={openCreate}>{t("roles.create")}</button>
+                <button onClick={openCreate}><Plus size={16} />{t("roles.create")}</button>
             </div>
 
             {loading ? (

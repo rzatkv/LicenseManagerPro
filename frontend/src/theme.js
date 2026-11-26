@@ -165,13 +165,22 @@ export function ThemeProvider({children}) {
 
   // Apply mode + preset to <html>, persist locally and to the backend.
   useEffect(() => {
+    const root = document.documentElement;
+    // Smooth animated transition between themes (v3.0.4): the class
+    // MUST be added (and a reflow forced) BEFORE the variables change
+    // — adding it after setting dataset.theme/preset in the same frame
+    // meant the transition was never live when the values changed, so
+    // the switch snapped instantly. Skipped entirely when the user
+    // prefers reduced motion.
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduceMotion) {
+      root.classList.add("theme-animating");
+      void root.offsetWidth; // force reflow: transition is live before the values change
+    }
     const r = resolve(mode);
     setResolved(r);
-    const root = document.documentElement;
     root.dataset.theme = r;
     root.dataset.preset = preset;
-    // Smooth animated transition between themes.
-    root.classList.add("theme-animating");
     const timer = setTimeout(() => root.classList.remove("theme-animating"), 450);
     if (preset === "custom") {
       root.style.setProperty("--accent", custom.accent);
@@ -211,9 +220,19 @@ export function ThemeProvider({children}) {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       if (mode === "auto") {
+        const root = document.documentElement;
+        // Same animated switch as the main effect (v3.0.4): class +
+        // reflow BEFORE the value changes, so an OS theme change
+        // cross-fades instead of snapping.
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!reduceMotion) {
+          root.classList.add("theme-animating");
+          void root.offsetWidth;
+          setTimeout(() => root.classList.remove("theme-animating"), 450);
+        }
         const r = resolve("auto");
         setResolved(r);
-        document.documentElement.dataset.theme = r;
+        root.dataset.theme = r;
       }
     };
     if (mq.addEventListener) mq.addEventListener("change", onChange);

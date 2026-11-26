@@ -14,6 +14,7 @@ import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
 import ChipSelect from "../components/ChipSelect";
 import "../styles/Products.css";
+import {Plus} from "lucide-react";
 
 // Compact action icons (defect 3): five text buttons made the actions cell
 // wider than a phone viewport; 32px icon buttons keep the cell narrow.
@@ -249,7 +250,7 @@ function Products() {
       <h1 className="gradient-text">{t("products.title")}</h1>
 
       <div className="toolbar">
-        <button onClick={() => { setShowProductWizard(true); setWizardStep(0); }}>{t("products.create")}</button>
+        <button onClick={() => { setShowProductWizard(true); setWizardStep(0); }}><Plus size={16} />{t("products.create")}</button>
         <Link className="btn-ghost" to="/product-groups">{t("groups.manage")}</Link>
       </div>
 

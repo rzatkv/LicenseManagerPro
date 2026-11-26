@@ -105,6 +105,10 @@ button:hover:not(:disabled) {
 }
 button:active:not(:disabled) { transform: translateY(0) scale(0.98); }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
+/* v3.0.4: buttons with a lucide icon as a direct child align the
+   icon and the label (create buttons, login submit, ...). */
+button:has(> svg):not(.layout-nav-group-btn) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
 
 input, select, textarea {
     background: var(--surface);
@@ -222,13 +226,22 @@ pre {
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 12px;
+    padding: 14px 16px;
     overflow-x: auto;
     direction: ltr;
     text-align: left;
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1.65;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
+    /* Visible scroll affordance (v3.0.4): code that must scroll
+       sideways shows a thin accent scrollbar instead of a hidden
+       one, so text never looks cut off with no way to reach it. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
 }
+pre::-webkit-scrollbar { height: 8px; }
+pre::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+pre::-webkit-scrollbar-track { background: transparent; }
 
 /* ------------------------------------------------------- shared components */
 .gradient-text {
@@ -494,6 +507,8 @@ pre {
     animation: modalIn 0.25s ease;
 }
 .modal-card h2 { margin-bottom: 10px; }
+.confirm-modal-title { display: flex; align-items: center; gap: 8px; }
+.confirm-modal-title svg { color: var(--danger); flex-shrink: 0; }
 .modal-card p { color: var(--muted); margin: 0 0 20px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -514,6 +529,7 @@ pre {
 
 /* Copy button */
 .copy-btn {
+    display: inline-flex; align-items: center; gap: 4px;
     padding: 4px 10px;
     font-size: 12px;
     border-radius: 999px;
@@ -524,6 +540,39 @@ pre {
 }
 .copy-btn:hover:not(:disabled) { box-shadow: none; transform: none; border-color: var(--accent); }
 .copy-btn.copied { background: var(--success); color: var(--on-accent); border-color: var(--success); }
+
+/* Tab dropdown (v3.0.4): replaces secondary tab strips. Full-width
+   button at full height — never a crushed sliver. The option list is
+   portaled to document.body (fixed position) so no scrolling ancestor
+   can clip it. */
+.tab-dropdown { position: relative; width: 100%; flex-shrink: 0; }
+.tab-dropdown-btn {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 16px;
+    background: var(--surface); color: var(--text); font-size: 15px;
+    font-family: inherit; cursor: pointer; text-align: start;
+}
+.tab-dropdown-btn:hover { border-color: var(--accent); }
+.tab-dropdown-current { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.tab-dropdown-current span { overflow: hidden; text-overflow: ellipsis; }
+.tab-dropdown-current svg { flex-shrink: 0; color: var(--accent); }
+.tab-dropdown-chevron { margin-inline-start: auto; flex-shrink: 0; color: var(--muted-2); transition: transform 0.25s ease; }
+.tab-dropdown-chevron.open { transform: rotate(180deg); }
+.tab-dropdown-list {
+    position: fixed; z-index: 900; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    padding: 6px; overflow-y: auto;
+}
+.tab-dropdown-option {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px;
+    border: 0; background: transparent; color: var(--text); font-size: 15px;
+    font-family: inherit; cursor: pointer; border-radius: 12px; text-align: start;
+}
+.tab-dropdown-option:hover, .tab-dropdown-option:focus-visible { background: var(--surface-2); outline: none; }
+.tab-dropdown-option.active { color: var(--accent); font-weight: 600; }
+.tab-dropdown-option svg { flex-shrink: 0; }
+.tab-dropdown-check { margin-inline-start: auto; }
 
 /* Error boundary */
 .error-boundary {
@@ -585,17 +634,8 @@ pre {
 .modal-backdrop.modal-closing { animation: backdropOut 0.2s ease forwards; }
 .modal-card.modal-card-closing { animation: modalOut 0.2s ease forwards; }
 
-/* Shared small tab strip (v3.0): channel tabs inside Audit Logs, sub-tabs
-   inside Settings, tabs on About / API Docs, mini-tabs inside the
-   dashboard tabs. v3.0.2: the strip WRAPS at all widths. It used to be
-   overflow-x:auto with a hidden scrollbar, so on a real phone the last
-   pill sat half outside the screen with no affordance (the ApiDocs
-   "API keys" pill was cut off mid-word). A second row is cheaper than
-   an unreadable tab. */
-.mini-tabs { display: flex; gap: 6px; margin: 0 auto 16px; flex-wrap: wrap; overflow-x: visible; padding-bottom: 2px; min-width: 0; flex-shrink: 0; }
-.mini-tab { flex: 0 1 auto; min-width: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; white-space: normal; text-align: center; line-height: 1.35; }
-.mini-tab:hover { color: var(--text); }
-.mini-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
+/* v3.0.4: secondary tab strips are TabDropdowns now (see
+   components/TabDropdown.js) — the old .mini-tabs pill row is gone. */
 
 /* Shared dropdown exit animation (v3.0): the reverse of the pop-in —
    used by the bell panel, profile/language/search dropdowns while
@@ -691,7 +731,13 @@ pre {
 }
 
 /* Animated theme switch: theme.js adds this class to <html> for ~450ms
-   while the variables change, so surfaces cross-fade instead of snapping. */
-.theme-animating, .theme-animating * {
+   while the variables change, so surfaces cross-fade instead of snapping.
+   The sun/moon toggle icons are excluded: their own transform/opacity
+   cross-fade (ThemeToggle.css) must survive the window. With reduced
+   motion the transition is off entirely. */
+.theme-animating, .theme-animating *:not(.theme-toggle-sun):not(.theme-toggle-moon):not(.theme-toggle-auto) {
     transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .theme-animating, .theme-animating * { transition: none !important; }
 }

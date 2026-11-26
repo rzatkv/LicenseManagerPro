@@ -9,24 +9,31 @@ import ThemeToggle from "./ThemeToggle";
 import LanguageMenu from "./LanguageMenu";
 import ProfileMenu from "./ProfileMenu";
 import {DEMO_MODE} from "../config";
+import {
+  LayoutDashboard, Package, Lock, KeyRound, Users, ShieldCheck, Globe,
+  BookOpen, Settings as SettingsIcon, Info, ScrollText, Download, Ban,
+  Bell, Folder, ChevronDown,
+} from "lucide-react";
 import "./Layout.css";
 
+/* Single icon source (v3.0.4): lucide-react, 18px outline icons. The
+   hand-rolled inline SVGs these replace drew the same shapes. */
 const ICONS = {
-  dashboard: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>,
-  products: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>,
-  licenses: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  apikeys: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2M15 6l3 3M18 3l3 3"/></svg>,
-  users: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5M16 4.5a3.5 3.5 0 010 7M17.5 15.5c2 .6 3.5 2 4 4.5"/></svg>,
-  roles: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="M9 11.5l2 2 4-4.5"/></svg>,
-  languages: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>,
-  docs: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 006.5 22H20v-5"/></svg>,
-  settings: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34h.01a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55h.01a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87v.01a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>,
-  about: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>,
-  audit: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>,
-  downloads: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>,
-  blacklist: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M5.7 5.7l12.6 12.6"/></svg>,
-  notifications: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>,
-  groups: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2v11z"/></svg>,
+  dashboard: <LayoutDashboard size={18} />,
+  products: <Package size={18} />,
+  licenses: <Lock size={18} />,
+  apikeys: <KeyRound size={18} />,
+  users: <Users size={18} />,
+  roles: <ShieldCheck size={18} />,
+  languages: <Globe size={18} />,
+  docs: <BookOpen size={18} />,
+  settings: <SettingsIcon size={18} />,
+  about: <Info size={18} />,
+  audit: <ScrollText size={18} />,
+  downloads: <Download size={18} />,
+  blacklist: <Ban size={18} />,
+  notifications: <Bell size={18} />,
+  groups: <Folder size={18} />,
 };
 
 /** Mobile bottom nav (v2.3, ≤1024px only): the five most-used sections. */
@@ -85,35 +92,78 @@ function Layout() {
   }, []);
 
   // Users, Roles and Blacklist are admin-only (their APIs are admin-only);
-  // Audit Logs is admin/manager (audit-logs API: 403 else).
+  // Activity History is admin/manager (audit-logs API: 403 else).
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
-  const navSections = [
-    {
-      label: null,
-      items: [
-        {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
-        {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
-        {to: "/product-groups", label: t("nav.productGroups"), icon: ICONS.groups, show: true},
-        {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
-        {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
-        {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
-        {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
-        {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
-      ],
-    },
-    {
-      label: t("nav.system"),
-      items: [
-        {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
-        {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
-        {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
-        {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
-        {to: "/settings", label: t("nav.settings"), icon: ICONS.settings, show: true},
-        {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
-      ],
-    },
+
+  /* Hierarchical menu (v3.0.4): flat top-level links plus accordion
+     groups. A group parent only toggles its sub-menu (it does not
+     navigate); its first child links to the group's main page. Activity
+     History and API Docs live inside the Settings group, not top-level. */
+  const [openGroups, setOpenGroups] = useState({});
+  const settingsRoutes = ["/settings", "/audit-logs", "/docs"];
+  const managementRoutes = ["/users", "/roles", "/blacklist"];
+  const isSettingsActive = settingsRoutes.includes(location.pathname);
+  const isManagementActive = managementRoutes.includes(location.pathname);
+  const isGroupOpen = (id, active) => (openGroups[id] !== undefined ? openGroups[id] : active);
+  // The active page's group stays open when navigating to it (e.g. via
+  // a deep link, the bottom nav or global search).
+  useEffect(() => {
+    if (isSettingsActive) setOpenGroups((g) => (g.settings ? g : {...g, settings: true}));
+    if (isManagementActive) setOpenGroups((g) => (g.management ? g : {...g, management: true}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+  const toggleGroup = (id, active) =>
+    setOpenGroups((g) => ({...g, [id]: !(g[id] !== undefined ? g[id] : active)}));
+
+  const flatItems = [
+    {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
+    {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
+    {to: "/product-groups", label: t("nav.productGroups"), icon: ICONS.groups, show: true},
+    {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
+    {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
+    {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
+    {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
   ];
+  const managementItems = [
+    {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
+    {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
+    {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
+  ];
+  const settingsItems = [
+    {to: "/settings", label: t("settings.tabs.general"), icon: ICONS.settings, show: true},
+    {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
+    {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
+  ];
+  const renderGroup = (id, label, icon, items, active) => {
+    const visible = items.filter((i) => i.show);
+    if (visible.length === 0) return null;
+    const open = isGroupOpen(id, active);
+    return (
+      <div key={id} className="layout-nav-group">
+        <button
+          type="button"
+          className={`layout-nav-group-btn${open ? " open" : ""}${active ? " active-group" : ""}`}
+          aria-expanded={open}
+          onClick={() => toggleGroup(id, active)}
+        >
+          <span className="layout-nav-icon">{icon}</span>
+          <span>{label}</span>
+          <ChevronDown size={16} className="layout-nav-chevron" />
+        </button>
+        {open && (
+          <div className="layout-nav-submenu">
+            {visible.map((item) => (
+              <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link layout-nav-sublink${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
+                <span className="layout-nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="layout">
@@ -126,17 +176,22 @@ function Layout() {
           <span>{siteName}</span>
         </div>
         <nav>
-          {navSections.map((section, si) => (
-            <div key={si} className="layout-nav-section">
-              {section.label && <div className="layout-nav-section-label">{section.label}</div>}
-              {section.items.filter((i) => i.show).map((item) => (
-                <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
-                  <span className="layout-nav-icon">{item.icon}</span>
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          <div className="layout-nav-section">
+            {flatItems.filter((i) => i.show).map((item) => (
+              <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
+                <span className="layout-nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+          {renderGroup("management", t("nav.management"), ICONS.roles, managementItems, isManagementActive)}
+          {renderGroup("settings", t("nav.settings"), ICONS.settings, settingsItems, isSettingsActive)}
+          <div className="layout-nav-section">
+            <NavLink to="/about" className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
+              <span className="layout-nav-icon">{ICONS.about}</span>
+              <span>{t("nav.about")}</span>
+            </NavLink>
+          </div>
         </nav>
       </aside>
       <div

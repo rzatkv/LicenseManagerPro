@@ -33,9 +33,8 @@ from services import webhooks as webhook_service
 from services import service_status as service_status_service
 from services.audit import log_audit
 from services.settings import get_all_settings, get_setting_default, update_setting
-from utils.auth import require_admin
 from utils.module_auth import require_actor
-from utils.permissions import require_admin_or_manager
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -122,7 +121,7 @@ def _database_version(db: Session) -> tuple[str, str]:
 @router.get("/check-updates", response_model=CheckUpdatesResponse)
 def check_updates(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("system:update-check")),
 ):
     current, latest = _versions(db)
     return {
@@ -136,7 +135,7 @@ def check_updates(
 def sending_stats(
     days: int = Query(default=14, ge=1, le=90),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Sending activity (v3.0, admin-only): per-day, per-channel
     sent/failed counts aggregated from the per-channel log stream
@@ -198,7 +197,7 @@ def sending_stats(
 @router.get("/service-status")
 def service_status(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Service status for the dashboard widget (v3.0, admin-only): the
     connection state of database, email (SMTP), the active SMS
@@ -211,7 +210,7 @@ def service_status(
 @router.get("/update-check", response_model=UpdateCheckResponse)
 def update_check(
     db: Session = Depends(get_db),
-    _user: User = Depends(require_admin_or_manager),
+    _user: User = Depends(require_permission("system:update-check")),
 ):
     """Live update check against the GitHub releases API (v2.2)."""
     return update_service.check_update(db)
@@ -220,7 +219,7 @@ def update_check(
 @router.post("/update", response_model=StageUpdateResponse)
 def apply_update(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("system:update")),
 ):
     """Stage the latest release tarball for update (v2.2).
 
@@ -241,7 +240,7 @@ def apply_update(
 def check_expiring(
     days: int = Query(default=7, ge=1, le=365),
     db: Session = Depends(get_db),
-    _current_user=Depends(require_admin_or_manager),
+    _current_user=Depends(require_permission("system:check-expiring")),
 ):
     """Scan for expiring/expired licenses and fire their webhooks.
 

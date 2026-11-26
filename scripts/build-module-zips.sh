@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build one release ZIP per integration module (v3.0.3).
+# Build one release ZIP per integration module (v3.0.4).
 #
 # Usage: bash scripts/build-module-zips.sh [--out DIR] [--version X.Y.Z]
 #

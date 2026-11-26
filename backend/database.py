@@ -210,11 +210,17 @@ def seed_settings(db):
 
 
 def seed_roles(db):
-    """Seed the four built-in roles (v2.3) if they are missing."""
+    """Seed the four built-in roles (v2.3) if they are missing.
+
+    v3.0.4: existing installs keep their stored builtin rows, so the
+    permissions added in this version are MERGED into those rows
+    (added only, never removed — an admin's deliberate removal of an
+    old permission is untouched).
+    """
     import json
 
     from models import Role
-    from utils.permissions import ROLE_PERMISSIONS
+    from utils.permissions import ROLE_PERMISSIONS, ROLE_PERMISSION_ADDITIONS_V304
 
     for slug, perms in ROLE_PERMISSIONS.items():
         if slug == "user":
@@ -230,4 +236,14 @@ def seed_roles(db):
                     is_builtin=True,
                 )
             )
+        else:
+            additions = ROLE_PERMISSION_ADDITIONS_V304.get(slug)
+            if additions:
+                try:
+                    stored = set(json.loads(existing.permissions or "[]"))
+                except (ValueError, TypeError):
+                    stored = set()
+                if not additions.issubset(stored):
+                    stored |= set(additions)
+                    existing.permissions = json.dumps(sorted(stored))
     db.commit()

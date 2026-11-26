@@ -14,6 +14,7 @@ import Wizard from "../components/Wizard";
 import ChipSelect from "../components/ChipSelect";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/APIKeyList.css";
+import {Plus} from "lucide-react";
 
 
 const ALL_ACCESS_RIGHTS = [
@@ -265,7 +266,7 @@ function APIKeyList() {
         <div className="api-key-list-container page-enter">
             <h1 className="gradient-text">{t("apikeys.title")}</h1>
             <div className="toolbar">
-                <button onClick={() => { resetWizard(); setShowWizard(true); }}>{t("apikeys.create")}</button>
+                <button onClick={() => { resetWizard(); setShowWizard(true); }}><Plus size={16} />{t("apikeys.create")}</button>
             </div>
 
             {/* v3.0.1: the create wizard opens in the animated Modal (same

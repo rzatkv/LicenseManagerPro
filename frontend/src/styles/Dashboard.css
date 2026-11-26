@@ -11,6 +11,8 @@
 /* Stat cards fill the available width: a responsive grid instead of fixed
    200px boxes centred in a wide row (which left large side margins and
    ~60%-wide cards on narrow screens). */
+/* v3.0.4: one lucide icon per summary box, accent-coloured, above the label. */
+.summary-icon { display: inline-flex; color: var(--accent); margin-bottom: 6px; }
 .dashboard-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -70,10 +72,12 @@
 
 .dashboard-actions h2,
 .dashboard-section h2 {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
     text-align: center;
     color: var(--text);
     margin-bottom: 15px;
 }
+.dashboard-actions h2 svg, .dashboard-section h2 svg { color: var(--accent); flex: 0 0 auto; }
 
 .action-buttons {
     display: flex;
@@ -83,7 +87,7 @@
 }
 
 .action-btn {
-    display: inline-block;
+    display: inline-flex; align-items: center; gap: 6px;
     padding: 10px 18px;
     background: var(--accent-gradient);
     background-color: var(--accent);
@@ -144,7 +148,8 @@
   -webkit-backdrop-filter: blur(20px);
   flex: 1; min-width: 260px; max-width: 340px;
 }
-.chart-card h3 { text-align: center; font-size: 15px; margin-bottom: 12px; color: var(--text); }
+.chart-card h3 { display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center; font-size: 15px; margin-bottom: 12px; color: var(--text); }
+.chart-title-icon { display: inline-flex; color: var(--accent); flex: 0 0 auto; }
 /* The 14-day trend chart spans the full row. */
 .chart-card-wide { flex: 1 1 100%; max-width: 1000px; }
 
@@ -165,35 +170,38 @@
 .widget-size-s { flex: 0 1 62%; max-width: 340px; }
 .widget-size-m { flex: 0 1 82%; max-width: 520px; }
 .widget-size-l { flex: 1 1 100%; max-width: 1000px; }
-/* Per-size chart heights (v3.0.3): the chart components render their
-   viewBox taller per size (Trend/Sending 640x150/200/280, Bar
-   320x140/190/250 — the size prop), so the svg's rendered height
-   grows with the size at every viewport. The donut is a fixed 180px
-   svg; it scales per size via CSS instead. The base .chart-card svg
-   max-height (210px) is relaxed per size so L can actually grow tall
-   on desktop instead of being capped at the M height. */
-.widget-size-s .chart-card svg { max-height: 140px; }
-.widget-size-m .chart-card svg { max-height: 210px; }
-.widget-size-l .chart-card svg { max-height: 320px; }
-.widget-size-s .donut-svg { width: 120px; height: 120px; }
-.widget-size-m .donut-svg { width: 180px; height: 180px; }
-.widget-size-l .donut-svg { width: 240px; height: 240px; }
+/* Per-size chart heights (v3.0.3, Recharts v3.0.4): the chart
+   components render a ResponsiveContainer with an explicit pixel
+   height per size (Trend/Sending 150/200/280, Bar 140/190/250, donut
+   120/180/240 — the size prop), so the svg's rendered height grows
+   with the size at every viewport. The rules below are scoped to
+   DIRECT-child svgs only: a Recharts svg lives inside
+   .recharts-wrapper and must never be clamped by these caps. */
+.widget-size-s .chart-card > svg { max-height: 140px; }
+.widget-size-m .chart-card > svg { max-height: 210px; }
+.widget-size-l .chart-card > svg { max-height: 320px; }
+/* Donut centre total (v3.0.4, Recharts PieChart): absolutely centred
+   over the pie; the wrapper is a fixed square per size (see
+   DONUT_SIZE in Dashboard.js). */
+.donut-wrap { position: relative; flex: 0 0 auto; }
+.donut-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: var(--text); pointer-events: none; }
 .widget-customizing { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 20px; }
 .dashboard-customize-bar { display: flex; justify-content: flex-end; max-width: 1000px; margin: 8px auto 0; }
 .widget-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 4px; font-size: 13px; color: var(--muted); }
-.widget-drag-handle { cursor: grab; font-size: 16px; color: var(--muted); }
+.widget-drag-handle { cursor: grab; font-size: 16px; color: var(--muted); display: inline-flex; align-items: center; }
 .widget-control-group { display: inline-flex; align-items: center; gap: 6px; }
 .widget-control-label { font-weight: 600; }
 .widget-size-btn { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; cursor: pointer; }
 .widget-size-btn.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
-.widget-move-btn { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
+.widget-move-btn { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .widget-move-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* Webhook stats widget. */
 .webhook-rate { display: flex; align-items: baseline; gap: 8px; justify-content: center; }
 .webhook-rate-value { font-size: 32px; font-weight: 800; color: var(--accent); }
 .webhook-rate-label { color: var(--muted); font-size: 13px; }
-.webhook-totals { text-align: center; color: var(--muted); font-size: 13px; margin: 6px 0 12px; }
+.webhook-totals { display: flex; align-items: center; justify-content: center; gap: 4px; text-align: center; color: var(--muted); font-size: 13px; margin: 6px 0 12px; }
+.webhook-totals svg { flex: 0 0 auto; }
 .webhook-events { width: 100%; }
 .webhook-events li { display: flex; align-items: center; gap: 8px; }
 .webhook-event-name { flex: 0 0 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -214,7 +222,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
-.highlights-slider .slide h3 { color: var(--accent); margin-bottom: 6px; }
+.highlights-slider .slide h3 { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--accent); margin-bottom: 6px; }
 .highlights-slider .slide p { color: var(--muted); margin: 0; }
 .slider-dots { margin-top: 12px; display: flex; gap: 8px; justify-content: center; }
 .slider-dot { width: 10px; height: 10px; padding: 0; border-radius: 50%; background: var(--border); border: none; cursor: pointer; box-shadow: none; }
@@ -230,7 +238,14 @@
 .dashboard-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1000px; margin: 0 auto 12px; }
 .dashboard-title { font-size: 24px; font-weight: 800; }
 .dashboard-header-actions { display: flex; align-items: center; gap: 8px; }
-.dashboard-gear-btn { font-size: 18px; line-height: 1; padding: 8px 10px; }
+.dashboard-gear-btn { font-size: 18px; line-height: 1; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; }
+.dashboard-customize-btn { display: inline-flex; align-items: center; gap: 6px; }
+/* Chart-type switcher (v3.0.4, Grafana-style): small tappable pills
+   under the chart, next to the range control; the choice persists per
+   widget in the layout. Same pill language as .chart-range. */
+.chart-type-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; justify-content: center; }
+.chart-type-btn { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 13px; cursor: pointer; }
+.chart-type-btn.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
 /* Per-chart range control, directly under its chart (v3.0): each chart
    has its own independent range, persisted in the widget layout. */
 .chart-range { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; justify-content: center; }
@@ -321,8 +336,10 @@
 .modal-hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
 
 /* Chart SVGs keep their aspect ratio but never grow tall on wide screens
-   (preserveAspectRatio="meet" letterboxes them instead of distorting). */
-.chart-card svg { max-height: 210px; }
+   (preserveAspectRatio="meet" letterboxes them instead of distorting).
+   Direct children only — a Recharts svg is nested inside
+   .recharts-wrapper and is sized by its container instead. */
+.chart-card > svg { max-height: 210px; }
 
 /* Small screens: summary boxes become a 2x2 grid of compact stacked cards
    (a reflow, not a squeeze: same content, no scrolling). One column of
@@ -334,4 +351,10 @@
     .summary-box h2 { margin: 0 0 4px; font-size: 14px; }
     .summary-box p { font-size: 20px; }
     .dashboard-section table th, .dashboard-section table td { padding: 6px 4px; font-size: 14px; }
+    /* v3.0.4: the header actions (gear + Customize) overflowed 11px at
+       360px in en — the Customize text button is icon-only here (the
+       label stays in aria-label + title), the same pattern as the
+       v3.0.3 Services re-check buttons. */
+    .dashboard-customize-label { display: none; }
+    .dashboard-customize-btn { padding: 8px 10px; }
 }

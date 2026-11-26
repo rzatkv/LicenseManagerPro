@@ -11,8 +11,8 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v17";
-const APP_VERSION = "3.0.3";
+const STORAGE_KEY = "lmp-demo-db-v18";
+const APP_VERSION = "3.0.4";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -138,9 +138,9 @@ function seed() {
         // Built-in roles (v2.3): same permission sets as the backend seed.
         roles: [
             {id: 1, name: "Admin", slug: "admin", description: "Full access to everything.", permissions: ["*"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 2, name: "Manager", slug: "manager", description: "Everything except managing users and roles.", permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 3, name: "Support", slug: "support", description: "Read everything; create/renew licenses and API keys.", permissions: ["licenses:create", "licenses:renew", "api_keys:create"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 4, name: "Viewer", slug: "viewer", description: "Read-only.", permissions: [], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 2, name: "Manager", slug: "manager", description: "Everything except managing users and roles.", permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read", "downloads:read", "security:license-locking", "security:captcha", "sms:write", "email:write", "telegram:write", "system:update-check"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 3, name: "Support", slug: "support", description: "Read everything; create/renew licenses and API keys.", permissions: ["licenses:create", "licenses:renew", "api_keys:create", "downloads:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 4, name: "Viewer", slug: "viewer", description: "Read-only.", permissions: ["downloads:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
         ],
         // Per-user preferences (v2.3): theme + dashboard layout.
         preferences: {},
@@ -213,7 +213,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.3", message: "Widget fix: dashboard widgets now resize visibly (S/M/L) and the Services tab is centered — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.4", message: "Dashboard: every block can be hidden, lucide icons, Recharts with Grafana-style chart types, animated themes, per-admin layouts and a full permissions refresh — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -1587,7 +1587,7 @@ export async function mockRequest(method, endpoint, body) {
             // a bare array, response_model=list[str]): the Roles page reads
             // it with Array.isArray, and a wrapped {permissions: [...]}
             // object silently produced an empty checklist (v2.3.1 defect).
-            return ["api_keys:create", "api_keys:write", "audit:delete", "audit:read", "downloads:read", "languages:write", "licenses:create", "licenses:delete", "licenses:renew", "licenses:write", "products:write", "roles:write", "settings:write", "system:check-expiring", "users:write"];
+            return ["api_keys:create", "api_keys:write", "audit:delete", "audit:read", "blacklist:write", "dashboard:read", "downloads:read", "email:write", "languages:write", "licenses:create", "licenses:delete", "licenses:renew", "licenses:write", "notifications:write", "products:write", "roles:write", "security:captcha", "security:license-locking", "security:twofa-model", "settings:write", "sms:read", "sms:write", "system:check-expiring", "system:update", "system:update-check", "telegram:write", "users:write"];
         }
         if (method === "GET" && parts.length === 1) {
             requireRole(["admin"]);
@@ -1747,6 +1747,9 @@ export async function mockRequest(method, endpoint, body) {
             }
             if (method === "PUT") {
                 requireRole(["admin", "manager"]);
+                // v3.0.4: the 2FA MODEL is a global policy set ONLY by the
+                // main admin — a manager holds settings:write but gets 403.
+                if (key === "twofa_channel" && currentUser().role !== "admin") fail(403, "Only the main admin can change the 2FA model");
                 if (SYSTEM_MANAGED_SETTINGS.includes(key)) fail(400, `Setting '${key}' is managed by the system and cannot be edited`);
                 if (!EDITABLE_SETTINGS.includes(key)) fail(404, "Setting not found");
                 validateSettingValue(key, body && body.value !== undefined ? body.value : "");
@@ -1915,14 +1918,14 @@ export async function mockRequest(method, endpoint, body) {
         db.audit_logs = (db.audit_logs || []).filter((l) => l.id !== id);
         if (db.audit_logs.length === before) fail(404, `Audit log ${id} not found`);
         save();
-        return {message: `Audit log ${id} deleted successfully`};
+        return {message: `Activity history entry ${id} deleted successfully`};
     }
     if (parts[0] === "audit-logs" && method === "DELETE" && parts.length === 1) {
         requireRole(["admin"]);
         const count = (db.audit_logs || []).length;
         db.audit_logs = [];
         save();
-        return {message: `Deleted ${count} audit log(s)`, deleted: count};
+        return {message: `Deleted ${count} activity history entr${count === 1 ? "y" : "ies"}`, deleted: count};
     }
 
     // ---- System -------------------------------------------------------------

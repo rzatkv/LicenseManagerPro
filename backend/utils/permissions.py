@@ -31,19 +31,56 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "settings:write",
         "system:check-expiring",
         "audit:read",
+        # v3.0.4: granular settings + module/download + update-check
+        # permissions (defaults preserve the old settings:write access).
+        "downloads:read",
+        "security:license-locking",
+        "security:captcha",
+        "sms:write",
+        "email:write",
+        "telegram:write",
+        "system:update-check",
     },
     "support": {
         "licenses:create",
         "licenses:renew",
         "api_keys:create",
+        # v3.0.4: module downloads are a read; every builtin role keeps
+        # the access it had when downloads were open to all logins.
+        "downloads:read",
     },
-    "viewer": set(),
+    "viewer": {
+        # v3.0.4: read-only, but module downloads stay available (they
+        # were open to every logged-in user before this permission
+        # existed). The viewer's OWN dashboard personalization needs no
+        # permission — it is per-user data, scoped by current_user.
+        "downloads:read",
+    },
     # Legacy pre-v2.0 role, kept working as "support".
     "user": {
         "licenses:create",
         "licenses:renew",
         "api_keys:create",
+        "downloads:read",
     },
+}
+
+# v3.0.4: keys added in this version, per builtin role, for the
+# seed_roles() merge — existing installs keep their stored builtin
+# rows, so new defaults are merged in (added only, never removed, so
+# an admin's deliberate removal of an old permission is untouched).
+ROLE_PERMISSION_ADDITIONS_V304: dict[str, set[str]] = {
+    "manager": {
+        "downloads:read",
+        "security:license-locking",
+        "security:captcha",
+        "sms:write",
+        "email:write",
+        "telegram:write",
+        "system:update-check",
+    },
+    "support": {"downloads:read"},
+    "viewer": {"downloads:read"},
 }
 
 # Every permission key the app knows (v2.3, shown as a checklist in the
@@ -65,6 +102,23 @@ ALL_PERMISSIONS: list[str] = sorted(
         "users:write",
         "roles:write",
         "downloads:read",
+        # v3.0.4: granular permissions for everything that needed
+        # access control but had no permission entry (audit round).
+        # security:twofa-model is admin-only by design (the 2FA model
+        # is a global policy set only by the main admin); the rest
+        # default to the access their endpoint had before.
+        "security:twofa-model",
+        "security:license-locking",
+        "security:captcha",
+        "sms:write",
+        "sms:read",
+        "email:write",
+        "telegram:write",
+        "notifications:write",
+        "blacklist:write",
+        "dashboard:read",
+        "system:update",
+        "system:update-check",
     }
 )
 

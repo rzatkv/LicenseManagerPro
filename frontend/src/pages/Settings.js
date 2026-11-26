@@ -7,6 +7,9 @@ import {useToast} from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import {DEMO_MODE} from "../config";
+import {getCurrentRole} from "../utils/auth";
+import TabDropdown from "../components/TabDropdown";
+import {ShieldCheck, Gauge, Shield, Wrench, KeyRound, Filter, Image, Globe, Palette, MessageSquare, Mail, FileText, Send} from "lucide-react";
 import {resetDemoData} from "../utils/demoData";
 import {LanguagesPanel} from "./Languages";
 import "../styles/Settings.css";
@@ -18,6 +21,14 @@ import "../styles/Settings.css";
 // and version / last-updated are not shown here at all (About only).
 const TABS = ["general", "language", "languages", "theme", "security", "sms", "email", "telegram"];
 const SECURITY_SUBTABS = ["license", "rate", "captcha", "maintenance", "twofa", "strip"];
+const SECURITY_SUBTAB_ICONS = {
+  license: <ShieldCheck size={16} />,
+  rate: <Gauge size={16} />,
+  captcha: <Shield size={16} />,
+  maintenance: <Wrench size={16} />,
+  twofa: <KeyRound size={16} />,
+  strip: <Filter size={16} />,
+};
 const SMS_PROVIDERS = ["ippanel", "kavenegar", "faraz"];
 const SMS_PROVIDER_FIELDS = {
     ippanel: ["api_key", "sender"],
@@ -72,10 +83,25 @@ function Settings() {
     const {mode, setMode, preset, setPreset, custom, setCustom} = useTheme();
     const {toast} = useToast();
     const [searchParams] = useSearchParams();
+    // v3.0.4: the 2FA MODEL (which delivery channel is used) is a global
+    // policy set ONLY by the main admin (role admin). Non-main admins
+    // see the channel disabled with a note, and the save skips it —
+    // the backend also rejects their PUT with 403.
+    const isMainAdmin = getCurrentRole() === "admin";
     const [tab, setTab] = useState(() => {
         const q = searchParams.get("tab");
         return TABS.includes(q) ? q : "general";
     });
+    // Deep links (?tab=security, ?tab=email, ...) must switch the tab
+    // even when the Settings page is already mounted (v3.0.4 fix: the
+    // useState initializer above only reads the param once, so a
+    // hash-only navigation to a different ?tab= silently did nothing).
+    // Clicking a tab calls setTab without changing the URL, so this
+    // effect never fights the user's own tab clicks.
+    useEffect(() => {
+        const q = searchParams.get("tab");
+        if (TABS.includes(q)) setTab(q);
+    }, [searchParams]);
     const [securityTab, setSecurityTab] = useState("license");
     const [settings, setSettings] = useState({});
     const [loaded, setLoaded] = useState(false);
@@ -211,7 +237,10 @@ function Settings() {
             await put("/api/settings/captcha-config", captchaPayload);
             await saveSetting("maintenance_mode", maintenance.mode);
             await saveSetting("maintenance_message", maintenance.message);
-            await saveSetting("twofa_channel", twofaChannel);
+            // The 2FA model is main-admin-only (v3.0.4): never send it
+            // from a non-admin save — the backend would 403 and the
+            // whole security save would toast an error.
+            if (isMainAdmin) await saveSetting("twofa_channel", twofaChannel);
             await saveSetting("strip_4byte", strip4byte);
             setCaptcha((prev) => ({...prev, secret_key: "", secret_configured: prev.secret_configured || !!captcha.secret_key}));
             toast.success(t("settings.saved"));
@@ -414,7 +443,7 @@ function Settings() {
             {tab === "general" && (
                 <>
                     <div className="branding-card glass-card">
-                        <h3>{t("branding.title")}</h3>
+                        <h3><Image size={18} />{t("branding.title")}</h3>
                         <div className="branding-row">
                             <img src={general.logo_url || "./logo.svg"} alt={t("branding.logo")} className="branding-logo-preview" />
                             <div className="branding-fields">
@@ -505,7 +534,7 @@ function Settings() {
 
             {tab === "language" && (
                 <div className="glass-card settings-section">
-                    <h3>{t("settings.language")}</h3>
+                    <h3><Globe size={18} />{t("settings.language")}</h3>
                     <p className="hint">{t("settings.languageHint")}</p>
                     <div className="language-picker">
                         {available.map((l) => (
@@ -532,7 +561,7 @@ function Settings() {
 
             {tab === "theme" && (
                 <div className="glass-card settings-section">
-                    <h3>{t("theme.presets")}</h3>
+                    <h3><Palette size={18} />{t("theme.presets")}</h3>
                     <div className="theme-mode-row">
                         <span className="theme-mode-label">{t("theme.mode")}</span>
                         <div className="segmented">
@@ -602,24 +631,16 @@ function Settings() {
 
             {tab === "security" && (
                 <>
-                    <div className="mini-tabs" role="tablist" aria-label={t("settings.tabs.security")}>
-                        {SECURITY_SUBTABS.map((s) => (
-                            <button
-                                key={s}
-                                type="button"
-                                role="tab"
-                                aria-selected={securityTab === s}
-                                className={securityTab === s ? "mini-tab active" : "mini-tab"}
-                                onClick={() => setSecurityTab(s)}
-                            >
-                                {t(`settings.securitySubtabs.${s}`)}
-                            </button>
-                        ))}
-                    </div>
+                                        <TabDropdown
+                      ariaLabel={t("settings.tabs.security")}
+                      value={securityTab}
+                      onChange={setSecurityTab}
+                      options={SECURITY_SUBTABS.map((s) => ({value: s, label: t(`settings.securitySubtabs.${s}`), icon: SECURITY_SUBTAB_ICONS[s]}))}
+                    />
 
                     {securityTab === "license" && (
                         <div className="glass-card settings-section">
-                            <h3>{t("security.title")}</h3>
+                            <h3><ShieldCheck size={18} />{t("security.title")}</h3>
                             {securityError ? (
                                 <p className="hint">{securityError}</p>
                             ) : !security ? (
@@ -755,9 +776,12 @@ function Settings() {
                         <div className="glass-card settings-section">
                             <h3>{t("settings.twofaTitle")}</h3>
                             <p className="hint">{t("settings.twofaHint")}</p>
+                            {!isMainAdmin && (
+                                <p className="hint">{t("settings.twofaMainAdminOnly")}</p>
+                            )}
                             <label className="settings-field">
                                 {t("settings.twofaChannel")}
-                                <select value={twofaChannel} onChange={(e) => setTwofaChannel(e.target.value)}>
+                                <select value={twofaChannel} disabled={!isMainAdmin} onChange={(e) => setTwofaChannel(e.target.value)}>
                                     <option value="totp">{t("settings.twofaTotp")}</option>
                                     <option value="email">{t("settings.twofaEmail")}</option>
                                     <option value="sms">{t("settings.twofaSms")}</option>
@@ -790,7 +814,7 @@ function Settings() {
             {tab === "sms" && (
                 <>
                     <div className="glass-card settings-section">
-                        <h3>{t("settings.smsTitle")}</h3>
+                        <h3><MessageSquare size={18} />{t("settings.smsTitle")}</h3>
                         <p className="hint">{t("settings.smsHint")}</p>
                         {SMS_PROVIDERS.map((name) => {
                             const active = sms.active_provider === name;
@@ -852,7 +876,7 @@ function Settings() {
             {tab === "email" && (
                 <>
                     <div className="glass-card settings-section">
-                        <h3>{t("settings.emailTitle")}</h3>
+                        <h3><Mail size={18} />{t("settings.emailTitle")}</h3>
                         <label className="settings-field">
                             {t("settings.smtpHost")}
                             <input type="text" value={email.smtp_host} onChange={(e) => setEmail((prev) => ({...prev, smtp_host: e.target.value}))} />
@@ -895,7 +919,7 @@ function Settings() {
                         </label>
                     </div>
                     <div className="glass-card settings-section">
-                        <h3>{t("settings.emailTemplatesTitle")}</h3>
+                        <h3><FileText size={18} />{t("settings.emailTemplatesTitle")}</h3>
                         <p className="hint">{t("settings.emailTemplatesHint")}</p>
                         {TEMPLATE_NAMES.map((name) => {
                             const tpl = (email.templates && email.templates[name]) || {subject: "", body: ""};
@@ -954,7 +978,7 @@ function Settings() {
             {tab === "telegram" && (
                 <>
                     <div className="glass-card settings-section">
-                        <h3>{t("settings.telegramTitle")}</h3>
+                        <h3><Send size={18} />{t("settings.telegramTitle")}</h3>
                         <p className="hint">{t("settings.telegramHint")}</p>
                         <label className="settings-field">
                             {t("settings.telegramBotToken")}

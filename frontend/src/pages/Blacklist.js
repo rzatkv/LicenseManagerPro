@@ -10,6 +10,7 @@ import Pagination from "../components/Pagination";
 import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/Blacklist.css";
+import {Plus} from "lucide-react";
 
 
 function Blacklist() {
@@ -100,7 +101,7 @@ function Blacklist() {
             <p className="dashboard-empty">{t("blacklist.blockedNote")}</p>
 
             <div className="toolbar">
-                <button type="button" onClick={() => setAddOpen(true)}>{t("blacklist.add")}</button>
+                <button type="button" onClick={() => setAddOpen(true)}><Plus size={16} />{t("blacklist.add")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>

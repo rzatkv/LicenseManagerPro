@@ -11,7 +11,7 @@ from schemas import (
     DashboardTrendResponse,
     WebhookStatsResponse,
 )
-from utils.auth import require_admin
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/summary", response_model=DashboardSummaryResponse)
 def get_summary(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Aggregate counts for the admin dashboard."""
     licenses = db.query(License).all()
@@ -36,7 +36,7 @@ def get_summary(
 def get_license_trend(
     days: int = Query(default=14, ge=1, le=90),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Licenses created per day for the last `days` days (v2.2 area chart)."""
     now = utcnow()
@@ -64,7 +64,7 @@ def get_license_trend(
 def get_activations_trend(
     days: int = Query(default=14, ge=1, le=90),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Activation instances created per day for the last `days` days (v2.3)."""
     now = utcnow()
@@ -91,7 +91,7 @@ def get_activations_trend(
 @router.get("/webhook-stats", response_model=WebhookStatsResponse)
 def get_webhook_stats(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("dashboard:read")),
 ):
     """Webhook delivery success rate overall + per event (v2.3)."""
     deliveries = db.query(WebhookDelivery).all()

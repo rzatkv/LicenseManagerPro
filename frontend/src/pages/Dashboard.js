@@ -1,6 +1,22 @@
 import React, {useEffect, useState, useCallback, useMemo, useRef} from "react";
 import {Link, useNavigate} from "react-router-dom";
+import {motion, useReducedMotion} from "framer-motion";
+import {
+    ResponsiveContainer,
+    LineChart as RLineChart, Line,
+    AreaChart as RAreaChart, Area,
+    BarChart as RBarChart, Bar,
+    PieChart as RPieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip,
+} from "recharts";
+import {
+    TrendingUp, ChartPie, ChartColumn, Boxes, Activity, Webhook, Server, Send,
+    KeyRound, Users, UserPlus, ShieldCheck, ShieldOff, CalendarClock,
+    FileText, Plus, Sparkles, Zap, MessageSquare, Settings as SettingsIcon, SlidersHorizontal,
+    GripVertical, ChevronUp, ChevronDown, RefreshCw, Check, X, BookOpen,
+} from "lucide-react";
 import {get, post, put} from "../utils/api";
+import {getCurrentUser} from "../utils/auth";
 import {formatDate, formatDateTime, formatDayShort, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
@@ -16,55 +32,99 @@ const daysLeft = (expiresAt) => {
 const STATUS_COLORS = {active: "var(--success)", inactive: "var(--muted-2)", expired: "var(--danger)", revoked: "var(--warning)"};
 
 // v3.0.3: chart height per widget size — S/M/L must render visibly
-// different chart sizes, not just different frame widths (the old
-// code drew every size from the same fixed viewBox, so at 360px all
-// three sizes measured identically). The widget wrapper carries the
-// width (fraction of the row, Dashboard.css); the chart's viewBox
-// height carries the height.
+// different chart sizes, not just different frame widths. Recharts
+// draws into a ResponsiveContainer with an explicit pixel height per
+// size (v3.0.4), so the svg's rendered height grows with the size at
+// every viewport, including 360px.
 const CHART_HEIGHT = {S: 150, M: 200, L: 280};
 const BAR_HEIGHT = {S: 140, M: 190, L: 250};
+const DONUT_SIZE = {S: 120, M: 180, L: 240};
 
-function DonutChart({data, title, t}) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
+// Long labels wrap onto two lines instead of being truncated ("CloudPanel P…").
+const splitLabel = (label) => {
+    if (!label || label.length <= 10) return [label || ""];
+    const mid = Math.floor(label.length / 2);
+    const cut = label.indexOf(" ", Math.max(0, mid - 3)) || label.lastIndexOf(" ", mid);
+    const at = (cut > 0 ? cut : label.lastIndexOf(" ", mid));
+    if (at <= 0) return [label];
+    return [label.slice(0, at), label.slice(at + 1)];
+};
+
+// Recharts shared bits: muted axis ticks, no axis lines, light grid,
+// glass tooltip. Colours come from the theme variables so a preset
+// change recolours the charts with the rest of the UI.
+const AXIS_TICK = {fontSize: 11, fill: "var(--muted)"};
+const TOOLTIP_STYLE = {background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text)", fontSize: 12};
+
+/** Two-line X-axis tick for the bar charts (long product/month labels). */
+function SplitTick(props) {
+    const {x, y, payload} = props;
+    const lines = splitLabel(payload && payload.value);
+    return (
+        <text x={x} y={y} textAnchor="middle" fill="var(--muted)" fontSize={9}>
+            {lines.map((line, i) => (
+                <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+            ))}
+        </text>
+    );
+}
+
+function ChartTitle({icon, title}) {
+    return (
+        <h3>
+            {icon ? <span className="chart-title-icon">{icon}</span> : null}
+            {title}
+        </h3>
+    );
+}
+
+/** Donut / pie / bar breakdown of licenses by status (Recharts, v3.0.4). */
+function DonutChart({data, title, t, size = "M", type = "donut", icon}) {
     const total = Object.values(data).reduce((a, b) => a + b, 0);
-    const size = 180;
-    const r = 70;
-    const cx = size / 2;
-    const cy = size / 2;
-    const circumference = 2 * Math.PI * r;
-    let offset = 0;
-    const segments = Object.entries(data).filter(([, v]) => v > 0).map(([key, value]) => {
-        const frac = total ? value / total : 0;
-        const dash = mounted ? frac * circumference : 0;
-        const seg = {key, value, dash, offset};
-        offset += frac * circumference;
-        return seg;
-    });
+    const entries = Object.entries(data).filter(([, v]) => v > 0).map(([key, value]) => ({key, value}));
+    const donutPx = DONUT_SIZE[size] || 180;
     return (
         <div className="chart-card">
-            <h3>{title}</h3>
-            {total === 0 ? <p className="dashboard-empty">—</p> : (
+            <ChartTitle icon={icon} title={title} />
+            {total === 0 ? <p className="dashboard-empty">—</p> : type === "bar" ? (
                 <div className="chart-body">
-                    <svg className="chart-anim donut-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
-                        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-2)" strokeWidth="28" />
-                        {segments.map((s) => (
-                            <circle key={s.key} className="chart-seg" cx={cx} cy={cy} r={r} fill="none"
-                                stroke={STATUS_COLORS[s.key] || "var(--accent)"} strokeWidth="28"
-                                strokeDasharray={`${s.dash} ${circumference - s.dash}`}
-                                strokeDashoffset={-s.offset}
-                                transform={`rotate(-90 ${cx} ${cy})`} />
-                        ))}
-                        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill="var(--text)" fontSize="22" fontWeight="bold">{total}</text>
-                    </svg>
+                    <ResponsiveContainer width="100%" height={donutPx}>
+                        <RBarChart data={entries} layout="vertical" margin={{top: 4, right: 12, bottom: 4, left: 4}}>
+                            <XAxis type="number" hide />
+                            <YAxis type="category" dataKey="key" width={76} tickLine={false} axisLine={false}
+                                tick={{fontSize: 11, fill: "var(--text)"}}
+                                tickFormatter={(k) => (t(`common.${k}`) !== `common.${k}` ? t(`common.${k}`) : k)} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                {entries.map((e) => (
+                                    <Cell key={e.key} fill={STATUS_COLORS[e.key] || "var(--accent)"} />
+                                ))}
+                            </Bar>
+                        </RBarChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <div className="chart-body">
+                    <div className="donut-wrap" style={{width: donutPx, height: donutPx}}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RPieChart>
+                                <Pie data={entries} dataKey="value" nameKey="key"
+                                    innerRadius={type === "pie" ? 0 : "62%"} outerRadius="85%"
+                                    paddingAngle={2} stroke="var(--surface)" strokeWidth={2}>
+                                    {entries.map((e) => (
+                                        <Cell key={e.key} fill={STATUS_COLORS[e.key] || "var(--accent)"} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            </RPieChart>
+                        </ResponsiveContainer>
+                        <span className="donut-center">{total}</span>
+                    </div>
                     <ul className="chart-legend">
-                        {segments.map((s) => (
-                            <li key={s.key}>
-                                <span className="legend-dot" style={{background: STATUS_COLORS[s.key] || "var(--accent)"}} />
-                                {t(`common.${s.key}`) !== `common.${s.key}` ? t(`common.${s.key}`) : s.key}: {s.value}
+                        {entries.map((e) => (
+                            <li key={e.key}>
+                                <span className="legend-dot" style={{background: STATUS_COLORS[e.key] || "var(--accent)"}} />
+                                {t(`common.${e.key}`) !== `common.${e.key}` ? t(`common.${e.key}`) : e.key}: {e.value}
                             </li>
                         ))}
                     </ul>
@@ -74,188 +134,212 @@ function DonutChart({data, title, t}) {
     );
 }
 
-function BarChart({data, title, color, size = "M"}) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
-    const max = Math.max(1, ...data.map((d) => d.value));
-    const width = 320;
+/** Bar / line / area chart of values per label (Recharts, v3.0.4). */
+function BarChart({data, title, color, size = "M", type = "bar", icon}) {
     const height = BAR_HEIGHT[size] || 190;
-    const barW = Math.min(40, (width - 20) / Math.max(1, data.length) - 8);
-    // Long labels wrap onto two lines instead of being truncated ("CloudPanel P…").
-    const splitLabel = (label) => {
-        if (label.length <= 10) return [label];
-        const mid = Math.floor(label.length / 2);
-        const cut = label.indexOf(" ", Math.max(0, mid - 3)) || label.lastIndexOf(" ", mid);
-        const at = (cut > 0 ? cut : label.lastIndexOf(" ", mid));
-        if (at <= 0) return [label];
-        return [label.slice(0, at), label.slice(at + 1)];
-    };
     return (
         <div className="chart-card">
-            <h3>{title}</h3>
-            <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
-                {data.map((d, i) => {
-                    const h = mounted ? (d.value / max) * (height - 60) : 0;
-                    const x = 10 + i * ((width - 20) / Math.max(1, data.length)) + (((width - 20) / Math.max(1, data.length)) - barW) / 2;
-                    const lines = splitLabel(d.label);
-                    return (
-                        <g key={d.label}>
-                            <rect x={x} y={height - 36 - h} width={barW} height={h} rx="3" fill={color} />
-                            <text x={x + barW / 2} y={height - 40 - h} textAnchor="middle" fill="var(--text)" fontSize="11">{d.value}</text>
-                            {lines.map((line, li) => (
-                                <text key={li} x={x + barW / 2} y={height - 18 + li * 11} textAnchor="middle" fill="var(--muted)" fontSize="9">{line}</text>
-                            ))}
-                        </g>
-                    );
-                })}
-            </svg>
-        </div>
-    );
-}
-
-/** 14-day area/line chart of licenses created per day (v2.2). */
-function TrendChart({points, title, lang, size = "M"}) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
-    const width = 640;
-    const height = CHART_HEIGHT[size] || 200;
-    const padL = 28;
-    const padR = 10;
-    const padT = 14;
-    const padB = 38;
-    const max = Math.max(1, ...points.map((p) => p.count));
-    const n = Math.max(1, points.length);
-    const x = (i) => padL + (i * (width - padL - padR)) / Math.max(1, n - 1);
-    const y = (v) => padT + (1 - v / max) * (height - padT - padB);
-    const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${(mounted ? y(p.count) : y(0)).toFixed(1)}`).join(" ");
-    const area = `${line} L${x(n - 1).toFixed(1)},${height - padB} L${x(0).toFixed(1)},${height - padB} Z`;
-    // Unique integer ticks only: [0, max/2, max] rounded duplicates when
-    // max is 1 (Math.round(0.5) === 1), rendering "0, 1, 1".
-    const ticks = [...new Set([0, Math.round(max / 2), max])].sort((a, b) => a - b);
-    return (
-        <div className="chart-card chart-card-wide">
-            <h3>{title}</h3>
-            {points.length === 0 ? <p className="dashboard-empty">—</p> : (
-                <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
-                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
-                        </linearGradient>
-                    </defs>
-                    {ticks.map((v) => (
-                        <g key={v}>
-                            <line x1={padL} x2={width - padR} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth="1" />
-                            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fill="var(--muted)" fontSize="10">{v}</text>
-                        </g>
-                    ))}
-                    <path d={area} fill="url(#trend-fill)" />
-                    <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                    {points.map((p, i) => (
-                        <circle key={p.date} cx={x(i)} cy={mounted ? y(p.count) : y(0)} r="3.5" fill="var(--accent)" stroke="var(--surface)" strokeWidth="1.5">
-                            <title>{`${formatDayShort(new Date(p.date), lang)}: ${p.count}`}</title>
-                        </circle>
-                    ))}
-                    {/* Every third day only, at 11px: 14 labels at 9px were
-                        tiny and cramped in Persian ("۴ آذر" etc.). */}
-                    {points.map((p, i) => (i % 3 === 0 ? (
-                        <text key={p.date} x={x(i)} y={height - 14} textAnchor="middle" fill="var(--muted)" fontSize="11">
-                            {formatDayShort(new Date(p.date), lang)}
-                        </text>
-                    ) : null))}
-                </svg>
+            <ChartTitle icon={icon} title={title} />
+            {data.length === 0 ? <p className="dashboard-empty">—</p> : (
+                <ResponsiveContainer width="100%" height={height}>
+                    {type === "line" ? (
+                        <RLineChart data={data} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" height={36} interval={0} tickLine={false} axisLine={false} tick={<SplitTick />} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{r: 3, fill: color}} />
+                        </RLineChart>
+                    ) : type === "area" ? (
+                        <RAreaChart data={data} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <defs>
+                                <linearGradient id="bar-area-fill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                                    <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" height={36} interval={0} tickLine={false} axisLine={false} tick={<SplitTick />} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill="url(#bar-area-fill)" />
+                        </RAreaChart>
+                    ) : (
+                        <RBarChart data={data} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" height={36} interval={0} tickLine={false} axisLine={false} tick={<SplitTick />} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="value" fill={color} radius={[3, 3, 0, 0]} maxBarSize={40} />
+                        </RBarChart>
+                    )}
+                </ResponsiveContainer>
             )}
         </div>
     );
 }
 
-/** Webhook delivery stats widget (v2.3): overall success rate + a row
- * per event with a small success bar. */
-function WebhookStatsWidget({stats, title, t}) {
-    if (!stats) return (
-        <div className="chart-card">
-            <h3>{title}</h3>
-            <p className="dashboard-empty">—</p>
-        </div>
-    );
-    const events = Object.entries(stats.by_event || {}).sort((a, b) => b[1].total - a[1].total);
+/** 14-day line / area / bar chart of licenses created per day (Recharts, v3.0.4). */
+function TrendChart({points, title, lang, size = "M", type = "line", icon, widgetId = "trend"}) {
+    const height = CHART_HEIGHT[size] || 200;
+    const gradId = `trend-fill-${widgetId}`;
     return (
-        <div className="chart-card">
-            <h3>{title}</h3>
-            <div className="webhook-rate">
-                <span className="webhook-rate-value">{stats.success_rate}%</span>
-                <span className="webhook-rate-label">{t("dashboard.webhookSuccessRate")}</span>
-            </div>
-            <p className="webhook-totals">{stats.success} ✓ · {stats.failed} ✗ · {stats.total} total</p>
-            <ul className="chart-legend webhook-events">
-                {events.map(([event, e]) => {
-                    const pct = e.total ? Math.round((100 * e.success) / e.total) : 100;
-                    return (
-                        <li key={event}>
-                            <span className="webhook-event-name">{event}</span>
-                            <span className="webhook-event-bar"><span style={{width: `${pct}%`}} /></span>
-                            <span className="webhook-event-pct">{pct}%</span>
-                        </li>
-                    );
-                })}
-            </ul>
+        <div className="chart-card chart-card-wide">
+            <ChartTitle icon={icon} title={title} />
+            {points.length === 0 ? <p className="dashboard-empty">—</p> : (
+                <ResponsiveContainer width="100%" height={height}>
+                    {type === "bar" ? (
+                        <RBarChart data={points} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={2} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <Bar dataKey="count" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                        </RBarChart>
+                    ) : type === "area" ? (
+                        <RAreaChart data={points} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <defs>
+                                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
+                                    <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.02} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={2} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <Area type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2} fill={`url(#${gradId})`}
+                                dot={{r: 3.5, fill: "var(--accent)", stroke: "var(--surface)", strokeWidth: 1.5}} />
+                        </RAreaChart>
+                    ) : (
+                        <RLineChart data={points} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={2} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDayShort(new Date(d), lang)} />
+                            <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2}
+                                dot={{r: 3.5, fill: "var(--accent)", stroke: "var(--surface)", strokeWidth: 1.5}} activeDot={{r: 5}} />
+                        </RLineChart>
+                    )}
+                </ResponsiveContainer>
+            )}
         </div>
     );
 }
 
-/** Sending activity chart (v3.0): per-day sent (green) + failed (red)
- * bars for one channel (or all channels combined). */
-function SendingChart({series, title, t, size = "M"}) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
-    const width = 640;
-    const height = CHART_HEIGHT[size] || 200;
-    const padL = 28;
-    const padR = 10;
-    const padT = 14;
-    const padB = 34;
-    const max = Math.max(1, ...series.map((d) => d.sent + d.failed));
-    const n = Math.max(1, series.length);
-    const slot = (width - padL - padR) / n;
-    const barW = Math.min(14, slot / 2 - 2);
-    const y = (v) => padT + (1 - v / max) * (height - padT - padB);
-    const total = series.reduce((a, d) => a + d.sent + d.failed, 0);
+/** Webhook delivery stats widget (v2.3, Recharts line variant v3.0.4):
+ * overall success rate + a row per event; the "line" type draws the
+ * per-event success rate as a line chart instead of bars. */
+function WebhookStatsWidget({stats, title, t, type = "bar", icon}) {
+    if (!stats) return (
+        <div className="chart-card">
+            <ChartTitle icon={icon} title={title} />
+            <p className="dashboard-empty">—</p>
+        </div>
+    );
+    const events = Object.entries(stats.by_event || {}).sort((a, b) => b[1].total - a[1].total);
+    const lineData = events.map(([event, e]) => ({
+        event: event.replace(/^license\./, ""),
+        pct: e.total ? Math.round((100 * e.success) / e.total) : 100,
+    }));
     return (
-        <div className="chart-card chart-card-wide">
-            <h3>{title}</h3>
-            {total === 0 ? <p className="dashboard-empty">{t("dashboard.sendingNoData")}</p> : (
-                <svg className="chart-anim" width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} preserveAspectRatio="xMidYMid meet">
-                    {series.map((d, i) => {
-                        const x0 = padL + i * slot + (slot - barW * 2 - 2) / 2;
-                        const sentH = mounted ? (d.sent / max) * (height - padT - padB) : 0;
-                        const failedH = mounted ? (d.failed / max) * (height - padT - padB) : 0;
+        <div className="chart-card">
+            <ChartTitle icon={icon} title={title} />
+            <div className="webhook-rate">
+                <span className="webhook-rate-value">{stats.success_rate}%</span>
+                <span className="webhook-rate-label">{t("dashboard.webhookSuccessRate")}</span>
+            </div>
+            <p className="webhook-totals">
+                <Check size={12} /> {stats.success}
+                {" · "}
+                <X size={12} /> {stats.failed}
+                {" · "}
+                {stats.total} total
+            </p>
+            {type === "line" ? (
+                <ResponsiveContainer width="100%" height={150}>
+                    <RLineChart data={lineData} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="event" interval={0} tickLine={false} axisLine={false} tick={{fontSize: 9, fill: "var(--muted)"}} />
+                        <YAxis domain={[0, 100]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, t("dashboard.webhookSuccessRate")]} />
+                        <Line type="monotone" dataKey="pct" stroke="var(--accent)" strokeWidth={2} dot={{r: 3, fill: "var(--accent)"}} />
+                    </RLineChart>
+                </ResponsiveContainer>
+            ) : (
+                <ul className="chart-legend webhook-events">
+                    {events.map(([event, e]) => {
+                        const pct = e.total ? Math.round((100 * e.success) / e.total) : 100;
                         return (
-                            <g key={d.date}>
-                                <rect x={x0} y={height - padB - sentH} width={barW} height={sentH} rx="2" fill="var(--success)">
-                                    <title>{`${d.date}: ${t("dashboard.sendingSent")} ${d.sent}`}</title>
-                                </rect>
-                                <rect x={x0 + barW + 2} y={height - padB - failedH} width={barW} height={failedH} rx="2" fill="var(--danger)">
-                                    <title>{`${d.date}: ${t("dashboard.sendingFailed")} ${d.failed}`}</title>
-                                </rect>
-                                {i % Math.ceil(n / 7) === 0 && (
-                                    <text x={padL + i * slot + slot / 2} y={height - 12} textAnchor="middle" fill="var(--muted)" fontSize="10">
-                                        {d.date.slice(5)}
-                                    </text>
-                                )}
-                            </g>
+                            <li key={event}>
+                                <span className="webhook-event-name">{event}</span>
+                                <span className="webhook-event-bar"><span style={{width: `${pct}%`}} /></span>
+                                <span className="webhook-event-pct">{pct}%</span>
+                            </li>
                         );
                     })}
-                    <line x1={padL} x2={width - padR} y1={height - padB} y2={height - padB} stroke="var(--border)" strokeWidth="1" />
-                </svg>
+                </ul>
+            )}
+        </div>
+    );
+}
+
+/** Sending activity chart (v3.0, Recharts v3.0.4): per-day sent (green)
+ * + failed (red) bars / lines / areas for one channel (or all). */
+function SendingChart({series, title, t, size = "M", type = "bar", icon}) {
+    const height = CHART_HEIGHT[size] || 200;
+    const total = series.reduce((a, d) => a + d.sent + d.failed, 0);
+    const interval = Math.max(0, Math.ceil(series.length / 7) - 1);
+    return (
+        <div className="chart-card chart-card-wide">
+            <ChartTitle icon={icon} title={title} />
+            {total === 0 ? <p className="dashboard-empty">{t("dashboard.sendingNoData")}</p> : (
+                <ResponsiveContainer width="100%" height={height}>
+                    {type === "line" ? (
+                        <RLineChart data={series} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={interval} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => d.slice(5)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Line type="monotone" dataKey="sent" name={t("dashboard.sendingSent")} stroke="var(--success)" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="failed" name={t("dashboard.sendingFailed")} stroke="var(--danger)" strokeWidth={2} dot={false} />
+                        </RLineChart>
+                    ) : type === "area" ? (
+                        <RAreaChart data={series} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <defs>
+                                <linearGradient id="sending-sent-fill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} />
+                                    <stop offset="100%" stopColor="var(--success)" stopOpacity={0.02} />
+                                </linearGradient>
+                                <linearGradient id="sending-failed-fill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="var(--danger)" stopOpacity={0.35} />
+                                    <stop offset="100%" stopColor="var(--danger)" stopOpacity={0.02} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={interval} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => d.slice(5)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Area type="monotone" dataKey="sent" name={t("dashboard.sendingSent")} stroke="var(--success)" strokeWidth={2} fill="url(#sending-sent-fill)" dot={false} />
+                            <Area type="monotone" dataKey="failed" name={t("dashboard.sendingFailed")} stroke="var(--danger)" strokeWidth={2} fill="url(#sending-failed-fill)" dot={false} />
+                        </RAreaChart>
+                    ) : (
+                        <RBarChart data={series} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" interval={interval} tickLine={false} axisLine={false} tick={AXIS_TICK}
+                                tickFormatter={(d) => d.slice(5)} />
+                            <YAxis allowDecimals={false} domain={[0, "dataMax"]} width={28} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="sent" name={t("dashboard.sendingSent")} fill="var(--success)" radius={[3, 3, 0, 0]} maxBarSize={14} />
+                            <Bar dataKey="failed" name={t("dashboard.sendingFailed")} fill="var(--danger)" radius={[3, 3, 0, 0]} maxBarSize={14} />
+                        </RBarChart>
+                    )}
+                </ResponsiveContainer>
             )}
             <p className="chart-legend-line">
                 <span className="legend-dot" style={{background: "var(--success)"}} /> {t("dashboard.sendingSent")}
@@ -271,37 +355,102 @@ function SendingChart({series, title, t, size = "M"}) {
 // (user decision, 2026-11-26). Every widget renders on the page in
 // layout.order; the Activity / API Keys / Users sections follow below.
 const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks", "services", "sending"];
+// v3.0.4: every dashboard block can be hidden, not just the 8 chart
+// widgets — the summary boxes, quick-action buttons, highlights slider
+// and the 4 sections are blocks too. They get a visibility toggle ONLY:
+// no size buttons, no ↑/↓ reorder (the quick-action buttons are not
+// widgets, and neither are the other sections).
+const SECTION_IDS = ["summary", "actions", "highlights", "expiring", "recentLicenses", "recentApiKeys", "recentUsers"];
+// v3.0.4: Grafana-style chart types per widget (Recharts supports them
+// all). Services is status cards, not a chart — no type switcher there.
+const CHART_TYPES = {
+    trend: ["line", "area", "bar"],
+    status: ["donut", "pie", "bar"],
+    perMonth: ["bar", "line", "area"],
+    byProduct: ["bar", "pie", "donut"],
+    activations: ["line", "area", "bar"],
+    webhooks: ["bar", "line"],
+    sending: ["bar", "line", "area"],
+};
+const DEFAULT_TYPES = {trend: "line", status: "donut", perMonth: "bar", byProduct: "bar", activations: "line", webhooks: "bar", sending: "bar"};
 const DEFAULT_LAYOUT = {
     order: [...WIDGET_IDS],
     sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M", services: "L", sending: "L"},
     ranges: {trend: 14, activations: 14, perMonth: 6, byProduct: 90, sending: 14},
     hidden: {},
+    types: {...DEFAULT_TYPES},
 };
-const LAYOUT_KEY = "lmp-dashboard-layout";
+// v3.0.4: the layout is PER ADMIN (same pattern as the per-admin theme
+// in theme.js). The old browser-global key leaked one admin's layout
+// into the next admin on the same browser; the key is now per user id
+// and the backend is re-consulted on every auth change.
+const LAYOUT_KEY_PREFIX = "lmp-dashboard-layout";
+const LEGACY_LAYOUT_KEY = "lmp-dashboard-layout";
 const RANGE_OPTIONS = [7, 14, 30, 90];
 const MONTH_OPTIONS = [3, 6, 12];
 const SERVICE_REFRESH_SECONDS = 300;
 
-function readLayout() {
+function layoutKeyFor(userId) {
+    return userId != null ? `${LAYOUT_KEY_PREFIX}-${userId}` : LEGACY_LAYOUT_KEY;
+}
+
+/** Keep only the known, well-formed parts of a stored layout (unknown
+ * widget ids, sizes, ranges and chart types fall back to defaults, so
+ * a saved layout from an older version keeps working). */
+function normalizeLayout(saved) {
+    if (!saved || !Array.isArray(saved.order)) return null;
+    const types = {...DEFAULT_TYPES};
+    for (const [id, ty] of Object.entries(saved.types || {})) {
+        if (CHART_TYPES[id] && CHART_TYPES[id].includes(ty)) types[id] = ty;
+    }
+    return {
+        order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
+        sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
+        ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
+        hidden: {...(saved.hidden || {})},
+        types,
+    };
+}
+
+function readLayout(key) {
     try {
-        const raw = localStorage.getItem(LAYOUT_KEY);
+        const raw = localStorage.getItem(key);
         if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.order)) return null;
-        return {
-            order: [...new Set([...parsed.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
-            sizes: {...DEFAULT_LAYOUT.sizes, ...(parsed.sizes || {})},
-            ranges: {...DEFAULT_LAYOUT.ranges, ...(parsed.ranges || {})},
-            hidden: {...(parsed.hidden || {})},
-        };
+        return normalizeLayout(JSON.parse(raw));
     } catch (e) {
         return null;
     }
 }
 
+// v3.0.4: one lucide icon per dashboard element (the single icon
+// source on this page). Stroke-based, currentColor, 24px outline.
+const WIDGET_ICONS = {
+    trend: <TrendingUp size={16} />,
+    status: <ChartPie size={16} />,
+    perMonth: <ChartColumn size={16} />,
+    byProduct: <Boxes size={16} />,
+    activations: <Activity size={16} />,
+    webhooks: <Webhook size={16} />,
+    services: <Server size={16} />,
+    sending: <Send size={16} />,
+};
+const SUMMARY_ICONS = [
+    <KeyRound key="apiKeys" size={20} />,
+    <Users key="users" size={20} />,
+    <ShieldCheck key="active" size={20} />,
+    <ShieldOff key="inactive" size={20} />,
+];
+const SECTION_ICONS = {
+    expiring: <CalendarClock size={16} />,
+    recentLicenses: <FileText size={16} />,
+    recentApiKeys: <KeyRound size={16} />,
+    recentUsers: <Users size={16} />,
+};
+
 function Dashboard() {
     const {t, lang} = useLanguage();
     const {toast} = useToast();
+    const reduceMotion = useReducedMotion();
     const [summary, setSummary] = useState(null);
     const [licenses, setLicenses] = useState([]);
     const [apiKeys, setApiKeys] = useState([]);
@@ -313,9 +462,15 @@ function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
-    // Customizable widgets (v2.3): order, size (S/M/L), chart range and
-    // visibility persist per user (localStorage first, backend too).
-    const [layout, setLayout] = useState(() => readLayout() || DEFAULT_LAYOUT);
+    // Customizable widgets (v2.3): order, size (S/M/L), chart range,
+    // chart type and visibility persist per user (localStorage first,
+    // backend too).
+    const [layout, setLayout] = useState(() => readLayout(layoutKeyFor(getCurrentUser()?.id)) || DEFAULT_LAYOUT);
+    const layoutKeyRef = useRef(layoutKeyFor(getCurrentUser()?.id));
+    // Same guard as the theme provider: the mount-time PUT must stay
+    // silent until the server layout for THIS user has loaded, or it
+    // would clobber the server layout with local defaults.
+    const layoutServerReadyRef = useRef(false);
     const [customizing, setCustomizing] = useState(false);
     const [gearOpen, setGearOpen] = useState(false);
     // Narrow viewports (<640px) show fewer rows in the dashboard's recent
@@ -350,30 +505,52 @@ function Dashboard() {
 
     const isVisible = (id) => !layout.hidden[id];
     // Widgets visible on the single page, in layout.order (v3.0.3).
-    const visibleWidgets = useMemo(() => layout.order.filter((id) => isVisible(id)), [layout]);
+    const visibleWidgets = useMemo(() => layout.order.filter((id) => !layout.hidden[id]), [layout]);
 
-    // Load a saved layout from the backend when nothing is stored
-    // locally (same pattern as the theme provider).
-    useEffect(() => {
-        if (readLayout()) return;
-        get("/users/me/preferences").then((data) => {
-            const saved = data && data.preferences && data.preferences.dashboard;
-            if (saved && Array.isArray(saved.order)) {
-                setLayout({
-                    order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
-                    sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
-                    ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
-                    hidden: {...(saved.hidden || {})},
-                });
-            }
-        }).catch(() => {});
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Load the logged-in admin's layout on mount and whenever the auth
+    // state changes (login as another admin, logout): the local
+    // per-user cache paints first, the backend is the source of truth.
+    // A second admin on the same browser never inherits the first
+    // one's layout, and a logged-out dashboard resets to defaults.
+    const syncLayoutFromServer = useCallback(async () => {
+        const user = getCurrentUser();
+        const key = layoutKeyFor(user?.id);
+        layoutKeyRef.current = key;
+        layoutServerReadyRef.current = false;
+        if (!user || user.id == null) {
+            setLayout(DEFAULT_LAYOUT);
+            layoutServerReadyRef.current = true;
+            return;
+        }
+        const local = readLayout(key);
+        if (local) setLayout(local);
+        try {
+            const data = await get("/users/me/preferences");
+            const saved = normalizeLayout(data && data.preferences && data.preferences.dashboard);
+            if (saved) setLayout(saved);
+        } catch (e) {
+            // Offline / backend down: keep the local cache.
+        }
+        layoutServerReadyRef.current = true;
+        // The old browser-global key is retired (v3.0.4: per-admin
+        // layouts); drop it once so a second admin on this browser
+        // never inherits it.
+        try { localStorage.removeItem(LEGACY_LAYOUT_KEY); } catch (e) {}
     }, []);
-
-    // Persist every layout change (local + backend, fire-and-forget).
     useEffect(() => {
-        try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
-        put("/users/me/preferences", {key: "dashboard", value: layout}).catch(() => {});
+        syncLayoutFromServer();
+        window.addEventListener("lmp-auth-change", syncLayoutFromServer);
+        return () => window.removeEventListener("lmp-auth-change", syncLayoutFromServer);
+    }, [syncLayoutFromServer]);
+
+    // Persist every layout change (local per-user key + backend,
+    // fire-and-forget). The backend PUT stays silent until the server
+    // layout for this user has loaded (see layoutServerReadyRef).
+    useEffect(() => {
+        try { localStorage.setItem(layoutKeyRef.current, JSON.stringify(layout)); } catch (e) {}
+        if (layoutServerReadyRef.current && getCurrentUser() && getCurrentUser().id != null) {
+            put("/users/me/preferences", {key: "dashboard", value: layout}).catch(() => {});
+        }
     }, [layout]);
 
     // Trend + activations charts refetch when their range changes.
@@ -557,9 +734,11 @@ function Dashboard() {
             <div className="dashboard-container page-enter">
                 <h1 className="gradient-text">{t("dashboard.title")}</h1>
                 <SkeletonCard lines={2} />
+                {isVisible("summary") && (
                 <div className="dashboard-summary">
                     {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} lines={2} />)}
                 </div>
+                )}
                 <SkeletonCard lines={4} />
             </div>
         );
@@ -572,10 +751,44 @@ function Dashboard() {
     const recentApiKeys = [...apiKeys].sort((a, b) => b.id - a.id).slice(0, recentCount);
     const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, recentCount);
 
+    // Entrance animation (framer-motion, v3.0.4): cards fade/slide in
+    // with a small stagger; disabled entirely when the user prefers
+    // reduced motion. The old CSS stagger classes stay out of the
+    // motion-wrapped elements so the two systems never fight.
+    const cardMotion = (delay) => reduceMotion
+        ? {}
+        : {initial: {opacity: 0, y: 14}, animate: {opacity: 1, y: 0}, transition: {duration: 0.35, delay}};
+
+    // Chart-type switcher (v3.0.4, Grafana-style): small tappable pills
+    // under the chart; the choice persists per widget in the layout.
+    // Services has none — it is status cards, not a chart.
+    const typeControl = (id) => {
+        const options = CHART_TYPES[id];
+        if (!options) return null;
+        const current = layout.types[id] || DEFAULT_TYPES[id];
+        return (
+            <div className="chart-type-row" role="group" aria-label={t("dashboard.chartType")}>
+                <span className="chart-range-label">{t("dashboard.chartType")}</span>
+                {options.map((ty) => (
+                    <button
+                        key={ty}
+                        type="button"
+                        className={current === ty ? "chart-type-btn active" : "chart-type-btn"}
+                        aria-pressed={current === ty}
+                        onClick={() => setLayout((prev) => ({...prev, types: {...prev.types, [id]: ty}}))}
+                    >
+                        {t(`dashboard.chartType.${ty}`)}
+                    </button>
+                ))}
+            </div>
+        );
+    };
+
     // One widget card, with its own range control directly underneath the
     // chart (v3.0: per-chart ranges, independent, persisted in the layout).
     const renderWidget = (id, index) => {
         const size = layout.sizes[id] || "M";
+        const chartType = layout.types[id] || DEFAULT_TYPES[id];
         // Position among the widgets visible on the single page
         // (v3.0.3): the ↑/↓ buttons move the widget within the page
         // order, so the change is always visible. The old version
@@ -614,7 +827,7 @@ function Dashboard() {
             </div>
         );
         return (
-            <div
+            <motion.div
                 key={id}
                 className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}`}
                 draggable={customizing}
@@ -630,10 +843,11 @@ function Dashboard() {
                         return {...prev, order};
                     });
                 }}
+                {...cardMotion(Math.min(index * 0.05, 0.4))}
             >
                 {customizing && (
                     <div className="widget-controls">
-                        <span className="widget-drag-handle" title={t("dashboard.customize")}>⠿</span>
+                        <span className="widget-drag-handle" title={t("dashboard.customize")}><GripVertical size={16} /></span>
                         <span className="widget-control-group">
                             <span className="widget-control-label">{t("dashboard.size")}</span>
                             {["S", "M", "L"].map((s) => (
@@ -649,37 +863,51 @@ function Dashboard() {
                             ))}
                         </span>
                         <span className="widget-control-group">
-                            <button type="button" className="widget-move-btn" disabled={posInList <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}>↑</button>
-                            <button type="button" className="widget-move-btn" disabled={posInList >= visibleIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}>↓</button>
+                            <button type="button" className="widget-move-btn" disabled={posInList <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}><ChevronUp size={16} /></button>
+                            <button type="button" className="widget-move-btn" disabled={posInList >= visibleIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}><ChevronDown size={16} /></button>
                         </span>
                     </div>
                 )}
                 {id === "trend" && (
                     <>
-                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} />
+                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" />
+                        {typeControl("trend")}
                         {rangeControl("trend", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
-                {id === "status" && <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />}
+                {id === "status" && (
+                    <>
+                        <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} />
+                        {typeControl("status")}
+                    </>
+                )}
                 {id === "perMonth" && (
                     <>
-                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} />
+                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} />
+                        {typeControl("perMonth")}
                         {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
                     </>
                 )}
                 {id === "byProduct" && (
                     <>
-                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} />
+                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} />
+                        {typeControl("byProduct")}
                         {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "activations" && (
                     <>
-                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} />
+                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" />
+                        {typeControl("activations")}
                         {rangeControl("activations", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
-                {id === "webhooks" && <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} />}
+                {id === "webhooks" && (
+                    <>
+                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} type={chartType} icon={WIDGET_ICONS.webhooks} />
+                        {typeControl("webhooks")}
+                    </>
+                )}
                 {/* v3.0.1: Services and Sending are real widgets now — they
                     used to be plain cards in their tabs, so Custom showed
                     no controls on those tabs at all. Same content, now
@@ -688,9 +916,9 @@ function Dashboard() {
                     <>
                     <div className="chart-card service-status-card">
                         <div className="service-status-header">
-                            <h3>{t("dashboard.serviceStatusTitle")}</h3>
+                            <h3><span className="chart-title-icon">{WIDGET_ICONS.services}</span>{t("dashboard.serviceStatusTitle")}</h3>
                             <button type="button" className="btn-ghost btn-icon" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
-                                ⟳
+                                <RefreshCw size={16} />
                             </button>
                         </div>
                         {serviceLoading && serviceStatus === null ? (
@@ -721,9 +949,9 @@ function Dashboard() {
                         ) : (
                             <>
                                 <div className="sms-balance-row">
-                                    <h3>{t("dashboard.smsBalanceTitle")}</h3>
+                                    <h3><span className="chart-title-icon"><MessageSquare size={16} /></span>{t("dashboard.smsBalanceTitle")}</h3>
                                     <button type="button" className="btn-ghost btn-icon sms-balance-recheck" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
-                                        ⟳
+                                        <RefreshCw size={16} />
                                     </button>
                                 </div>
                                 {smsBalance && smsBalance.available ? (
@@ -776,7 +1004,10 @@ function Dashboard() {
                                     title={`${t(`dashboard.sendingChannel.${sendingChannel}`)} · ${layout.ranges.sending} ${t("common.days")}`}
                                     t={t}
                                     size={size}
+                                    type={chartType}
+                                    icon={WIDGET_ICONS.sending}
                                 />
+                                {typeControl("sending")}
                                 <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
                                     <span className="chart-range-label">{t("dashboard.range")}</span>
                                     {RANGE_OPTIONS.map((d) => (
@@ -795,7 +1026,7 @@ function Dashboard() {
                         )}
                     </div>
                 )}
-            </div>
+            </motion.div>
         );
     };
 
@@ -824,15 +1055,18 @@ function Dashboard() {
                         title={t("dashboard.widgetVisibility")}
                         onClick={() => setGearOpen(true)}
                     >
-                        ⚙
+                        <SettingsIcon size={18} />
                     </button>
                     <button
                         type="button"
-                        className="btn-ghost"
+                        className="btn-ghost dashboard-customize-btn"
                         aria-pressed={customizing}
+                        aria-label={customizing ? t("dashboard.doneCustomizing") : t("dashboard.customize")}
+                        title={customizing ? t("dashboard.doneCustomizing") : t("dashboard.customize")}
                         onClick={() => setCustomizing((v) => !v)}
                     >
-                        {customizing ? t("dashboard.doneCustomizing") : t("dashboard.customize")}
+                        <SlidersHorizontal size={16} />
+                        <span className="dashboard-customize-label">{customizing ? t("dashboard.doneCustomizing") : t("dashboard.customize")}</span>
                     </button>
                 </div>
             </div>
@@ -842,6 +1076,7 @@ function Dashboard() {
                 not fit (safety net), never clips. */}
             {/* No financial card: this is not a financial system (v2.3) —
                 the Estimated MRR card was removed entirely. */}
+            {isVisible("summary") && (
             <div className="dashboard-summary">
                 {[
                     {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
@@ -849,27 +1084,31 @@ function Dashboard() {
                     {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
                     {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
                 ].map((box, i) => (
-                    <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
+                    <motion.div key={box.label} className="summary-box glass-card" {...cardMotion(i * 0.07)}>
+                        <span className="summary-icon">{SUMMARY_ICONS[i]}</span>
                         <h2>{box.label}</h2>
                         <p>{box.value}</p>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
+            )}
+            {isVisible("actions") && (
             <div className="dashboard-actions">
-                <h2>{t("dashboard.quickActions")}</h2>
+                <h2><Zap size={16} />{t("dashboard.quickActions")}</h2>
                 <div className="action-buttons">
-                    <Link className="action-btn" to="/licenses">{t("dashboard.createLicense")}</Link>
-                    <Link className="action-btn" to="/api-keys">{t("dashboard.createApiKey")}</Link>
-                    <Link className="action-btn" to="/users">{t("dashboard.addUser")}</Link>
-                    <Link className="action-btn" to="/products">{t("nav.products")}</Link>
-                    <Link className="action-btn" to="/docs">{t("nav.apiDocs")}</Link>
-                    <Link className="action-btn" to="/settings">{t("dashboard.settings")}</Link>
+                    <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
+                    <Link className="action-btn" to="/api-keys"><KeyRound size={16} />{t("dashboard.createApiKey")}</Link>
+                    <Link className="action-btn" to="/users"><UserPlus size={16} />{t("dashboard.addUser")}</Link>
+                    <Link className="action-btn" to="/products"><Boxes size={16} />{t("nav.products")}</Link>
+                    <Link className="action-btn" to="/docs"><BookOpen size={16} />{t("nav.apiDocs")}</Link>
+                    <Link className="action-btn" to="/settings"><SettingsIcon size={16} />{t("dashboard.settings")}</Link>
                 </div>
             </div>
-
+            )}
+            {isVisible("highlights") && (
             <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
                 <div className="slide slide-fade" key={slide}>
-                    <h3>{slides[slide].title}</h3>
+                    <h3><Sparkles size={16} />{slides[slide].title}</h3>
                     <p>{slides[slide].text}</p>
                 </div>
                 <div className="slider-dots">
@@ -878,13 +1117,16 @@ function Dashboard() {
                     ))}
                 </div>
             </div>
-
+            )}
+            {visibleWidgets.length > 0 && (
             <div className="charts-row">
                 {visibleWidgets.map((id) => renderWidget(id, layout.order.indexOf(id)))}
             </div>
+            )}
 
-            <div className="dashboard-section">
-                <h2>{t("dashboard.expiringSoon")}</h2>
+            {isVisible("expiring") && (
+            <motion.div className="dashboard-section" {...cardMotion(0)}>
+                <h2>{SECTION_ICONS.expiring}{t("dashboard.expiringSoon")}</h2>
                 {expiringSoon.length === 0 ? (
                     <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
                 ) : (
@@ -904,9 +1146,11 @@ function Dashboard() {
                     </table>
                     </div>
                 )}
-            </div>
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentLicenses")}</h2>
+            </motion.div>
+            )}
+            {isVisible("recentLicenses") && (
+            <motion.div className="dashboard-section" {...cardMotion(0.05)}>
+                <h2>{SECTION_ICONS.recentLicenses}{t("dashboard.recentLicenses")}</h2>
                 {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -916,10 +1160,11 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
-            </div>
-
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentApiKeys")}</h2>
+            </motion.div>
+            )}
+            {isVisible("recentApiKeys") && (
+            <motion.div className="dashboard-section" {...cardMotion(0.1)}>
+                <h2>{SECTION_ICONS.recentApiKeys}{t("dashboard.recentApiKeys")}</h2>
                 {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -929,10 +1174,11 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
-            </div>
-
-            <div className="dashboard-section">
-                <h2>{t("dashboard.recentUsers")}</h2>
+            </motion.div>
+            )}
+            {isVisible("recentUsers") && (
+            <motion.div className="dashboard-section" {...cardMotion(0.15)}>
+                <h2>{SECTION_ICONS.recentUsers}{t("dashboard.recentUsers")}</h2>
                 {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -942,22 +1188,25 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
-            </div>
+            </motion.div>
+            )}
 
-            {/* Widget visibility popup (v3.0): every dashboard widget with
-                a quick on/off toggle; takes effect immediately and persists
-                with the widget preferences. */}
+            {/* Widget visibility popup (v3.0.4): every dashboard block —
+                the 8 chart widgets plus the 7 sections (summary, quick
+                actions, highlights, expiring, recent licenses, recent API
+                keys, recent users) — with a quick on/off toggle; takes
+                effect immediately and persists with the widget preferences. */}
             <Modal open={gearOpen} onClose={() => setGearOpen(false)} title={t("dashboard.widgetVisibility")}>
                 <ul className="widget-visibility-list">
-                    {WIDGET_IDS.map((id) => (
+                    {[...WIDGET_IDS, ...SECTION_IDS].map((id) => (
                         <li key={id} className="widget-visibility-row">
-                            <span>{t(`dashboard.widgets.${id}`)}</span>
+                            <span>{WIDGET_IDS.includes(id) ? t(`dashboard.widgets.${id}`) : t(`dashboard.sections.${id}`)}</span>
                             <button
                                 type="button"
                                 className={isVisible(id) ? "widget-switch on" : "widget-switch"}
                                 role="switch"
                                 aria-checked={isVisible(id)}
-                                aria-label={t(`dashboard.widgets.${id}`)}
+                                aria-label={WIDGET_IDS.includes(id) ? t(`dashboard.widgets.${id}`) : t(`dashboard.sections.${id}`)}
                                 onClick={() => setLayout((prev) => ({
                                     ...prev,
                                     hidden: {...prev.hidden, [id]: !prev.hidden[id] ? true : false},

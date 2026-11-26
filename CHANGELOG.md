@@ -1,8 +1,17 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.3) lives in the [README](README.md#whats-new-in-v303) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.4) lives in the [README](README.md#whats-new-in-v304) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.3 — 2026-11-26
+
+Widget-fix round for the two things the user reported from his own phone right after approving the v3.0.2 release — no new features:
+
+- **Dashboard widgets actually resize now:** the S/M/L size buttons changed the widget class but nothing on screen moved — at 360px all three sizes measured exactly 296×296 with the same 262×82 chart, because the size rules only set flex-basis/max-width and the 296px row clamped them all to full width, while every chart drew from the same fixed viewBox. Widget widths are now fractions of the row (S 62%, M 82%, L 100%, centered), and each size renders its chart taller (Trend/Sending viewBox 640×150/200/280, Bar 320×140/190/250; the donut scales 120/180/240px via CSS) — measured visibly different at 360px, 768px, 1024px and 1280px, and the size persists across reload.
+- **Services tab is centered like every other widget:** the service-status header title was start-aligned while every other widget title is centered, the SMS balance value/meta/empty texts were start-aligned, and the status states started at different x positions per row (the detail column flexes, so each row's state began where its detail ended — the "متصل" row sat ~8px off). The headers are now 1fr/auto/1fr grids with exactly centered titles, the SMS texts are centered, and the state is a fixed-width end-aligned column so every row's state starts at the same x — verified at 360px, 768px and 1024px with no horizontal overflow.
+- **Dashboard tabbing removed:** the dashboard is now one single scrolling page — no tab strip at all. Everything that lived on the tabs stays on the page in order: Overview summary + quick actions, the Highlights slider, all widgets in layout order (with gear, customize, S/M/L, ↑/↓, ranges and visibility toggles), then the Expiring-soon / Recent-licenses / API-keys / Users sections. The per-tab mini-tab selectors are gone too (both trend charts show on the page); the page scrolls when content does not fit, never clips.
+- **Version bump:** 3.0.3 everywhere, demo storage key `lmp-demo-db-v17`, `smoke_test_303.py`, mock next-release v3.0.4, all 10 module ZIPs rebuilt at 3.0.3 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## v3.0.2 — 2026-11-26
 

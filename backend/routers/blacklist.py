@@ -8,7 +8,7 @@ from models import BlacklistEntry, User
 from schemas import BlacklistCreateRequest, BlacklistResponse, MessageResponse
 from services import blacklist as blacklist_service
 from services.audit import log_audit
-from utils.auth import require_admin
+from utils.permissions import require_permission
 from utils.pagination import Pagination, paginate_list, pagination_params
 
 router = APIRouter()
@@ -31,7 +31,7 @@ def list_blacklist(
     type: str | None = Query(default=None, description="ip or domain"),
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("blacklist:write")),
 ):
     query = db.query(BlacklistEntry)
     if type is not None:
@@ -50,7 +50,7 @@ def list_blacklist(
 def create_entry(
     request: BlacklistCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("blacklist:write")),
 ):
     blacklist_service.validate_entry_value(request.type, request.value)
     value = request.value.strip()
@@ -84,7 +84,7 @@ def create_entry(
 def delete_entry(
     entry_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("blacklist:write")),
 ):
     entry = db.query(BlacklistEntry).filter(BlacklistEntry.id == entry_id).first()
     if not entry:

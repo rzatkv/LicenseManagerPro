@@ -10,6 +10,7 @@ import {useResponsivePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/UserManagement.css";
+import {Plus} from "lucide-react";
 
 // Row-action icons (same set as Products/LicenseList): 32px icon buttons;
 // at ≤640px only the eye stays in the row (global .row-action-extra
@@ -148,7 +149,7 @@ function UserManagement() {
         <div className="user-management-container page-enter">
             <h1 className="gradient-text">{t("users.title")}</h1>
             <div className="toolbar">
-                <button type="button" onClick={() => setAddOpen(true)}>{t("users.addButton")}</button>
+                <button type="button" onClick={() => setAddOpen(true)}><Plus size={16} />{t("users.addButton")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>

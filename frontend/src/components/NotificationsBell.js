@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useCallback, useRef} from "react";
 import {createPortal} from "react-dom";
 import {useNavigate} from "react-router-dom";
+import {Bell} from "lucide-react";
 import {get, post} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
@@ -134,10 +135,7 @@ function NotificationsBell() {
                     setTimeout(() => setRinging(false), 600);
                 }}
             >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.7 21a2 2 0 01-3.4 0" />
-                </svg>
+                <Bell size={20} />
                 {unread > 0 && <span key={unread} className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
             </button>
             {panelVisible && createPortal(

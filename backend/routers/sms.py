@@ -24,7 +24,6 @@ from models import User
 from services import sms as sms_service
 from services import sms_ippanel as ippanel
 from services.audit import log_audit
-from utils.auth import require_admin
 from utils.permissions import require_permission
 
 router = APIRouter()
@@ -42,7 +41,7 @@ class SmsTestRequest(BaseModel):
 def get_sms_balance(
     refresh: bool = False,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("sms:read")),
 ):
     """IPPanel credit balance (admin-only).
 
@@ -86,7 +85,7 @@ def get_sms_balance(
 def test_sms(
     payload: SmsTestRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("settings:write")),
+    current_user: User = Depends(require_permission("sms:write")),
 ):
     """Send a REAL test SMS via the active provider (admin settings).
 

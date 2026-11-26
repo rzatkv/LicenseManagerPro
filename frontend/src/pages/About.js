@@ -5,6 +5,8 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {API_BASE_URL, DEMO_MODE} from "../config";
+import TabDropdown from "../components/TabDropdown";
+import {Sparkles, Info, RefreshCw, Globe, Heart} from "lucide-react";
 import "../styles/About.css";
 
 const GITHUB_URL = "https://github.com/rzatkv/LicenseManagerPro";
@@ -33,6 +35,13 @@ const TAB_TITLES = {
     updateCheck: "about.updateCheck",
     links: "about.links",
     credits: "about.credits",
+};
+const ABOUT_TAB_ICONS = {
+    whatsNew: <Sparkles size={16} />,
+    systemInfo: <Info size={16} />,
+    updateCheck: <RefreshCw size={16} />,
+    links: <Globe size={16} />,
+    credits: <Heart size={16} />,
 };
 
 function About() {
@@ -86,20 +95,12 @@ function About() {
                 </div>
             </section>
 
-            <div className="about-tabs" role="tablist">
-                {TABS.map((id) => (
-                    <button
-                        key={id}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === id}
-                        className={tab === id ? "about-tab active" : "about-tab"}
-                        onClick={() => setTab(id)}
-                    >
-                        {t(TAB_TITLES[id])}
-                    </button>
-                ))}
-            </div>
+            <TabDropdown
+              ariaLabel={t("nav.about")}
+              value={tab}
+              onChange={setTab}
+              options={TABS.map((id) => ({value: id, label: t(TAB_TITLES[id]), icon: ABOUT_TAB_ICONS[id]}))}
+            />
 
             <div className="about-tab-panel" key={tab}>
                 {tab === "whatsNew" && (

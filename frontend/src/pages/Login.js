@@ -7,6 +7,7 @@ import {useLanguage} from "../i18n";
 import ThemeToggle from "../components/ThemeToggle";
 import LanguageMenu from "../components/LanguageMenu";
 import "../styles/Login.css";
+import {LogIn, ShieldCheck} from "lucide-react";
 
 function Login() {
     const {t} = useLanguage();
@@ -324,7 +325,7 @@ function Login() {
                             required
                         />
                     </div>
-                    <button type="submit">{t("twofa.verify")}</button>
+                    <button type="submit"><ShieldCheck size={18} />{t("twofa.verify")}</button>
                     <button type="button" style={{background: "none", backgroundColor: "transparent", boxShadow: "none", color: "var(--muted)", marginTop: 10, width: "100%"}} onClick={backToCredentials}>{t("common.back")}</button>
                 </form>
             ) : (
@@ -392,7 +393,7 @@ function Login() {
                             )}
                         </div>
                     )}
-                    <button type="submit">{t("login.button")}</button>
+                    <button type="submit"><LogIn size={18} />{t("login.button")}</button>
                     {maintenance && maintenance.enabled && (
                         <button type="button" style={{background: "none", backgroundColor: "transparent", boxShadow: "none", color: "var(--muted)", marginTop: 10, width: "100%"}} onClick={() => setShowMaintenanceLogin(false)}>{t("maintenance.back")}</button>
                     )}

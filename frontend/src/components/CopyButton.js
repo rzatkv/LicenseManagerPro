@@ -1,7 +1,9 @@
 import React, {useState} from "react";
+import {Copy, Check} from "lucide-react";
 import {useLanguage} from "../i18n";
 
-/** Copy a value (license key, API key, webhook URL) with "Copied" feedback. */
+/** Copy a value (license key, API key, webhook URL, code sample) with
+ * "Copied" feedback (v3.0.4: lucide icons instead of the ⧉ glyph). */
 export default function CopyButton({text, label}) {
   const {t} = useLanguage();
   const [copied, setCopied] = useState(false);
@@ -28,7 +30,7 @@ export default function CopyButton({text, label}) {
 
   return (
     <button type="button" className={`copy-btn${copied ? " copied" : ""}`} onClick={handleCopy}>
-      {copied ? t("common.copied") : (label || "⧉")}
+      {copied ? (<><Check size={14} />{t("common.copied")}</>) : label ? (<><Copy size={14} />{label}</>) : (<Copy size={14} />)}
     </button>
   );
 }

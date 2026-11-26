@@ -157,3 +157,27 @@ def test_verify_2fa_with_bad_temp_token(client):
         ).status_code
         == 401
     )
+
+
+def test_twofa_isolated_per_user(client, auth_headers):
+    """v3.0.4 per-admin 2FA: enabling TOTP for admin A must not enable
+    it for admin B — the secret and backup codes live on the user row."""
+    _enable_2fa(client, auth_headers)
+    created = client.post(
+        "/api/users",
+        json={"email": "second@example.com", "password": "secondpass123", "role": "admin"},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    second_headers = {
+        "Authorization": f"Bearer {client.post('/api/auth/login', json={'email': 'second@example.com', 'password': 'secondpass123'}).json()['access_token']}"
+    }
+    assert client.get("/api/auth/2fa/status", headers=auth_headers).json()["enabled"] is True
+    assert client.get("/api/auth/2fa/status", headers=second_headers).json()["enabled"] is False
+    # B still logs in with password alone (no 2FA challenge).
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "second@example.com", "password": "secondpass123"},
+    )
+    assert login.status_code == 200
+    assert login.json().get("requires_2fa") is not True

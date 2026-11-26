@@ -18,7 +18,7 @@ from schemas import (
 from services import notify_channels as notify_channels_service
 from services import users as user_service
 from services.audit import log_audit
-from utils.auth import get_current_user, require_admin
+from utils.auth import get_current_user
 from utils.pagination import Pagination, paginate_query, pagination_params
 from utils.permissions import require_permission
 
@@ -133,7 +133,7 @@ def list_users(
     response: Response,
     page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("users:write")),
 ):
     return paginate_query(db.query(User).order_by(User.id), response, page)
 
@@ -204,7 +204,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("users:write")),
 ):
     user_service.delete_user(user_id, db, current_user)
     log_audit(db, current_user.email, "user.delete", "user", user_id)

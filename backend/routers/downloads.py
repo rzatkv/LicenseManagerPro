@@ -15,7 +15,7 @@ from database import get_db
 from schemas import DownloadItemResponse, ModuleVersionsResponse
 from services import downloads as download_service
 from services import updates as update_service
-from utils.auth import get_current_user
+from utils.permissions import require_permission
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("", response_model=list[DownloadItemResponse])
 def list_downloads(
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("downloads:read")),
 ):
     return download_service.list_downloads()
 
@@ -31,7 +31,7 @@ def list_downloads(
 @router.get("/versions", response_model=ModuleVersionsResponse)
 def module_versions(
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("downloads:read")),
 ):
     """Local versions vs the latest versions from the GitHub manifest."""
     local = {item["id"]: item["version"] for item in download_service.list_downloads()}
@@ -56,7 +56,7 @@ def module_versions(
 def download_module(
     module_id: str,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_permission("downloads:read")),
 ):
     filename, data = download_service.build_module_zip(module_id)
     return Response(

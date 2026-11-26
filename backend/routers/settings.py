@@ -37,7 +37,7 @@ from services.settings import (
     update_setting,
     validate_setting_value,
 )
-from utils.auth import get_current_user, require_admin
+from utils.auth import get_current_user
 from utils.permissions import require_permission, user_has_permission
 
 router = APIRouter()
@@ -70,7 +70,7 @@ def get_license_security(
 def update_license_security(
     request: LicenseSecurityUpdateRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("security:license-locking")),
 ):
     """Update the global license-security config (v2.3, partial: only
     the keys sent change; invalid values are ignored)."""
@@ -91,7 +91,7 @@ def update_license_security(
 @router.get("/captcha-config", response_model=CaptchaPublicConfigResponse)
 def get_captcha_config(
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("settings:write")),
+    _current_user=Depends(require_permission("security:captcha")),
 ):
     """Admin view of the CAPTCHA config (v3.0): everything except the
     secret key, which is never returned — only `secret_configured`."""
@@ -102,7 +102,7 @@ def get_captcha_config(
 def update_captcha_config(
     request: CaptchaAdminConfigRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("security:captcha")),
 ):
     """Update the CAPTCHA config (v3.0). An empty secret keeps the stored
     one; the literal "__CLEAR__" removes it. Invalid type/model/threshold
@@ -127,7 +127,7 @@ def update_captcha_config(
 @router.get("/sms-config")
 def get_sms_config(
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("settings:write")),
+    _current_user=Depends(require_permission("sms:write")),
 ):
     """Admin view of the SMS config (v3.0): active provider + per-
     provider `configured` flags. Credentials are never returned."""
@@ -138,7 +138,7 @@ def get_sms_config(
 def update_sms_config(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("sms:write")),
 ):
     """Update the SMS config (v3.0). `active_provider` is a single
     field — setting it to B deactivates A by construction, so two
@@ -156,7 +156,7 @@ def update_sms_config(
 @router.get("/email-config")
 def get_email_config(
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("settings:write")),
+    _current_user=Depends(require_permission("email:write")),
 ):
     """Admin view of the email config (v3.0): SMTP fields, templates and
     signature. The SMTP password is never returned — only
@@ -168,7 +168,7 @@ def get_email_config(
 def update_email_config(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("email:write")),
 ):
     """Update the email config (v3.0): SMTP settings, templates and
     signature. `reset_templates: true` restores the default templates
@@ -184,7 +184,7 @@ def update_email_config(
 @router.get("/telegram-config")
 def get_telegram_config(
     db: Session = Depends(get_db),
-    _current_user=Depends(require_permission("settings:write")),
+    _current_user=Depends(require_permission("telegram:write")),
 ):
     """Admin view of the Telegram config (v3.0): `token_configured` +
     chat IDs. The bot token is never returned."""
@@ -195,7 +195,7 @@ def get_telegram_config(
 def update_telegram_config(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("telegram:write")),
 ):
     """Update the Telegram config (v3.0). Empty bot_token keeps the
     stored one; "__CLEAR__" removes it."""
@@ -211,7 +211,7 @@ def update_telegram_config(
 @router.post("/telegram-config/test")
 def test_telegram_config(
     db: Session = Depends(get_db),
-    current_user=Depends(require_permission("settings:write")),
+    current_user=Depends(require_permission("telegram:write")),
 ):
     """Test-send (v3.0): sends a test message to every configured chat
     via the stored bot token. Returns {"sent": bool} — False when the
@@ -249,7 +249,7 @@ def get_notification_channels(
 def update_notification_channels(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(require_permission("notifications:write")),
 ):
     """Replace the per-event channel matrix (v3.0). Unknown events or
     channels are rejected with 400. Admin-only: a manager can read the
@@ -313,6 +313,15 @@ def update_system_setting(
         )
     if key not in EDITABLE_VIA_API:
         raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
+    # v3.0.4: the 2FA MODEL (which delivery channel is used) is a global
+    # policy set ONLY by the main admin (role admin). A manager holds
+    # settings:write but must never change it — 403, never UI-hiding
+    # alone.
+    if key == "twofa_channel" and current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only the main admin can change the 2FA model",
+        )
     validate_setting_value(key, request.value)
     value = request.value
     if key == "system_encoding":

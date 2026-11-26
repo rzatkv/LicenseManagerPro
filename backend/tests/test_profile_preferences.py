@@ -141,3 +141,36 @@ def test_preferences_theme_validation(client, auth_headers):
         ).status_code
         == 200
     )
+
+
+def test_preferences_dashboard_layout_isolated_per_user(client, auth_headers):
+    """v3.0.4 per-admin dashboard personalization: admin A hiding the
+    trend widget and picking size S must not change admin B's layout —
+    the dashboard layout is stored per user, like the theme."""
+    created = client.post(
+        "/api/users",
+        json={"email": "second@example.com", "password": "secondpass123", "role": "admin"},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    second_headers = _login_as(client, "second@example.com", "secondpass123")
+
+    layout_a = {"order": ["trend", "status"], "sizes": {"trend": "S"}, "hidden": {"trend": True}, "types": {"trend": "bar"}}
+    layout_b = {"order": ["status", "trend"], "sizes": {"trend": "L"}, "hidden": {}, "types": {"trend": "area"}}
+    put_a = client.put(
+        "/api/users/me/preferences",
+        json={"key": "dashboard", "value": layout_a},
+        headers=auth_headers,
+    )
+    assert put_a.status_code == 200, put_a.text
+    put_b = client.put(
+        "/api/users/me/preferences",
+        json={"key": "dashboard", "value": layout_b},
+        headers=second_headers,
+    )
+    assert put_b.status_code == 200, put_b.text
+
+    prefs_a = client.get("/api/users/me/preferences", headers=auth_headers).json()["preferences"]
+    prefs_b = client.get("/api/users/me/preferences", headers=second_headers).json()["preferences"]
+    assert prefs_a["dashboard"] == layout_a
+    assert prefs_b["dashboard"] == layout_b

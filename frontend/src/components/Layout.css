@@ -66,6 +66,25 @@
 }
 .layout-nav-link.active:hover { transform: none; }
 .layout-nav-icon { display: inline-flex; flex-shrink: 0; }
+/* Accordion menu groups (v3.0.4): a parent row toggles its sub-menu; the
+   chevron rotates when open. Sub-links indent under the parent icon. */
+.layout-nav-group { margin: 2px 0; }
+.layout-nav-group-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
+  border: 0; border-radius: 16px; background: transparent; color: var(--text);
+  font-size: 15px; font-family: inherit; cursor: pointer; text-align: start;
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+.layout-nav-group-btn:hover { background: var(--surface-2); }
+.layout-nav-group-btn.active-group { color: var(--accent); font-weight: 600; }
+.layout-nav-chevron {
+  margin-inline-start: auto; flex-shrink: 0; color: var(--muted-2);
+  transition: transform 0.25s ease;
+}
+.layout-nav-group-btn.open .layout-nav-chevron { transform: rotate(180deg); }
+.layout-nav-submenu { margin: 2px 0 4px; }
+.layout-nav-sublink { font-size: 14px; padding: 9px 12px; padding-inline-start: 34px; }
+.layout-nav-sublink .layout-nav-icon { opacity: 0.85; }
 .layout-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .layout-topbar {
   display: flex; align-items: center; gap: 12px; padding: 12px 20px;

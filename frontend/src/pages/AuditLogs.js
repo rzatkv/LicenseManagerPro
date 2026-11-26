@@ -8,6 +8,8 @@ import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
 import {useResponsivePageSize} from "../utils/responsive";
 import EmptyState from "../components/EmptyState";
+import TabDropdown from "../components/TabDropdown";
+import {List, Mail, MessageSquare, Send, KeyRound, Server} from "lucide-react";
 import {TableSkeleton} from "../components/Skeleton";
 import "../styles/AuditLogs.css";
 
@@ -24,6 +26,14 @@ const ENTITIES = ["license", "product", "user", "api_key", "setting"];
 // twofa.* and service_status.* rows; the backend filters them with
 // ?channel=. No new menu — the streams live as tabs inside Logs.
 const CHANNELS = ["all", "email", "sms", "telegram", "twofa", "system"];
+const CHANNEL_ICONS = {
+  all: <List size={16} />,
+  email: <Mail size={16} />,
+  sms: <MessageSquare size={16} />,
+  telegram: <Send size={16} />,
+  twofa: <KeyRound size={16} />,
+  system: <Server size={16} />,
+};
 
 function AuditLogs() {
   const {t, lang} = useLanguage();
@@ -140,20 +150,12 @@ function AuditLogs() {
     <div className="audit-logs-container page-enter">
       <h1 className="gradient-text">{t("audit.title")}</h1>
 
-      <div className="mini-tabs" role="tablist" aria-label={t("audit.title")}>
-        {CHANNELS.map((ch) => (
-          <button
-            key={ch}
-            type="button"
-            role="tab"
-            aria-selected={channel === ch}
-            className={channel === ch ? "mini-tab active" : "mini-tab"}
-            onClick={() => { setChannel(ch); setPage(1); }}
-          >
-            {t(`audit.channel.${ch}`)}
-          </button>
-        ))}
-      </div>
+                        <TabDropdown
+              ariaLabel={t("audit.title")}
+              value={channel}
+              onChange={(ch) => { setChannel(ch); setPage(1); }}
+              options={CHANNELS.map((ch) => ({value: ch, label: t(`audit.channel.${ch}`), icon: CHANNEL_ICONS[ch]}))}
+            />
 
       <div className="toolbar">
         <button type="button" className="btn-danger" onClick={() => setDeleteAllOpen(true)}>{t("audit.deleteAll")}</button>

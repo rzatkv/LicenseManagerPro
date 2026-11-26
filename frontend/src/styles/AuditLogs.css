@@ -4,7 +4,6 @@
    page past the viewport. */
 .audit-logs-container { padding: 20px; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 .audit-logs-container h1 { flex-shrink: 0; }
-.audit-logs-container .mini-tabs { flex-shrink: 0; min-width: 0; /* margin:0 auto in index.css sizes a flex item to max-content (431px of tabs) instead of stretching to the container — the 360px X-overflow. Kill the auto margins, keep the 16px bottom gap. */ margin: 0 0 16px; }
 .audit-logs-container .toolbar { flex-shrink: 0; }
 .audit-logs-container .table-wrap { flex: 1; min-height: 0; min-width: 0; max-height: none; }
 .audit-logs-container h1 { text-align: center; margin-bottom: 20px; }
@@ -42,7 +41,7 @@
 }
 
 /* Details popup: pretty-printed JSON, wraps instead of overflowing. */
-.audit-details-pre { white-space: pre-wrap; overflow-wrap: break-word; font-size: 13px; line-height: 1.5; margin: 0; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.audit-details-pre { white-space: pre-wrap; overflow-wrap: break-word; font-size: 14px; line-height: 1.65; margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); }
 
 /* Icon buttons inside the table must keep their 32px size (same guard as
    Products/LicenseList). The eye opens the details popup; the delete

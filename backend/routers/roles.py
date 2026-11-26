@@ -18,14 +18,13 @@ from schemas import (
 )
 from services import roles as role_service
 from services.audit import log_audit
-from utils.auth import require_admin
-from utils.permissions import ALL_PERMISSIONS
+from utils.permissions import ALL_PERMISSIONS, require_permission
 
 router = APIRouter()
 
 
 @router.get("/permissions", response_model=list[str])
-def list_permissions(_admin: User = Depends(require_admin)):
+def list_permissions(_admin: User = Depends(require_permission("roles:write"))):
     """All permission keys a role may hold (for the permission checklist)."""
     return ALL_PERMISSIONS
 
@@ -33,7 +32,7 @@ def list_permissions(_admin: User = Depends(require_admin)):
 @router.get("", response_model=list[RoleResponse])
 def list_roles(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("roles:write")),
 ):
     return [role_service.serialize_role(r, db) for r in role_service.list_roles(db)]
 
@@ -42,7 +41,7 @@ def list_roles(
 def create_role(
     request: RoleCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("roles:write")),
 ):
     role = role_service.create_role(request, db)
     log_audit(db, current_user.email, "role.create", "role", role.id, {"name": role.name})
@@ -54,7 +53,7 @@ def update_role(
     role_id: int,
     request: RoleUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("roles:write")),
 ):
     role = role_service.update_role(role_id, request, db)
     log_audit(db, current_user.email, "role.update", "role", role.id, {"name": role.name})
@@ -65,7 +64,7 @@ def update_role(
 def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("roles:write")),
 ):
     role_service.delete_role(role_id, db)
     log_audit(db, current_user.email, "role.delete", "role", role_id)

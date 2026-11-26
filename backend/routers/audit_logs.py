@@ -70,10 +70,10 @@ def delete_audit_log(
     """Delete one audit row (admin only)."""
     row = db.query(AuditLog).filter(AuditLog.id == log_id).first()
     if row is None:
-        raise HTTPException(status_code=404, detail=f"Audit log {log_id} not found")
+        raise HTTPException(status_code=404, detail=f"Activity history entry {log_id} not found")
     db.delete(row)
     db.commit()
-    return {"message": f"Audit log {log_id} deleted successfully"}
+    return {"message": f"Activity history entry {log_id} deleted successfully"}
 
 
 @router.delete("", response_model=dict)

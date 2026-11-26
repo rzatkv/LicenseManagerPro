@@ -8,6 +8,7 @@ import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
 import Wizard from "../components/Wizard";
 import "../styles/Products.css";
+import {Plus} from "lucide-react";
 
 const emptyGroupForm = {name: "", slug: "", description: "", color: "#7B6CFF", sort_order: 0};
 
@@ -98,7 +99,7 @@ function ProductGroups() {
             <h1 className="gradient-text">{t("groups.title")}</h1>
             <div className="toolbar">
                 <button onClick={() => { setEditingGroupId(null); setGroupForm(emptyGroupForm); setGroupStep(0); setShowGroupWizard(true); }}>
-                    {t("groups.create")}
+                    <Plus size={16} />{t("groups.create")}
                 </button>
                 <Link className="btn-ghost" to="/products">{t("nav.products")}</Link>
             </div>

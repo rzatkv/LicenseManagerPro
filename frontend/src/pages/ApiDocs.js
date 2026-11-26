@@ -2,7 +2,25 @@ import React, {useState, useEffect} from "react";
 import {Link} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import CopyButton from "../components/CopyButton";
+import TabDropdown from "../components/TabDropdown";
+import {KeyRound, List, Code, Webhook, BookOpen} from "lucide-react";
 import "../styles/ApiDocs.css";
+
+/** A code sample with a copy button (v3.0.4): EVERY docs sample gets
+ * one, copying the whole text at once (clipboard + fallback, with
+ * "Copied" feedback — see components/CopyButton). */
+function DocsSample({text, label}) {
+  const {t} = useLanguage();
+  return (
+    <>
+      <div className="docs-sample-head">
+        {label ? <span className="docs-sample-lang">{label}</span> : <span />}
+        <CopyButton text={text} label={t("common.copy")} />
+      </div>
+      <pre>{text}</pre>
+    </>
+  );
+}
 
 // API Docs (v3.0): tabbed, zero scroll. The WHMCS and WordPress guides
 // are GONE — those platforms are covered by the ready-made modules on
@@ -12,6 +30,13 @@ import "../styles/ApiDocs.css";
 const BASE = "http://127.0.0.1:8000";
 
 const TABS = ["auth", "endpoints", "samples", "webhooks", "guides"];
+const DOC_TAB_ICONS = {
+  auth: <KeyRound size={16} />,
+  endpoints: <List size={16} />,
+  samples: <Code size={16} />,
+  webhooks: <Webhook size={16} />,
+  guides: <BookOpen size={16} />,
+};
 const SAMPLE_OPS = ["login", "create", "validate", "renew", "checkAccess"];
 const SAMPLE_LANGS = ["curl", "python", "javascript", "php", "go"];
 const VERIFY_LANGS = ["python", "php", "javascript", "go", "ruby", "java", "csharp"];
@@ -822,47 +847,31 @@ function ApiDocs() {
       <p className="docs-subtitle">{t("docs.subtitle")}</p>
       <p className="docs-template-note">{t("docs.templateNote")}</p>
 
-      <div className="docs-tabs" role="tablist">
-        {TABS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={tab === id ? "docs-tab active" : "docs-tab"}
-            onClick={() => setTab(id)}
-          >
-            {t(`docs.tabs.${id}`)}
-          </button>
-        ))}
-      </div>
+      <TabDropdown
+        ariaLabel={t("docs.title")}
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((id) => ({value: id, label: t(`docs.tabs.${id}`), icon: DOC_TAB_ICONS[id]}))}
+      />
 
       {tab === "auth" && (
         <div className="docs-tabpanel">
-          <div className="mini-tabs" role="tablist" aria-label={t("docs.tabs.auth")}>
-            {AUTH_VIEWS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={authView === v}
-                className={authView === v ? "mini-tab active" : "mini-tab"}
-                onClick={() => setAuthView(v)}
-              >
-                {t(`docs.${v}`)}
-              </button>
-            ))}
-          </div>
+                    <TabDropdown
+            ariaLabel={t("docs.tabs.auth")}
+            value={authView}
+            onChange={setAuthView}
+            options={AUTH_VIEWS.map((v) => ({value: v, label: t(`docs.${v}`)}))}
+          />
           {authView === "auth" && (
           <section className="docs-section">
             <h2>{t("docs.auth")}</h2>
             <p>{t("docs.authText")}</p>
-            <pre>{`POST /api/auth/login
+            <DocsSample text={`POST /api/auth/login
 {"email": "admin@example.com", "password": "..."}
 => {"access_token": "<JWT>", "token_type": "bearer"}
 
 # Then send on every admin-panel call:
-Authorization: Bearer <JWT>`}</pre>
+Authorization: Bearer <JWT>`} />
           </section>
           )}
           {authView === "apiKeys" && (
@@ -872,7 +881,7 @@ Authorization: Bearer <JWT>`}</pre>
               {t("docs.apiKeysText1")}{" "}
               <code>api-key</code>
             </p>
-            <pre>{`GET /api/api-keys/check-access
+            <DocsSample text={`GET /api/api-keys/check-access
 api-key: lmp_...
 
 # Success (200) — the key is valid and one use was recorded:
@@ -881,7 +890,7 @@ api-key: lmp_...
 # Failures:
 #  403  Invalid API Key / API Key has expired / Single-use API Key already used
 #  403  API Key is restricted to another IP / domain / directory
-#  429  Daily request limit exceeded`}</pre>
+#  429  Daily request limit exceeded`} />
             <p>{t("docs.apiKeysText2")}</p>
           </section>
           )}
@@ -891,13 +900,13 @@ api-key: lmp_...
             <p>{t("docs.moduleAuthText1")}</p>
             <p>{t("docs.moduleAuthText2")}</p>
             <p>{t("docs.moduleAuthText3")}</p>
-            <pre>{MODULE_AUTH_CURL}</pre>
+            <DocsSample text={MODULE_AUTH_CURL} label={t("docs.langs.curl")} />
           </section>
           )}
           {authView === "moduleSigning" && (
           <section className="docs-section">
             <h2>{t("docs.moduleAuthSigningTitle")}</h2>
-            <pre>{MODULE_AUTH_SIGN}</pre>
+            <DocsSample text={MODULE_AUTH_SIGN} />
             <p>{t("docs.moduleAuthRotation")}</p>
             <p>{t("docs.moduleAuthDropdown")}</p>
             <p>{t("docs.moduleAuthTest")}</p>
@@ -939,100 +948,60 @@ api-key: lmp_...
         <div className="docs-tabpanel">
         <section className="docs-section">
           <h2>{t("docs.samplesTitle")}</h2>
-          <div className="mini-tabs" role="tablist" aria-label={t("docs.samplesTitle")}>
-            {SAMPLE_LANGS.map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                role="tab"
-                aria-selected={sampleLang === lang}
-                className={sampleLang === lang ? "mini-tab active" : "mini-tab"}
-                onClick={() => setSampleLang(lang)}
-              >
-                {t(`docs.langs.${lang}`)}
-              </button>
-            ))}
-          </div>
-          <div className="mini-tabs" role="tablist" aria-label={t("docs.samplesTitle")}>
-            {SAMPLE_OPS.map((op) => (
-              <button
-                key={op}
-                type="button"
-                role="tab"
-                aria-selected={sampleOp === op}
-                className={sampleOp === op ? "mini-tab active" : "mini-tab"}
-                onClick={() => setSampleOp(op)}
-              >
-                {t({login: "docs.sampleLogin", create: "docs.curlCreate", validate: "docs.curlValidate", renew: "docs.curlRenew", checkAccess: "docs.sampleCheckAccess"}[op])}
-              </button>
-            ))}
-          </div>
+                    <TabDropdown
+            ariaLabel={t("docs.samplesTitle")}
+            value={sampleLang}
+            onChange={setSampleLang}
+            options={SAMPLE_LANGS.map((lang) => ({value: lang, label: t(`docs.langs.${lang}`)}))}
+          />
+                    <TabDropdown
+            ariaLabel={t("docs.samplesTitle")}
+            value={sampleOp}
+            onChange={setSampleOp}
+            options={SAMPLE_OPS.map((op) => ({value: op, label: t({login: "docs.sampleLogin", create: "docs.curlCreate", validate: "docs.curlValidate", renew: "docs.curlRenew", checkAccess: "docs.sampleCheckAccess"}[op])}))}
+          />
           <h3>{t(opNameKey)}</h3>
           <p>{t(`docs.sampleOps.${sampleOp}`)}</p>
-          <div className="docs-sample-head">
-            <span className="docs-sample-lang">{t(`docs.langs.${sampleLang}`)}</span>
-            <CopyButton text={sampleCode} label={t("common.copy")} />
-          </div>
-          <pre>{sampleCode}</pre>
+          <DocsSample text={sampleCode} label={t(`docs.langs.${sampleLang}`)} />
         </section>
         </div>
       )}
 
       {tab === "webhooks" && (
         <div className="docs-tabpanel">
-          <div className="mini-tabs" role="tablist" aria-label={t("docs.webhooks")}>
-            {WEBHOOK_VIEWS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={webhooksView === v}
-                className={webhooksView === v ? "mini-tab active" : "mini-tab"}
-                onClick={() => setWebhooksView(v)}
-              >
-                {t(`docs.webhookView.${v}`)}
-              </button>
-            ))}
-          </div>
+                    <TabDropdown
+            ariaLabel={t("docs.webhooks")}
+            value={webhooksView}
+            onChange={setWebhooksView}
+            options={WEBHOOK_VIEWS.map((v) => ({value: v, label: t(`docs.webhookView.${v}`)}))}
+          />
           {webhooksView === "payload" && (
           <section className="docs-section">
             <h2>{t("docs.webhooks")}</h2>
             <p>{t("docs.webhooksText")}</p>
-            <pre>{WEBHOOK_PAYLOAD}</pre>
+            <DocsSample text={WEBHOOK_PAYLOAD} label="JSON" />
           </section>
           )}
           {webhooksView === "verify" && (
           <section className="docs-section">
             <h3>{t("docs.verifyTitle")}</h3>
             <p>{t("docs.verifyHint")}</p>
-            <div className="mini-tabs" role="tablist" aria-label={t("docs.verifyTitle")}>
-              {VERIFY_LANGS.map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  role="tab"
-                  aria-selected={verifyLang === lang}
-                  className={verifyLang === lang ? "mini-tab active" : "mini-tab"}
-                  onClick={() => setVerifyLang(lang)}
-                >
-                  {t(`docs.langs.${lang}`)}
-                </button>
-              ))}
-            </div>
-            <div className="docs-sample-head">
-              <span className="docs-sample-lang">{t(`docs.langs.${verifyLang}`)}</span>
-              <CopyButton text={WEBHOOK_VERIFY[verifyLang]} label={t("common.copy")} />
-            </div>
-            <pre>{WEBHOOK_VERIFY[verifyLang]}</pre>
+                        <TabDropdown
+              ariaLabel={t("docs.verifyTitle")}
+              value={verifyLang}
+              onChange={setVerifyLang}
+              options={VERIFY_LANGS.map((lang) => ({value: lang, label: t(`docs.langs.${lang}`)}))}
+            />
+            <DocsSample text={WEBHOOK_VERIFY[verifyLang]} label={t(`docs.langs.${verifyLang}`)} />
           </section>
           )}
           {webhooksView === "cron" && (
           <section className="docs-section">
             <h3>{t("docs.webhookView.cron")}</h3>
             <p>{t("docs.webhooksCronText")}</p>
-            <pre>{`curl -X POST "${BASE}/api/system/check-expiring?days=7" \\
+            <DocsSample text={`curl -X POST "${BASE}/api/system/check-expiring?days=7" \\
   -H "Authorization: Bearer <JWT>"
-# => {"expiring_notified": 2, "expired_notified": 1}`}</pre>
+# => {"expiring_notified": 2, "expired_notified": 1}`} label={t("docs.langs.curl")} />
           </section>
           )}
         </div>
@@ -1040,68 +1009,40 @@ api-key: lmp_...
 
       {tab === "guides" && (
         <div className="docs-tabpanel">
-          <div className="mini-tabs" role="tablist" aria-label={t("docs.tabs.guides")}>
-            {GUIDES_VIEWS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={guidesView === v}
-                className={guidesView === v ? "mini-tab active" : "mini-tab"}
-                onClick={() => setGuidesView(v)}
-              >
-                {t(`docs.guideView.${v}`)}
-              </button>
-            ))}
-          </div>
+                    <TabDropdown
+            ariaLabel={t("docs.tabs.guides")}
+            value={guidesView}
+            onChange={setGuidesView}
+            options={GUIDES_VIEWS.map((v) => ({value: v, label: t(`docs.guideView.${v}`)}))}
+          />
           {guidesView === "connect" && (
           <section className="docs-section">
             <h2>{t("docs.connectTitle")}</h2>
             <p>{t("docs.connectIntro")}</p>
-            <div className="mini-tabs" role="tablist" aria-label={t("docs.connectTitle")}>
-              {CONNECT_VIEWS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="tab"
-                  aria-selected={connectView === v}
-                  className={connectView === v ? "mini-tab active" : "mini-tab"}
-                  onClick={() => setConnectView(v)}
-                >
-                  {t(`docs.connectView.${v}`)}
-                </button>
-              ))}
-            </div>
+                        <TabDropdown
+              ariaLabel={t("docs.connectTitle")}
+              value={connectView}
+              onChange={setConnectView}
+              options={CONNECT_VIEWS.map((v) => ({value: v, label: t(`docs.connectView.${v}`)}))}
+            />
             {connectView === "check" && (
               <>
                 <h3>{t("docs.connectCheckTitle")}</h3>
                 <p>{t("docs.connectCheckText")}</p>
-                <div className="mini-tabs" role="tablist" aria-label={t("docs.connectCheckTitle")}>
-                  {GUIDE_LANGS.map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      role="tab"
-                      aria-selected={guideLang === lang}
-                      className={guideLang === lang ? "mini-tab active" : "mini-tab"}
-                      onClick={() => setGuideLang(lang)}
-                    >
-                      {t(`docs.langs.${lang}`)}
-                    </button>
-                  ))}
-                </div>
-                <div className="docs-sample-head">
-                  <span className="docs-sample-lang">{t(`docs.langs.${guideLang}`)}</span>
-                  <CopyButton text={SAMPLES.validate[guideLang]} label={t("common.copy")} />
-                </div>
-                <pre>{SAMPLES.validate[guideLang]}</pre>
+                                <TabDropdown
+                  ariaLabel={t("docs.connectCheckTitle")}
+                  value={guideLang}
+                  onChange={setGuideLang}
+                  options={GUIDE_LANGS.map((lang) => ({value: lang, label: t(`docs.langs.${lang}`)}))}
+                />
+                <DocsSample text={SAMPLES.validate[guideLang]} label={t(`docs.langs.${guideLang}`)} />
               </>
             )}
             {connectView === "response" && (
               <>
                 <h3>{t("docs.connectResponseTitle")}</h3>
                 <p>{t("docs.connectResponseText")}</p>
-                <pre>{`{"valid": true, "detail": "License is valid",
+                <DocsSample text={`{"valid": true, "detail": "License is valid",
  "license": {"id": 12, "key": "LIC-XXXX-XXXX-XXXX", "product": "CloudPanel Pro",
              "status": "active", "expires_at": "2027-11-26T00:00:00Z",
              "max_activations": 5, "activations": 1},
@@ -1115,32 +1056,20 @@ api-key: lmp_...
 
 // Lenient mode: a lock mismatch still validates, but flagged:
 {"valid": true, "detail": "License is valid (grace)", "license": {...},
- "grace": true, "warnings": ["domain mismatch (grace)"]}`}</pre>
+ "grace": true, "warnings": ["domain mismatch (grace)"]}`} label="JSON" />
               </>
             )}
             {connectView === "webhook" && (
               <>
                 <h3>{t("docs.connectWebhookTitle")}</h3>
                 <p>{t("docs.connectWebhookText")}</p>
-                <div className="mini-tabs" role="tablist" aria-label={t("docs.connectWebhookTitle")}>
-                  {GUIDE_LANGS.filter((lang) => WEBHOOK_VERIFY[lang]).map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      role="tab"
-                      aria-selected={webhookGuideLang === lang}
-                      className={webhookGuideLang === lang ? "mini-tab active" : "mini-tab"}
-                      onClick={() => setGuideLang(lang)}
-                    >
-                      {t(`docs.langs.${lang}`)}
-                    </button>
-                  ))}
-                </div>
-                <div className="docs-sample-head">
-                  <span className="docs-sample-lang">{t(`docs.langs.${webhookGuideLang}`)}</span>
-                  <CopyButton text={WEBHOOK_VERIFY[webhookGuideLang]} label={t("common.copy")} />
-                </div>
-                <pre>{WEBHOOK_VERIFY[webhookGuideLang]}</pre>
+                                <TabDropdown
+                  ariaLabel={t("docs.connectWebhookTitle")}
+                  value={webhookGuideLang}
+                  onChange={setGuideLang}
+                  options={GUIDE_LANGS.filter((lang) => WEBHOOK_VERIFY[lang]).map((lang) => ({value: lang, label: t(`docs.langs.${lang}`)}))}
+                />
+                <DocsSample text={WEBHOOK_VERIFY[webhookGuideLang]} label={t(`docs.langs.${webhookGuideLang}`)} />
               </>
             )}
             <p>{t("docs.connectNote")}</p>
@@ -1149,20 +1078,12 @@ api-key: lmp_...
           {guidesView === "locking" && (
           <section className="docs-section">
             <h2>{t("docs.locking")}</h2>
-            <div className="mini-tabs" role="tablist" aria-label={t("docs.locking")}>
-              {LOCKING_VIEWS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="tab"
-                  aria-selected={lockingView === v}
-                  className={lockingView === v ? "mini-tab active" : "mini-tab"}
-                  onClick={() => setLockingView(v)}
-                >
-                  {t(`docs.lockingView.${v}`)}
-                </button>
-              ))}
-            </div>
+                        <TabDropdown
+              ariaLabel={t("docs.locking")}
+              value={lockingView}
+              onChange={setLockingView}
+              options={LOCKING_VIEWS.map((v) => ({value: v, label: t(`docs.lockingView.${v}`)}))}
+            />
             {lockingView === "billing" && <p>{t("docs.lockingText1")}</p>}
             {lockingView === "locks" && <p>{t("docs.lockingText2")}</p>}
           </section>
@@ -1171,10 +1092,10 @@ api-key: lmp_...
           <section className="docs-section">
             <h2>{t("docs.billingSyncTitle")}</h2>
             <p>{t("docs.billingSyncText")}</p>
-            <pre>{`POST /api/licenses/1/renew?billing_cycle=annual
+            <DocsSample text={`POST /api/licenses/1/renew?billing_cycle=annual
 # Switches the license to a new cycle and extends expiry by it.
 # A valid cycle missing from the product is added automatically.
-# Unknown cycles are rejected with 422; lifetime renewals return 400.`}</pre>
+# Unknown cycles are rejected with 422; lifetime renewals return 400.`} />
           </section>
           )}
           {guidesView === "modules" && (

@@ -13,6 +13,7 @@ import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
 import "../styles/LicenseList.css";
+import {Plus} from "lucide-react";
 
 
 // Compact action icons: four text buttons made the actions cell wider
@@ -377,7 +378,7 @@ function LicenseList() {
             <h1 className="gradient-text">{t("licenses.title")}</h1>
             {productFilter && <p className="dashboard-empty">{t("products.title")}: {products.find((p) => String(p.id) === productFilter)?.name || productFilter}</p>}
             <div className="toolbar">
-                <button onClick={() => { resetWizard(); setShowWizard(true); }}>{t("licenses.create")}</button>
+                <button onClick={() => { resetWizard(); setShowWizard(true); }}><Plus size={16} />{t("licenses.create")}</button>
                 <div className="filter-container">
                     <label htmlFor="filter">{t("licenses.filter")}:</label>
                     <select id="filter" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
