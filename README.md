@@ -17,16 +17,14 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.2
+## What's new in v3.0.3
 
-Scroll-fix round for the two things the user reported from his own phone right after the v3.0.1 check — no new features:
+Widget-fix round for the two things the user reported from his own phone right after approving the v3.0.2 release — no new features:
 
-- **Pages scroll when content does not fit:** the app shell (`Layout.css`) had `.layout-content { overflow: hidden }` by design, and the sweep measured document overflow (0) — blind to the real failure: anything taller than the viewport was clipped with no scroll container, so the dashboard quick-action buttons sat half-cut and unreachable. The user corrected the v3.0.0 rule: zero-scroll stays the DESIGN GOAL (keep splitting content into tabs, pagination, wizards and popups so pages fit), but scrolling is the mandatory safety net — clipped unreachable content is never acceptable. `.layout-content` is now `overflow-y: auto` (with `-webkit-overflow-scrolling: touch`); it only activates on overflow, and pages that fit stay scroll-free exactly as before.
-- **Dashboard tabs wrap at every width:** the strip wrapped only ≤640px; above that it was `overflow-x: auto` with a hidden scrollbar, so on a landscape phone (~800px) tabs were cut off at the strip edge with no affordance. The strip now wraps unconditionally — a second row is cheaper than a tab you cannot see.
-- **API Docs tabs wrap too:** `.docs-tabs` was single-row scrollable with a hidden scrollbar at every width, and the second-row "API keys — the X-API-Key mechanism" pill sat half outside the screen, cut off mid-word. Both docs tab rows wrap now (the docs page's own inner vertical scroller is untouched).
-- **Every tab strip audited:** `.mini-tabs` (Audit Logs channels, dashboard sub-tabs, Settings sub-tabs, About, API Docs — 17 usages) wraps unconditionally now; `.settings-tabs` and the Notifications toolbar already wrapped and were verified to stay that way. No tab strip anywhere may clip with a hidden scrollbar at 360–1920px or in landscape.
-- **Bottom-nav clearance verified:** after scroll was enabled, the last content on every page — especially the dashboard Overview quick-action buttons — was checked to be fully reachable by scrolling to the bottom at 360×700 and 800×360 landscape, with the 64px bottom padding intact.
-- **Version bump:** 3.0.2 everywhere, demo storage key `lmp-demo-db-v16`, `smoke_test_302.py`, mock next-release v3.0.3, all 10 module ZIPs rebuilt at 3.0.2 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **Dashboard widgets actually resize now:** the S/M/L size buttons changed the widget class but nothing on screen moved — at 360px all three sizes measured exactly 296×296 with the same 262×82 chart, because the size rules only set flex-basis/max-width and the 296px row clamped them all to full width, while every chart drew from the same fixed viewBox. Widget widths are now fractions of the row (S 62%, M 82%, L 100%, centered), and each size renders its chart taller (Trend/Sending viewBox 640×150/200/280, Bar 320×140/190/250; the donut scales 120/180/240px via CSS) — measured visibly different at 360px, 768px, 1024px and 1280px, and the size persists across reload.
+- **Services tab is centered like every other widget:** the service-status header title was start-aligned while every other widget title is centered, the SMS balance value/meta/empty texts were start-aligned, and the status states started at different x positions per row (the detail column flexes, so each row's state began where its detail ended — the "متصل" row sat ~8px off). The headers are now 1fr/auto/1fr grids with exactly centered titles, the SMS texts are centered, and the state is a fixed-width end-aligned column so every row's state starts at the same x — verified at 360px, 768px and 1024px with no horizontal overflow.
+- **Dashboard tabbing removed:** the dashboard is now one single scrolling page — no tab strip at all. Everything that lived on the tabs stays on the page in order: Overview summary + quick actions, the Highlights slider, all widgets in layout order (with gear, customize, S/M/L, ↑/↓, ranges and visibility toggles), then the Expiring-soon / Recent-licenses / API-keys / Users sections. The per-tab mini-tab selectors are gone too (both trend charts show on the page); the page scrolls when content does not fit, never clips.
+- **Version bump:** 3.0.3 everywhere, demo storage key `lmp-demo-db-v17`, `smoke_test_303.py`, mock next-release v3.0.4, all 10 module ZIPs rebuilt at 3.0.3 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 ## Key Features
 - **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit. Module-scoped keys (time-limited, optional HMAC signing + IP allowlist) are the only way modules connect.
 - **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, edit in a popup, renew, reissue, validate (public endpoint), and track activations. Notes on products and licenses (toggleable).
@@ -91,7 +89,7 @@ LicenseManagerPro/
 │   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
 ├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
-├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.1; v3.0.2 lives above)
+├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.2; v3.0.3 lives above)
 └── README.md
 ```
 
@@ -301,7 +299,7 @@ Ten platform modules live in `modules/`, one per platform, each with `version.js
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.2).
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.3).
 
 ```bash
 cd backend
@@ -353,21 +351,16 @@ This project is licensed under the [MIT License](https://opensource.org/licenses
 
 ---
 
-## تازه‌های نسخهٔ ۳٫۰٫۱
+## تازه‌های نسخهٔ ۳٫۰٫۲
 
-دور اصلاح تلفن برای ده موردی که بررسی تلفنی نسخهٔ ۳٫۰٫۰ پیدا کرد — بدون ویژگی جدید، همهٔ موارد زیر از قبل قرار بود کار کنند:
+دور اصلاح اسکرول برای دو موردی که کاربر بلافاصله بعد از بررسی نسخهٔ ۳٫۰٫۱ از تلفن خودش گزارش کرد — بدون ویژگی جدید:
 
-- **ویزاردهای ساخت حالا پنجرهٔ بازشو هستند:** ویزاردهای ساخت لایسنس (۴ مرحله)، محصول (۴ مرحله)، گروه محصول (۲ مرحله) و کلید API (۳ مرحله) به‌صورت کارت درون‌صفحه‌ای باز می‌شدند که کل جدول را پایین می‌برد. هرکدام حالا داخل همان پنجرهٔ بازشوی متحرکِ «مشاهده/ویرایش» رندر می‌شوند — مرحله‌ها داخل پنجره قابل پیمایش‌اند، بدون پایین‌بردن صفحه.
-- **هیچ پنجره‌ای در تلفن گیر نمی‌کند:** ویرایشگر «تنظیمات ← زبان‌ها» بلندتر از صفحه باز می‌شد — تیتر + × بالای ویوپورت بود، × زیر ردیف تب‌های تنظیمات می‌رفت، و فقط با Escape بسته می‌شد (که در تلفن نیست). علت اصلی: پس‌زمینهٔ ثابت به نزدیک‌ترین جدّ دارای backdrop-filter/transform (بخش‌های شیشه‌ای تنظیمات) چسبیده بود، نه به ویوپورت. همهٔ پنجره‌ها (جزئیات + تأیید) حالا با پرتال به document.body رندر می‌شوند، کارت‌ها حداکثر ۹۰dvh ارتفاع دارند با اسکرول داخلی و سربرگِ بدون اسکرول، پس × همیشه دیده می‌شود. همهٔ پنجره‌ها در ۳۶۰ پیکسل بررسی شدند.
-- **اعلان‌ها پنجرهٔ جزئیات باز می‌کنند:** زدن روی یک کارت به‌جای نمایش اعلان، مستقیم به صفحهٔ مرتبط می‌رفت (#/downloads، #/licenses). حالا یک پنجرهٔ جزئیات باز می‌شود (همان الگوی لاگ‌های حسابرسی) با «خوانده‌شده» شدن موقع بازشدن و دکمهٔ «باز کردن صفحهٔ مرتبط» داخل آن.
-- **راه‌اندازی ورود دومرحله‌ای پنجره است:** فعال‌کردن ۲FA یک بخش درون‌صفحه‌ای (QR + کد + تأیید/لغو) باز می‌کرد که کارت پروفایل را پایین می‌برد. حالا در پنجرهٔ بازشوی متحرک باز می‌شود.
-- **هر ۱۰ تب داشبورد در تلفن جا می‌شوند:** نوار تب‌ها overflow-x:auto با اسکرول‌بار پنهان بود — تب‌ها در لبهٔ تلفن بریده می‌شدند بدون هیچ نشانه‌ای. در ≤۶۴۰ پیکسل نوار به چند ردیف می‌شکند با فاصله و فونت کمتر؛ هر ده تب بدون کشیدن جانبی دیده می‌شوند.
-- **نمودارهای داشبورد در تلفن دوباره دیده می‌شوند:** نمودار روند (و فعال‌سازی، ماهانه، برحسب محصول) در ۳۶۰ پیکسل ۰×۰ رندر می‌شد — ویجت display:flex ردیفی بود، کنترل بازه ~۲۶۲ پیکسل از ویجت ۲۹۶ پیکسلی را می‌خورد و نمودار ۳۴ پیکسل منهای پدینگ می‌گرفت. ویجت‌ها حالا ستونی‌اند: نمودار تمام‌عرض در بالا، بازه زیر آن. هر چهار نمودار بازه‌دار در ۳۶۰/۷۶۸/۱۲۸۰ پیکسل رندر می‌شوند.
-- **«شخصی‌سازی» داشبورد واقعاً ویجت‌ها را جابه‌جا می‌کند:** دو خرابی — در «نمای کلی/سرویس‌ها/ارسال» دکمهٔ سفارشی هیچ کنترلی نشان نمی‌داد، و در «روندها/وضعیت/ماهانه» ↑/↓ ترتیب ذخیره‌شده را عوض می‌کرد اما هیچ‌چیز دیده نمی‌شد (هر تب فقط یک ویجتِ انتخاب‌شده از زیرتب را نشان می‌داد و ترتیب زیرتب‌ها ثابت بود). حالا در حالت سفارشی همهٔ ویجت‌های تب با کنترل روی هم چیده می‌شوند، ↑/↓ داخل همان تب جابه‌جا می‌کند پس حرکت همیشه دیده می‌شود، ترتیب زیرتب‌ها از ترتیب ذخیره‌شده می‌آید، کارت‌های سرویس‌ها/ارسال ویجت‌های واقعی با کنترل‌اند، و تب‌های بدون ویجت صادقانه می‌گویند چیزی برای جابه‌جایی نیست. کشیدن لمسی در تلفن هرگز کار نکرده (کشیدن HTML5 در لمس پشتیبانی نمی‌شود) — دکمه‌های ↑/↓ سازوکار تلفن‌اند.
-- **جدول‌ها بدون کشیدن جانبی جا می‌شوند:** ستون «عملیات» جدول‌های کاربران، کلیدهای API و لاگ‌های حسابرسی در ۳۶۰ پیکسل بیرون از صفحه بود (تا ۹۰۰ پیکسل) و فقط با کشیدن جدول به پهلو دیده می‌شد. همان تقسیم لایسنس/محصولات (۲٫۳٫۳): در ≤۶۴۰ پیکسل فقط ستون‌های ضروری + عملیات دیده می‌شوند — کاربران «ایمیل + عملیات» نشان می‌دهد (نقش/فعال به پنجرهٔ جدید «مشاهده/ویرایش» می‌رود)، کلیدهای API «کلید + عملیات» (حقوق/انقضا/یک‌بارمصرف به پنجرهٔ جدید جزئیات می‌رود که ویرایش/چرخش/حذف را دارد)، لاگ‌های حسابرسی «اقدام + عملیات» (بقیه به پنجرهٔ جزئیات می‌رود که دکمهٔ حذف گرفته است). «عملیات» همیشه دیده می‌شود، بدون کشیدن جانبی.
-- **کاربران بالاخره مشاهده/ویرایش دارند:** ردیف‌ها اصلاً عمل مشاهده/ویرایش نداشتند — فقط منوی کشویی نقش، کلید فعال و حذف. دکمهٔ چشم یک پنجرهٔ «مشاهده/ویرایش» باز می‌کند (جزئیات + ویرایش نقش/دسترسی داخل آن).
-- **متن آزمایشی قدیمی درست شد:** اعلان نمونهٔ آزمایشی هنوز می‌گفت «Welcome to v2.3».
-- **بالابردن نسخه:** ۳٫۰٫۱ در همه‌جا، کلید ذخیرهٔ آزمایشی `lmp-demo-db-v15`، `smoke_test_301.py`، موکِ نسخهٔ بعدی ۳٫۰٫۲، هر ۱۰ فایل ZIP ماژول با هم‌ترازی ۳٫۰٫۱ بازسازی شد. نسخه‌های قدیمی در [CHANGELOG.md](CHANGELOG.md) هستند.
+- **صفحه‌ها وقتی محتوا جا نمی‌شود اسکرول می‌شوند:** پوستهٔ برنامه (`Layout.css`) به‌عمد `.layout-content { overflow: hidden }` داشت، و پیمایش مسیرها سرریز سند (۰) را می‌سنجید — کور در برابر خرابی واقعی: هر چیزی بلندتر از ویوپورت بدون هیچ ظرف اسکرولی بریده می‌شد، پس دکمه‌های دسترسی سریع داشبورد نیم‌بریده و دست‌نیافتنی می‌ماندند. کاربر قانون نسخهٔ ۳٫۰٫۰ را اصلاح کرد: اسکرول صفر همچنان هدف طراحی است (محتوا را با تب، صفحه‌بندی، ویزارد و پنجره تقسیم کنید تا صفحه‌ها جا شوند)، اما اسکرول شبکهٔ امنیت اجباری است — محتوای بریده و دست‌نیافتنی هرگز قابل قبول نیست. `.layout-content` حالا `overflow-y: auto` است (با `-webkit-overflow-scrolling: touch`)؛ فقط موقع سرریز فعال می‌شود، و صفحه‌هایی که جا می‌شوند دقیقاً مثل قبل بدون اسکرول می‌مانند.
+- **تب‌های داشبورد در همهٔ عرض‌ها می‌پیچند:** نوار فقط تا ۶۴۰ پیکسل می‌پیچید؛ بالاتر از آن `overflow-x: auto` با اسکرول‌بار پنهان بود، پس در تلفن افقی (~۸۰۰ پیکسل) تب‌ها در لبهٔ نوار بریده می‌شدند بدون هیچ نشانه‌ای. نوار حالا بی‌قید می‌پیچد — یک ردیف دوم ارزان‌تر از تبی است که نمی‌بینید.
+- **تب‌های مستندات API هم می‌پیچند:** `.docs-tabs` در همهٔ عرض‌ها تک‌ردیفه و قابل اسکرول با اسکرول‌بار پنهان بود، و قرص ردیف دوم «API keys — the X-API-Key mechanism» نیم‌بریده بیرون از صفحه بود، وسط کلمه بریده می‌شد. هر دو ردیف تب مستندات حالا می‌پیچند (اسکرول عمودی داخلی صفحهٔ مستندات دست‌نخورده است).
+- **همهٔ نوارهای تب بررسی شدند:** `.mini-tabs` (کانال‌های لاگ حسابرسی، زیرتب‌های داشبورد، زیرتب‌های تنظیمات، درباره، مستندات API — ۱۷ کاربرد) حالا بی‌قید می‌پیچد؛ `.settings-tabs` و نوار ابزار اعلان‌ها از قبل می‌پیچیدند و بررسی شد که همان‌طور بمانند. هیچ نوار تبی در هیچ‌جا نباید با اسکرول‌بار پنهان در ۳۶۰ تا ۱۹۲۰ پیکسل یا در حالت افقی بریده شود.
+- **فاصلهٔ ناوبری پایین بررسی شد:** بعد از فعال‌شدن اسکرول، آخرین محتوای هر صفحه — به‌ویژه دکمه‌های دسترسی سریع نمای کلی داشبورد — بررسی شد که با اسکرول تا انتها در ۳۶۰×۷۰۰ و ۸۰۰×۳۶۰ افقی کاملاً دسترس‌پذیر باشد، با ۶۴ پیکسل پدینگ پایین دست‌نخورده.
+- **بالابردن نسخه:** ۳٫۰٫۲ در همه‌جا، کلید ذخیرهٔ آزمایشی `lmp-demo-db-v16`، `smoke_test_302.py`، موکِ نسخهٔ بعدی ۳٫۰٫۳، هر ۱۰ فایل ZIP ماژول با هم‌ترازی ۳٫۰٫۲ بازسازی شد. نسخه‌های قدیمی در [CHANGELOG.md](CHANGELOG.md) هستند.
 
 ## ویژگی‌های کلیدی
 - **مدیریت کلید API:** ساخت، فهرست، به‌روزرسانی و حذف کلیدهای API با حقوق دسترسی، انقضا، محدودیت IP/دامنه/دایرکتوری، کلید یک‌بارمصرف و محدودیت درخواست روزانه. کلیدهای ماژول (زمان‌دار، امضای HMAC اختیاری + فهرست مجاز IP) تنها راه اتصال ماژول‌ها هستند.

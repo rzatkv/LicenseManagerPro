@@ -701,7 +701,7 @@ curl ${BASE}/api/products \\
 # Test connection:
 curl ${BASE}/api/system/info \\
   -H "X-API-Key: lmp_..."
-# => {"version": "3.0.2", "lastUpdated": "2026-11-26"}
+# => {"version": "3.0.3", "lastUpdated": "2026-11-26"}
 
 # Exception: license checks (POST /api/licenses/validate) are PUBLIC —
 # they send NO key at all (see the Guides tab: "Connect a product").

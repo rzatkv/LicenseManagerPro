@@ -15,6 +15,15 @@ const daysLeft = (expiresAt) => {
 
 const STATUS_COLORS = {active: "var(--success)", inactive: "var(--muted-2)", expired: "var(--danger)", revoked: "var(--warning)"};
 
+// v3.0.3: chart height per widget size — S/M/L must render visibly
+// different chart sizes, not just different frame widths (the old
+// code drew every size from the same fixed viewBox, so at 360px all
+// three sizes measured identically). The widget wrapper carries the
+// width (fraction of the row, Dashboard.css); the chart's viewBox
+// height carries the height.
+const CHART_HEIGHT = {S: 150, M: 200, L: 280};
+const BAR_HEIGHT = {S: 140, M: 190, L: 250};
+
 function DonutChart({data, title, t}) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -40,7 +49,7 @@ function DonutChart({data, title, t}) {
             <h3>{title}</h3>
             {total === 0 ? <p className="dashboard-empty">—</p> : (
                 <div className="chart-body">
-                    <svg className="chart-anim" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
+                    <svg className="chart-anim donut-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
                         <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-2)" strokeWidth="28" />
                         {segments.map((s) => (
                             <circle key={s.key} className="chart-seg" cx={cx} cy={cy} r={r} fill="none"
@@ -65,7 +74,7 @@ function DonutChart({data, title, t}) {
     );
 }
 
-function BarChart({data, title, color}) {
+function BarChart({data, title, color, size = "M"}) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
         const id = requestAnimationFrame(() => setMounted(true));
@@ -73,7 +82,7 @@ function BarChart({data, title, color}) {
     }, []);
     const max = Math.max(1, ...data.map((d) => d.value));
     const width = 320;
-    const height = 190;
+    const height = BAR_HEIGHT[size] || 190;
     const barW = Math.min(40, (width - 20) / Math.max(1, data.length) - 8);
     // Long labels wrap onto two lines instead of being truncated ("CloudPanel P…").
     const splitLabel = (label) => {
@@ -108,14 +117,14 @@ function BarChart({data, title, color}) {
 }
 
 /** 14-day area/line chart of licenses created per day (v2.2). */
-function TrendChart({points, title, lang}) {
+function TrendChart({points, title, lang, size = "M"}) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
         const id = requestAnimationFrame(() => setMounted(true));
         return () => cancelAnimationFrame(id);
     }, []);
     const width = 640;
-    const height = 200;
+    const height = CHART_HEIGHT[size] || 200;
     const padL = 28;
     const padR = 10;
     const padT = 14;
@@ -202,14 +211,14 @@ function WebhookStatsWidget({stats, title, t}) {
 
 /** Sending activity chart (v3.0): per-day sent (green) + failed (red)
  * bars for one channel (or all channels combined). */
-function SendingChart({series, title, t}) {
+function SendingChart({series, title, t, size = "M"}) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
         const id = requestAnimationFrame(() => setMounted(true));
         return () => cancelAnimationFrame(id);
     }, []);
     const width = 640;
-    const height = 200;
+    const height = CHART_HEIGHT[size] || 200;
     const padL = 28;
     const padR = 10;
     const padT = 14;
@@ -258,15 +267,10 @@ function SendingChart({series, title, t}) {
 }
 
 // --- Customizable dashboard widgets (v2.3, extended v3.0) -----------------
+// v3.0.3: the dashboard is ONE single page — the tab strip is gone
+// (user decision, 2026-11-26). Every widget renders on the page in
+// layout.order; the Activity / API Keys / Users sections follow below.
 const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks", "services", "sending"];
-const WIDGET_TABS = {
-    trend: "trends", status: "status", perMonth: "monthly", byProduct: "monthly",
-    activations: "trends", webhooks: "status", services: "services", sending: "sending",
-};
-const TAB_ORDER = ["overview", "highlights", "trends", "status", "monthly", "activity", "apikeys", "users", "services", "sending"];
-// Tabs that exist only because of widgets: hidden when all their widgets
-// are turned off in the gear popup.
-const WIDGET_TABS_ONLY = ["trends", "status", "monthly", "services", "sending"];
 const DEFAULT_LAYOUT = {
     order: [...WIDGET_IDS],
     sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M", services: "L", sending: "L"},
@@ -274,7 +278,6 @@ const DEFAULT_LAYOUT = {
     hidden: {},
 };
 const LAYOUT_KEY = "lmp-dashboard-layout";
-const TAB_KEY = "lmp-dashboard-tab";
 const RANGE_OPTIONS = [7, 14, 30, 90];
 const MONTH_OPTIONS = [3, 6, 12];
 const SERVICE_REFRESH_SECONDS = 300;
@@ -293,15 +296,6 @@ function readLayout() {
         };
     } catch (e) {
         return null;
-    }
-}
-
-function readTab() {
-    try {
-        const tab = localStorage.getItem(TAB_KEY);
-        return TAB_ORDER.includes(tab) ? tab : "overview";
-    } catch (e) {
-        return "overview";
     }
 }
 
@@ -324,11 +318,10 @@ function Dashboard() {
     const [layout, setLayout] = useState(() => readLayout() || DEFAULT_LAYOUT);
     const [customizing, setCustomizing] = useState(false);
     const [gearOpen, setGearOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState(() => readTab());
     // Narrow viewports (<640px) show fewer rows in the dashboard's recent
     // lists (responsive page size, same pattern as the list pages): the
     // 5-row recent-licenses table is 466px tall at 360px in fa and pushes
-    // the Activity tab 157px past the viewport.
+    // the Activity section 157px past the viewport.
     const [isNarrow, setIsNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches);
     useEffect(() => {
         const mq = window.matchMedia("(max-width: 640px)");
@@ -337,17 +330,9 @@ function Dashboard() {
         return () => mq.removeEventListener("change", onChange);
     }, []);
     const recentCount = isNarrow ? 3 : 5;
-    // One panel at a time inside the four stacked tabs (v3.0): the Trends
-    // tab holds two full-width charts, the Status tab a donut + the webhook
-    // stats, the Monthly tab two bar charts, and the Activity tab two
-    // tables — stacked they overflow at 360px and at 1366x768, so each
-    // gets a mini-tab switcher (split, never squeeze).
-    const [trendView, setTrendView] = useState("trend");
-    const [statusView, setStatusView] = useState("status");
-    const [monthlyView, setMonthlyView] = useState("perMonth");
-    const [activityView, setActivityView] = useState("expiring");
-    // Service status (v3.0): lazy, non-blocking — fetched only when the
-    // Services tab opens, never before the dashboard renders.
+    // Service status (v3.0): lazy, non-blocking — fetched once on mount,
+    // never before the dashboard renders (v3.0.3: no tabs, so the fetch
+    // is no longer tied to opening a Services tab).
     const [serviceStatus, setServiceStatus] = useState(null);
     const [serviceLoading, setServiceLoading] = useState(false);
     const [serviceCheckedAt, setServiceCheckedAt] = useState(null);
@@ -364,15 +349,8 @@ function Dashboard() {
     const navigate = useNavigate();
 
     const isVisible = (id) => !layout.hidden[id];
-    const visibleTabs = useMemo(() => TAB_ORDER.filter((tab) => {
-        if (!WIDGET_TABS_ONLY.includes(tab)) return true;
-        return WIDGET_IDS.some((id) => WIDGET_TABS[id] === tab && isVisible(id));
-    }), [layout.hidden]);
-    const effectiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || "overview";
-
-    useEffect(() => {
-        try { localStorage.setItem(TAB_KEY, effectiveTab); } catch (e) {}
-    }, [effectiveTab]);
+    // Widgets visible on the single page, in layout.order (v3.0.3).
+    const visibleWidgets = useMemo(() => layout.order.filter((id) => isVisible(id)), [layout]);
 
     // Load a saved layout from the backend when nothing is stored
     // locally (same pattern as the theme provider).
@@ -426,9 +404,9 @@ function Dashboard() {
         }
     }, [toast, t]);
     useEffect(() => {
-        if (effectiveTab === "services" && serviceStatus === null) fetchServiceStatus();
-    }, [effectiveTab, serviceStatus, fetchServiceStatus]);
-    // SMS balance: fetch on demand with the Services tab (same trigger
+        if (serviceStatus === null) fetchServiceStatus();
+    }, [serviceStatus, fetchServiceStatus]);
+    // SMS balance: fetch on demand with the service status (same trigger
     // as the service status); a failed fetch degrades to the
     // "unavailable" state instead of spinning forever.
     const fetchSmsBalance = useCallback(async (refresh = false) => {
@@ -443,14 +421,13 @@ function Dashboard() {
         }
     }, []);
     useEffect(() => {
-        if (effectiveTab === "services" && smsBalance === null) fetchSmsBalance();
-    }, [effectiveTab, smsBalance, fetchSmsBalance]);
-    // Auto-refresh every 5 minutes while the Services tab is open, with
+        if (smsBalance === null) fetchSmsBalance();
+    }, [smsBalance, fetchSmsBalance]);
+    // Auto-refresh every 5 minutes while the dashboard is mounted, with
     // a visible countdown; the page never waits for a check. The SMS
     // balance refreshes on the same tick (the backend caches the credit
     // ~5 minutes, so this costs no extra live call).
     useEffect(() => {
-        if (effectiveTab !== "services") return;
         const id = setInterval(() => {
             setServiceCountdown((c) => {
                 if (c <= 1) {
@@ -462,18 +439,17 @@ function Dashboard() {
             });
         }, 1000);
         return () => clearInterval(id);
-    }, [effectiveTab, fetchServiceStatus, fetchSmsBalance]);
+    }, [fetchServiceStatus, fetchSmsBalance]);
 
-    // Sending stats: fetch on demand (tab opens, range or channel change
-    // only re-fetches on range — the channel switch is client-side).
+    // Sending stats: fetch on mount and whenever the range changes (the
+    // channel switch is client-side only).
     useEffect(() => {
-        if (effectiveTab !== "sending") return;
         setSendingLoading(true);
         get(`/system/sending-stats?days=${layout.ranges.sending}`)
             .then((d) => setSendingStats(d && d.series ? d.series : null))
             .catch(() => setSendingStats(null))
             .finally(() => setSendingLoading(false));
-    }, [effectiveTab, layout.ranges.sending]);
+    }, [layout.ranges.sending]);
 
     const slides = useMemo(() => [
         {title: t("dashboard.slide1Title"), text: t("dashboard.slide1Text")},
@@ -596,24 +572,22 @@ function Dashboard() {
     const recentApiKeys = [...apiKeys].sort((a, b) => b.id - a.id).slice(0, recentCount);
     const recentUsers = [...users].sort((a, b) => b.id - a.id).slice(0, recentCount);
 
-    const tabWidgets = (tab) => layout.order.filter((id) => WIDGET_TABS[id] === tab && isVisible(id));
-
     // One widget card, with its own range control directly underneath the
     // chart (v3.0: per-chart ranges, independent, persisted in the layout).
-    const renderWidget = (id, index, tab) => {
+    const renderWidget = (id, index) => {
         const size = layout.sizes[id] || "M";
-        // Position among the widgets of THIS tab (v3.0.1): the ↑/↓ buttons
-        // move the widget within its own tab, so the change is always
-        // visible on the tab the user is looking at. The old version
-        // swapped adjacent GLOBAL positions, which often moved a widget
-        // of another tab instead — layout.order changed, nothing on
-        // screen did.
-        const tabIds = tab ? layout.order.filter((x) => WIDGET_TABS[x] === tab && isVisible(x)) : [id];
-        const posInTab = tabIds.indexOf(id);
+        // Position among the widgets visible on the single page
+        // (v3.0.3): the ↑/↓ buttons move the widget within the page
+        // order, so the change is always visible. The old version
+        // swapped adjacent positions within a tab, which often moved a
+        // widget of another tab instead — layout.order changed, nothing
+        // on screen did.
+        const visibleIds = layout.order.filter((x) => isVisible(x));
+        const posInList = visibleIds.indexOf(id);
         const move = (dir) => {
             setLayout((prev) => {
                 const order = [...prev.order];
-                const ids = order.filter((x) => WIDGET_TABS[x] === tab && !prev.hidden[x]);
+                const ids = order.filter((x) => !prev.hidden[x]);
                 const pos = ids.indexOf(id);
                 const j = pos + dir;
                 if (pos < 0 || j < 0 || j >= ids.length) return prev;
@@ -675,33 +649,33 @@ function Dashboard() {
                             ))}
                         </span>
                         <span className="widget-control-group">
-                            <button type="button" className="widget-move-btn" disabled={posInTab <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}>↑</button>
-                            <button type="button" className="widget-move-btn" disabled={posInTab >= tabIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}>↓</button>
+                            <button type="button" className="widget-move-btn" disabled={posInList <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}>↑</button>
+                            <button type="button" className="widget-move-btn" disabled={posInList >= visibleIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}>↓</button>
                         </span>
                     </div>
                 )}
                 {id === "trend" && (
                     <>
-                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} />
+                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} />
                         {rangeControl("trend", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "status" && <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} />}
                 {id === "perMonth" && (
                     <>
-                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" />
+                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} />
                         {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
                     </>
                 )}
                 {id === "byProduct" && (
                     <>
-                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" />
+                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} />
                         {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "activations" && (
                     <>
-                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} />
+                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} />
                         {rangeControl("activations", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
@@ -715,8 +689,8 @@ function Dashboard() {
                     <div className="chart-card service-status-card">
                         <div className="service-status-header">
                             <h3>{t("dashboard.serviceStatusTitle")}</h3>
-                            <button type="button" className="btn-ghost" onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
-                                {t("dashboard.serviceRecheck")}
+                            <button type="button" className="btn-ghost btn-icon" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
+                                ⟳
                             </button>
                         </div>
                         {serviceLoading && serviceStatus === null ? (
@@ -748,8 +722,8 @@ function Dashboard() {
                             <>
                                 <div className="sms-balance-row">
                                     <h3>{t("dashboard.smsBalanceTitle")}</h3>
-                                    <button type="button" className="btn-ghost sms-balance-recheck" onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
-                                        {t("dashboard.serviceRecheck")}
+                                    <button type="button" className="btn-ghost btn-icon sms-balance-recheck" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => fetchSmsBalance(true)} disabled={smsBalanceLoading}>
+                                        ⟳
                                     </button>
                                 </div>
                                 {smsBalance && smsBalance.available ? (
@@ -801,6 +775,7 @@ function Dashboard() {
                                     series={(sendingStats && sendingStats[sendingChannel]) || []}
                                     title={`${t(`dashboard.sendingChannel.${sendingChannel}`)} · ${layout.ranges.sending} ${t("common.days")}`}
                                     t={t}
+                                    size={size}
                                 />
                                 <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
                                     <span className="chart-range-label">{t("dashboard.range")}</span>
@@ -862,252 +837,111 @@ function Dashboard() {
                 </div>
             </div>
 
-            <div className="dashboard-tabs" role="tablist" aria-label={t("dashboard.title")}>
-                {visibleTabs.map((tab) => (
-                    <button
-                        key={tab}
-                        type="button"
-                        role="tab"
-                        aria-selected={effectiveTab === tab}
-                        className={effectiveTab === tab ? "dashboard-tab active" : "dashboard-tab"}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {t(`dashboard.tabs.${tab}`)}
-                    </button>
+            {/* v3.0.3: one single page, no tab strip — every section
+                renders in order; the page scrolls when content does
+                not fit (safety net), never clips. */}
+            {/* No financial card: this is not a financial system (v2.3) —
+                the Estimated MRR card was removed entirely. */}
+            <div className="dashboard-summary">
+                {[
+                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
+                    {label: t("dashboard.users"), value: summary.usersCount},
+                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
+                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
+                ].map((box, i) => (
+                    <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
+                        <h2>{box.label}</h2>
+                        <p>{box.value}</p>
+                    </div>
                 ))}
             </div>
+            <div className="dashboard-actions">
+                <h2>{t("dashboard.quickActions")}</h2>
+                <div className="action-buttons">
+                    <Link className="action-btn" to="/licenses">{t("dashboard.createLicense")}</Link>
+                    <Link className="action-btn" to="/api-keys">{t("dashboard.createApiKey")}</Link>
+                    <Link className="action-btn" to="/users">{t("dashboard.addUser")}</Link>
+                    <Link className="action-btn" to="/products">{t("nav.products")}</Link>
+                    <Link className="action-btn" to="/docs">{t("nav.apiDocs")}</Link>
+                    <Link className="action-btn" to="/settings">{t("dashboard.settings")}</Link>
+                </div>
+            </div>
 
-            <div className="dashboard-tab-panel" key={effectiveTab}>
-                {/* v3.0.1: on tabs with no widgets (Overview, Highlights,
-                    Activity, API Keys, Users), Custom used to silently do
-                    nothing — say so honestly instead of leaving the user
-                    tapping a dead button. */}
-                {customizing && !WIDGET_TABS_ONLY.includes(effectiveTab) && (
-                    <p className="dashboard-customize-hint">{t("dashboard.customizeNoWidgets")}</p>
-                )}
-                {effectiveTab === "overview" && (
-                    <>
-                        {/* No financial card: this is not a financial system (v2.3) —
-                            the Estimated MRR card was removed entirely. */}
-                        <div className="dashboard-summary">
-                            {[
-                                {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
-                                {label: t("dashboard.users"), value: summary.usersCount},
-                                {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
-                                {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
-                            ].map((box, i) => (
-                                <div key={box.label} className="summary-box glass-card stagger-item" style={{animationDelay: `${i * 70}ms`}}>
-                                    <h2>{box.label}</h2>
-                                    <p>{box.value}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="dashboard-actions">
-                            <h2>{t("dashboard.quickActions")}</h2>
-                            <div className="action-buttons">
-                                <Link className="action-btn" to="/licenses">{t("dashboard.createLicense")}</Link>
-                                <Link className="action-btn" to="/api-keys">{t("dashboard.createApiKey")}</Link>
-                                <Link className="action-btn" to="/users">{t("dashboard.addUser")}</Link>
-                                <Link className="action-btn" to="/products">{t("nav.products")}</Link>
-                                <Link className="action-btn" to="/docs">{t("nav.apiDocs")}</Link>
-                                <Link className="action-btn" to="/settings">{t("dashboard.settings")}</Link>
-                            </div>
-                        </div>
-                    </>
-                )}
+            <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+                <div className="slide slide-fade" key={slide}>
+                    <h3>{slides[slide].title}</h3>
+                    <p>{slides[slide].text}</p>
+                </div>
+                <div className="slider-dots">
+                    {slides.map((_, i) => (
+                        <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
+                    ))}
+                </div>
+            </div>
 
-                {effectiveTab === "highlights" && (
-                    <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-                        <div className="slide slide-fade" key={slide}>
-                            <h3>{slides[slide].title}</h3>
-                            <p>{slides[slide].text}</p>
-                        </div>
-                        <div className="slider-dots">
-                            {slides.map((_, i) => (
-                                <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
-                            ))}
-                        </div>
+            <div className="charts-row">
+                {visibleWidgets.map((id) => renderWidget(id, layout.order.indexOf(id)))}
+            </div>
+
+            <div className="dashboard-section">
+                <h2>{t("dashboard.expiringSoon")}</h2>
+                {expiringSoon.length === 0 ? (
+                    <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
+                ) : (
+                    <div className="table-wrap">
+                    <table>
+                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
+                        <tbody>
+                        {expiringSoon.map((lic) => (
+                            <tr key={lic.id}>
+                                <td>{lic.product}</td>
+                                <td className="key-cell">{lic.key}</td>
+                                <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
+                                <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
                     </div>
                 )}
-
-                {effectiveTab === "trends" && (
-                    <>
-                        {/* v3.0.1: mini-tab order follows layout.order (the
-                            hardcoded ["trend","activations"] ignored a
-                            reorder), and in customize mode ALL widgets of
-                            the tab stack up with controls — showing only
-                            the selected one made ↑/↓ change nothing
-                            visible. */}
-                        {!customizing && (
-                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.trends")}>
-                            {tabWidgets("trends").map((id) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={trendView === id}
-                                    className={trendView === id ? "mini-tab active" : "mini-tab"}
-                                    onClick={() => setTrendView(id)}
-                                >
-                                    {t(`dashboard.widgets.${id}`)}
-                                </button>
-                            ))}
-                        </div>
-                        )}
-                        <div className="charts-row">
-                            {customizing
-                                ? tabWidgets("trends").map((id) => renderWidget(id, layout.order.indexOf(id), "trends"))
-                                : tabWidgets("trends").filter((id) => id === (isVisible(trendView) ? trendView : tabWidgets("trends")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "trends"))}
-                        </div>
-                    </>
-                )}
-                {effectiveTab === "status" && (
-                    <>
-                        {!customizing && (
-                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.status")}>
-                            {tabWidgets("status").map((id) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={statusView === id}
-                                    className={statusView === id ? "mini-tab active" : "mini-tab"}
-                                    onClick={() => setStatusView(id)}
-                                >
-                                    {t(`dashboard.widgets.${id}`)}
-                                </button>
-                            ))}
-                        </div>
-                        )}
-                        <div className="charts-row">
-                            {customizing
-                                ? tabWidgets("status").map((id) => renderWidget(id, layout.order.indexOf(id), "status"))
-                                : tabWidgets("status").filter((id) => id === (isVisible(statusView) ? statusView : tabWidgets("status")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "status"))}
-                        </div>
-                    </>
-                )}
-                {effectiveTab === "monthly" && (
-                    <>
-                        {!customizing && (
-                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.monthly")}>
-                            {tabWidgets("monthly").map((id) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={monthlyView === id}
-                                    className={monthlyView === id ? "mini-tab active" : "mini-tab"}
-                                    onClick={() => setMonthlyView(id)}
-                                >
-                                    {t(`dashboard.widgets.${id}`)}
-                                </button>
-                            ))}
-                        </div>
-                        )}
-                        <div className="charts-row">
-                            {customizing
-                                ? tabWidgets("monthly").map((id) => renderWidget(id, layout.order.indexOf(id), "monthly"))
-                                : tabWidgets("monthly").filter((id) => id === (isVisible(monthlyView) ? monthlyView : tabWidgets("monthly")[0])).map((id) => renderWidget(id, layout.order.indexOf(id), "monthly"))}
-                        </div>
-                    </>
-                )}
-
-                {effectiveTab === "activity" && (
-                    <>
-                        <div className="mini-tabs" role="tablist" aria-label={t("dashboard.tabs.activity")}>
-                            {["expiring", "recent"].map((v) => (
-                                <button
-                                    key={v}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={activityView === v}
-                                    className={activityView === v ? "mini-tab active" : "mini-tab"}
-                                    onClick={() => setActivityView(v)}
-                                >
-                                    {v === "expiring" ? t("dashboard.expiringSoon") : t("dashboard.recentLicenses")}
-                                </button>
-                            ))}
-                        </div>
-                        {activityView === "expiring" ? (
-                        <div className="dashboard-section">
-                            <h2>{t("dashboard.expiringSoon")}</h2>
-                            {expiringSoon.length === 0 ? (
-                                <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
-                            ) : (
-                                <div className="table-wrap">
-                                <table>
-                                    <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
-                                    <tbody>
-                                    {expiringSoon.map((lic) => (
-                                        <tr key={lic.id}>
-                                            <td>{lic.product}</td>
-                                            <td className="key-cell">{lic.key}</td>
-                                            <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
-                                            <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
-                                        </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
-                                </div>
-                            )}
-                        </div>
-                        ) : (
-                        <div className="dashboard-section">
-                            <h2>{t("dashboard.recentLicenses")}</h2>
-                            {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
-                                <div className="table-wrap">
-                                <table>
-                                    <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
-                                    <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
-                                </table>
-                                </div>
-                            )}
-                            <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
-                        </div>
-                        )}
-                    </>
-                )}
-
-                {effectiveTab === "apikeys" && (
-                    <div className="dashboard-section">
-                        <h2>{t("dashboard.recentApiKeys")}</h2>
-                        {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
-                            <div className="table-wrap">
-                            <table>
-                                <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
-                                <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
-                            </table>
-                            </div>
-                        )}
-                        <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+            </div>
+            <div className="dashboard-section">
+                <h2>{t("dashboard.recentLicenses")}</h2>
+                {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
+                    <div className="table-wrap">
+                    <table>
+                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
+                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
+                    </table>
                     </div>
                 )}
+                <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+            </div>
 
-                {effectiveTab === "users" && (
-                    <div className="dashboard-section">
-                        <h2>{t("dashboard.recentUsers")}</h2>
-                        {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
-                            <div className="table-wrap">
-                            <table>
-                                <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
-                                <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
-                            </table>
-                            </div>
-                        )}
-                        <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
+            <div className="dashboard-section">
+                <h2>{t("dashboard.recentApiKeys")}</h2>
+                {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
+                    <div className="table-wrap">
+                    <table>
+                        <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
+                        <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
+                    </table>
                     </div>
                 )}
+                <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+            </div>
 
-                {effectiveTab === "services" && (
-                    <>
-                    {tabWidgets("services").map((id) => renderWidget(id, layout.order.indexOf(id), "services"))}
-                    </>
+            <div className="dashboard-section">
+                <h2>{t("dashboard.recentUsers")}</h2>
+                {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
+                    <div className="table-wrap">
+                    <table>
+                        <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
+                        <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
+                    </table>
+                    </div>
                 )}
-                {effectiveTab === "sending" && (
-                    <>
-                    {tabWidgets("sending").map((id) => renderWidget(id, layout.order.indexOf(id), "sending"))}
-                    </>
-                )}
+                <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
             </div>
 
             {/* Widget visibility popup (v3.0): every dashboard widget with

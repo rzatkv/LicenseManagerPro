@@ -1,8 +1,19 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.2) lives in the [README](README.md#whats-new-in-v302) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.3) lives in the [README](README.md#whats-new-in-v303) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.2 — 2026-11-26
+
+Scroll-fix round for the two things the user reported from his own phone right after the v3.0.1 check — no new features:
+
+- **Pages scroll when content does not fit:** the app shell (`Layout.css`) had `.layout-content { overflow: hidden }` by design, and the sweep measured document overflow (0) — blind to the real failure: anything taller than the viewport was clipped with no scroll container, so the dashboard quick-action buttons sat half-cut and unreachable. The user corrected the v3.0.0 rule: zero-scroll stays the DESIGN GOAL (keep splitting content into tabs, pagination, wizards and popups so pages fit), but scrolling is the mandatory safety net — clipped unreachable content is never acceptable. `.layout-content` is now `overflow-y: auto` (with `-webkit-overflow-scrolling: touch`); it only activates on overflow, and pages that fit stay scroll-free exactly as before.
+- **Dashboard tabs wrap at every width:** the strip wrapped only ≤640px; above that it was `overflow-x: auto` with a hidden scrollbar, so on a landscape phone (~800px) tabs were cut off at the strip edge with no affordance. The strip now wraps unconditionally — a second row is cheaper than a tab you cannot see.
+- **API Docs tabs wrap too:** `.docs-tabs` was single-row scrollable with a hidden scrollbar at every width, and the second-row "API keys — the X-API-Key mechanism" pill sat half outside the screen, cut off mid-word. Both docs tab rows wrap now (the docs page's own inner vertical scroller is untouched).
+- **Every tab strip audited:** `.mini-tabs` (Audit Logs channels, dashboard sub-tabs, Settings sub-tabs, About, API Docs — 17 usages) wraps unconditionally now; `.settings-tabs` and the Notifications toolbar already wrapped and were verified to stay that way. No tab strip anywhere may clip with a hidden scrollbar at 360–1920px or in landscape.
+- **Bottom-nav clearance verified:** after scroll was enabled, the last content on every page — especially the dashboard Overview quick-action buttons — was checked to be fully reachable by scrolling to the bottom at 360×700 and 800×360 landscape, with the 64px bottom padding intact.
+- **Version bump:** 3.0.2 everywhere, demo storage key `lmp-demo-db-v16`, `smoke_test_302.py`, mock next-release v3.0.3, all 10 module ZIPs rebuilt at 3.0.2 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## v3.0.1 — 2026-11-26
 
