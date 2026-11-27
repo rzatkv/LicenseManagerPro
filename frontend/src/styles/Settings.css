@@ -128,6 +128,17 @@ table td button {
 
 /* v3.0 email templates: one card per template + rendered preview. */
 .email-template-card { border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+/* v3.0.8: variable guide — chips with sample values, click to insert.
+   Chips wrap; the sample truncates with an ellipsis so the row fits
+   360px in both languages and both themes. */
+.var-guide { display: flex; flex-direction: column; gap: 8px; }
+.var-guide-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.var-guide-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.var-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--surface-2); color: var(--text); font-size: 12px; line-height: 1.4; cursor: pointer; text-align: start; }
+.var-chip:hover, .var-chip:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--focus, rgba(0, 0, 0, 0.15)); }
+.var-chip-name { font-weight: 700; white-space: nowrap; }
+.var-chip-sample { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75; }
+.var-guide .hint { margin: 0; }
 .email-template-card h4 { margin: 0; }
 .email-template-preview { border-top: 1px solid var(--border); padding-top: 10px; }
 .email-template-preview summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent); }

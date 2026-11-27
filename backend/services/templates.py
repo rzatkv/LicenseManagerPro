@@ -1,32 +1,37 @@
 """Email templates + signature (v3.0).
 
 The admin edits templates in Settings → Email. Each template has a
-subject and a body with `{{variable}}` placeholders; the mail service
-renders the stored template with the real values and appends the
-stored signature to every outgoing email. Unknown placeholders are
-left untouched (never a crash). A template/body with no placeholders
-is fine. Rendering is pure string substitution — no eval, no Jinja.
+subject and a body with placeholders; the mail service renders the
+stored template with the real values and appends the stored signature
+to every outgoing email. Rendering goes through the shared renderer
+(services/template_render, v3.0.8), so %var% (WHMCS-style), {var} and
+{{var}} all work in email too — the old {{var}} templates keep
+working unchanged. Unknown placeholders are left untouched (never a
+crash). A template/body with no placeholders is fine. Rendering is
+pure string substitution — no eval, no Jinja. %client% always
+resolves (license owner's name, else the user_email local-part, else
+«مشتری گرامی») — never empty.
 
 Templates (variables documented next to each one in the Settings UI):
 - twofa_code:       {{code}}, {{site_name}}, {{user_email}}
 - license_created:  {{license_key}}, {{product_name}}, {{expiry_date}},
-                    {{site_name}}, {{user_email}}
+                    {{site_name}}, {{user_email}}, {{client_name}}
 - license_renewed:  {{license_key}}, {{product_name}}, {{expiry_date}},
-                    {{site_name}}, {{user_email}}
+                    {{site_name}}, {{user_email}}, {{client_name}}
 - license_expiring: {{license_key}}, {{product_name}}, {{expiry_date}},
-                    {{days_left}}, {{site_name}}, {{user_email}}
+                    {{days_left}}, {{site_name}}, {{user_email}},
+                    {{client_name}}
 - license_expired:  {{license_key}}, {{product_name}}, {{expiry_date}},
-                    {{site_name}}, {{user_email}}
-- user_created:     {{user_email}}, {{role}}, {{site_name}}
+                    {{site_name}}, {{user_email}}, {{client_name}}
+- user_created:     {{user_email}}, {{role}}, {{site_name}},
+                    {{client_name}}
 """
 import json
-import re
 
 from sqlalchemy.orm import Session
 
 from services.settings import get_setting_default
-
-_TEMPLATE_VAR_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+from services.template_render import render_template_text
 
 DEFAULT_SIGNATURE = "--\nLicense Manager Pro"
 
@@ -93,13 +98,16 @@ DEFAULT_TEMPLATES = {
 }
 
 # Variables each template accepts (shown in the Settings UI help text).
+# client_name is always available (it derives with a fallback — see
+# template_render), so it is listed for every template that has a
+# person behind it.
 TEMPLATE_VARIABLES = {
     "twofa_code": ["code", "site_name", "user_email"],
-    "license_created": ["license_key", "product_name", "expiry_date", "site_name", "user_email"],
-    "license_renewed": ["license_key", "product_name", "expiry_date", "site_name", "user_email"],
-    "license_expiring": ["license_key", "product_name", "expiry_date", "days_left", "site_name", "user_email"],
-    "license_expired": ["license_key", "product_name", "expiry_date", "site_name", "user_email"],
-    "user_created": ["user_email", "role", "site_name"],
+    "license_created": ["license_key", "product_name", "expiry_date", "site_name", "user_email", "client_name"],
+    "license_renewed": ["license_key", "product_name", "expiry_date", "site_name", "user_email", "client_name"],
+    "license_expiring": ["license_key", "product_name", "expiry_date", "days_left", "site_name", "user_email", "client_name"],
+    "license_expired": ["license_key", "product_name", "expiry_date", "site_name", "user_email", "client_name"],
+    "user_created": ["user_email", "role", "site_name", "client_name"],
 }
 
 
@@ -139,13 +147,11 @@ def render_template(db: Session, name: str, context: dict) -> tuple[str, str]:
     site = get_setting_default(db, "site_name", "License Manager Pro")
     full = {"site_name": site, **(context or {})}
 
-    def _sub(text: str) -> str:
-        return _TEMPLATE_VAR_RE.sub(
-            lambda m: str(full.get(m.group(1), m.group(0))), text
-        )
-
-    subject = _sub(tpl["subject"])
-    body = _sub(tpl["body"])
+    # Shared renderer (v3.0.8): %var%, {var} and {{var}} all work;
+    # unknown placeholders stay literal; a failed render falls back
+    # to the raw template text instead of raising.
+    subject = render_template_text(tpl["subject"], full, tpl["subject"])
+    body = render_template_text(tpl["body"], full, tpl["body"])
     signature = get_signature(db)
     if signature:
         body = body.rstrip("\n") + "\n\n" + signature + "\n"

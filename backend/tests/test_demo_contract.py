@@ -312,3 +312,49 @@ def test_notification_texts_and_patterns_match_frontend():
         "message",
         "role",
     }
+
+
+def test_template_variables_match_frontend():
+    """v3.0.8: the shared renderer (services/template_render) and its
+    two frontend mirrors agree — same % aliases, same sample values in
+    the demo mock and the Settings guide, so the preview the admin
+    sees is the render the backend performs. Edit one side without
+    the other and this fails loudly instead of drifting silently."""
+    from services.template_render import SAMPLE_VALUES, VARIABLE_ALIASES, VARIABLE_GUIDE
+
+    demo = _read(FRONTEND / "utils" / "demoData.js")
+
+    def _js_string_map(text, anchor):
+        start = text.index(anchor)
+        end = text.index("};", start)
+        body = text[start:end]
+        return dict(re.findall(r'(\w+): "((?:[^"\\]|\\.)*)"', body))
+
+    demo_aliases = _js_string_map(demo, "const NOTIFY_VAR_ALIASES = {")
+    assert demo_aliases == VARIABLE_ALIASES
+    demo_samples = _js_string_map(demo, "const NOTIFY_VAR_SAMPLES = {")
+    assert demo_samples == SAMPLE_VALUES
+
+    settings_js = _read(FRONTEND / "pages" / "Settings.js")
+    settings_samples = _js_string_map(settings_js, "const TEMPLATE_SAMPLES = {")
+    # The Settings guide uses the same samples (plus the 2FA code
+    # sample, which the guide never shows as a template variable).
+    for key, value in SAMPLE_VALUES.items():
+        assert settings_samples.get(key) == value, key
+    assert settings_samples.get("client_name") == SAMPLE_VALUES["client_name"]
+
+    # The guide lists every variable exactly once, in display order —
+    # the % alias where one exists, else the canonical name — and
+    # every guide entry resolves through the renderer.
+    guide_names = [name for name, _ in VARIABLE_GUIDE]
+    assert len(guide_names) == len(set(guide_names))
+    display_names = set(VARIABLE_ALIASES) | {
+        k for k in SAMPLE_VALUES if k not in VARIABLE_ALIASES.values()
+    }
+    assert set(guide_names) == display_names
+    from services.template_render import render_template_text, sample_context
+
+    ctx = sample_context()
+    for name, _ in VARIABLE_GUIDE:
+        assert render_template_text(f"%{name}%", ctx, "FB") != f"%{name}%", name
+

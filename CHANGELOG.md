@@ -1,8 +1,16 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.7) lives in the [README](README.md#whats-new-in-v307) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.8) lives in the [README](README.md#whats-new-in-v308) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.7 — 2026-11-27
+
+Editable notification texts and IPPanel pattern sending, as the user asked from his own phone:
+
+- **Notification texts are editable:** every event's SMS and Telegram text is now a template you can edit in Settings → Notifications (SMS tab / Telegram tab), per event, with a live preview rendered with sample values and a per-template reset-to-default. Defaults reproduce the old hardcoded output byte-for-byte (SMS "{title}: {message}", Telegram "{title}\n{message}"), so nothing changes until you edit. Placeholders: {title} and {message} always, plus the event's context variables (license_key, product_name, expiry_date, days_left, user_email, role). Unknown placeholders stay literal and are logged, never a crash; a failed render falls back to the default format and never breaks the triggering action. GET/PUT `/api/settings/notification-texts` (read: `settings:write`, write: `notifications:write` — a manager can read but not change). The demo mock mirrors the setting and endpoints, and the demo's fake send uses the edited text.
+- **IPPanel pattern sending:** `send_pattern()` existed in the Edge client but nothing called it. Now each event can have its own pattern code (setting `sms_ippanel_patterns`, Settings → SMS tab, next to the editable SMS text; a badge on the event row shows Pattern vs Free text). When ippanel is the active provider and a code is set for the event, that event's SMS goes out via `send_pattern` — one call per admin phone (the Edge pattern rule) — with params built from the same template variables (title, message, license_key, product_name, expiry_date, days_left, user_email, role, stringified, missing ones omitted). Otherwise the editable SMS text goes out via `send_webservice` as before. A pattern failure is logged and never breaks the triggering action. GET/PUT `/api/settings/notification-patterns` with the same gating and validation as the texts endpoints. The test-send button now takes an event: it exercises exactly what that event would send — the pattern path with sample params when a code is set, else the editable SMS text — and reports which mode it took (pattern / free text). The demo mock mirrors the setting, endpoints and mode (visible in the demo log).
+- **Version bump:** 3.0.7 everywhere, demo storage key `lmp-demo-db-v21`, `smoke_test_307.py`, all 10 module ZIPs rebuilt at 3.0.7 parity. Released 2026-11-27 (tag v3.0.7, 10 module ZIP assets).
 
 ## v3.0.6 — 2026-11-27
 

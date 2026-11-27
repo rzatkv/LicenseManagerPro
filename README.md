@@ -17,13 +17,15 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.7
+## What's new in v3.0.8
 
-Editable notification texts and IPPanel pattern sending, as the user asked from his own phone:
+Notification template variables with sample values, as the user asked from his own phone — his example was `%client% عزیز / لایسنس شما ایجاد شد. / کد لایسنس : %license%`:
 
-- **Notification texts are editable:** every event's SMS and Telegram text is now a template you can edit in Settings → Notifications (SMS tab / Telegram tab), per event, with a live preview rendered with sample values and a per-template reset-to-default. Defaults reproduce the old hardcoded output byte-for-byte (SMS "{title}: {message}", Telegram "{title}\n{message}"), so nothing changes until you edit. Placeholders: {title} and {message} always, plus the event's context variables (license_key, product_name, expiry_date, days_left, user_email, role). Unknown placeholders stay literal and are logged, never a crash; a failed render falls back to the default format and never breaks the triggering action. GET/PUT `/api/settings/notification-texts` (read: `settings:write`, write: `notifications:write` — a manager can read but not change). The demo mock mirrors the setting and endpoints, and the demo's fake send uses the edited text.
-- **IPPanel pattern sending:** `send_pattern()` existed in the Edge client but nothing called it. Now each event can have its own pattern code (setting `sms_ippanel_patterns`, Settings → SMS tab, next to the editable SMS text; a badge on the event row shows Pattern vs Free text). When ippanel is the active provider and a code is set for the event, that event's SMS goes out via `send_pattern` — one call per admin phone (the Edge pattern rule) — with params built from the same template variables (title, message, license_key, product_name, expiry_date, days_left, user_email, role, stringified, missing ones omitted). Otherwise the editable SMS text goes out via `send_webservice` as before. A pattern failure is logged and never breaks the triggering action. GET/PUT `/api/settings/notification-patterns` with the same gating and validation as the texts endpoints. The test-send button now takes an event: it exercises exactly what that event would send — the pattern path with sample params when a code is set, else the editable SMS text — and reports which mode it took (pattern / free text). The demo mock mirrors the setting, endpoints and mode (visible in the demo log).
-- **Version bump:** 3.0.7 everywhere, demo storage key `lmp-demo-db-v21`, `smoke_test_307.py`, all 10 module ZIPs rebuilt at 3.0.7 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **Variables in every channel:** notification templates now support real variables in email, SMS and Telegram — `%client%` (the customer's name), `%license%` (the license code), plus `%var%` aliases for every existing variable (`%product%`, `%expiry%`, `%days%`, `%email%`, `%title%`, `%message%`). All three placeholder styles work everywhere through one shared renderer: `%var%` (WHMCS-style, what the user wrote), `{var}` (the SMS/Telegram style) and `{{var}}` (the email style) — existing templates keep working unchanged.
+- **%client% never renders empty:** the system stores no customer name (a license has only an owner email), so `%client%` resolves from an explicit `client_name` when the event carries one, else the local-part of the owner's email, else «مشتری گرامی» as the fallback.
+- **Variable guide with sample values:** in Settings → Notifications (SMS tab / Telegram tab) and the Email templates editor, every variable is shown as a chip with its sample value (`%client%` → «علی رضایی», `%license%` → «XXXX-XXXX-XXXX-XXXX», `%product%` → «محصول نمونه», `%expiry%` → «۱۴۰۵/۰۹/۰۶», `%days%` → «۷», `%email%` → «client@example.com», `%role%` → «مدیر»). Click a chip to insert the variable at the cursor. The live preview renders the template with the sample values, so the admin sees the final message — the user's example previews as «علی رضایی عزیز / لایسنس شما ایجاد شد. / کد لایسنس : XXXX-XXXX-XXXX-XXXX».
+- **Same guarantees as before:** unknown placeholders stay literal and are logged, never a crash; a failed render falls back to the default text and never breaks the triggering action. The demo mock mirrors the renderer, the samples and the guide.
+- **Version bump:** 3.0.8 everywhere, demo storage key `lmp-demo-db-v22`, `smoke_test_308.py`, all 10 module ZIPs rebuilt at 3.0.8 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Publishing news
 
@@ -93,7 +95,7 @@ LicenseManagerPro/
 │   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
 ├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
-├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.6; v3.0.7 lives above)
+├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.7; v3.0.8 lives above)
 └── README.md
 ```
 

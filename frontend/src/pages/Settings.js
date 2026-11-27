@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect, useCallback, useRef} from "react";
 import {useSearchParams} from "react-router-dom";
 import {get, put, post} from "../utils/api";
 import {useLanguage} from "../i18n";
@@ -53,25 +53,67 @@ const DEFAULT_NOTIFY_TEXT = {sms: "{title}: {message}", telegram: "{title}\n{mes
 const TEMPLATE_NAMES = ["twofa_code", "license_created", "license_renewed", "license_expiring", "license_expired", "user_created"];
 const TEMPLATE_VARIABLES = {
     twofa_code: ["code"],
-    license_created: ["license_key", "product_name", "expiry_date"],
-    license_renewed: ["license_key", "product_name", "expiry_date"],
-    license_expiring: ["license_key", "product_name", "expiry_date", "days_left"],
-    license_expired: ["license_key", "product_name", "expiry_date"],
-    user_created: ["site_name", "user_email", "role"],
+    license_created: ["license_key", "product_name", "expiry_date", "client_name"],
+    license_renewed: ["license_key", "product_name", "expiry_date", "client_name"],
+    license_expiring: ["license_key", "product_name", "expiry_date", "days_left", "client_name"],
+    license_expired: ["license_key", "product_name", "expiry_date", "client_name"],
+    user_created: ["site_name", "user_email", "role", "client_name"],
 };
 const TEMPLATE_SAMPLES = {
     // v3.0.6 (security, M7): the sample 2FA code must not equal the
     // demo code — a reader grepping the bundle for it would otherwise
     // mistake a template preview for a credential.
     code: "482917",
-    license_key: "LIC-DEMO-1234-5678",
-    product_name: "CloudPanel Pro",
-    expiry_date: "2026-12-31",
-    days_left: "7",
+    license_key: "XXXX-XXXX-XXXX-XXXX",
+    product_name: "محصول نمونه",
+    expiry_date: "۱۴۰۵/۰۹/۰۶",
+    days_left: "۷",
     site_name: "License Manager Pro",
-    user_email: "customer@example.com",
-    role: "viewer",
+    user_email: "client@example.com",
+    role: "مدیر",
+    client_name: "علی رضایی",
+    title: "License created",
+    message: "License LIC-DEMO-1234-5678 for CloudPanel Pro was created.",
 };
+// v3.0.8: %alias% -> canonical key (mirror of backend
+// template_render VARIABLE_ALIASES), and the display name for a
+// canonical variable (the % alias when one exists, else the name
+// itself). The contract test pins the samples against the backend.
+const TEMPLATE_VAR_ALIASES = {client: "client_name", license: "license_key", product: "product_name", expiry: "expiry_date", days: "days_left", email: "user_email"};
+const VAR_DISPLAY = {client_name: "client", license_key: "license", product_name: "product", expiry_date: "expiry", days_left: "days", user_email: "email"};
+const varDisplay = (canonical) => VAR_DISPLAY[canonical] || canonical;
+
+// v3.0.8: variable guide — every template variable as a chip with its
+// sample value. Click a chip to insert %var% into the field.
+function VariableGuide({vars, onInsert, target}) {
+    const {t} = useLanguage();
+    return (
+        <div className="var-guide" data-var-guide={target}>
+            <div className="var-guide-title">{t("settings.notifyVarGuideTitle")}</div>
+            <div className="var-guide-chips">
+                {vars.map((name) => {
+                    const key = TEMPLATE_VAR_ALIASES[name] || name;
+                    const sample = TEMPLATE_SAMPLES[key];
+                    return (
+                        <button
+                            key={name}
+                            type="button"
+                            className="var-chip"
+                            data-var-chip={name}
+                            data-var-target={target}
+                            title={sample !== undefined ? `${name}: ${sample}` : name}
+                            onClick={() => onInsert(`%${name}%`)}
+                        >
+                            <span className="var-chip-name">%{name}%</span>
+                            {sample !== undefined && <span className="var-chip-sample">{sample}</span>}
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="hint">{t("settings.notifyVarGuideHint")}</p>
+        </div>
+    );
+}
 
 // Raster magic bytes (v2.3 security): the logo must be a real PNG/JPEG/
 // WebP file, never an SVG (it can carry scripts) and never just an
@@ -144,6 +186,13 @@ function Settings() {
     // v3.0.7: editable SMS/Telegram texts, per event × channel. Global
     // settings (same as the channel matrix), not per-admin.
     const [texts, setTexts] = useState({});
+    // v3.0.8: click-to-insert — element refs for the SMS/Telegram
+    // textareas (keyed `${channel}:${event}`) and the email fields
+    // (keyed `${name}:${field}`), plus which email field was focused
+    // last per template.
+    const textAreaRefs = useRef({});
+    const emailFieldRefs = useRef({});
+    const emailFocusRefs = useRef({});
     // v3.0.7 (added scope): per-event IPPanel pattern codes. Global
     // setting, ippanel only; empty means the event sends as free text.
     const [patterns, setPatterns] = useState({});
@@ -436,13 +485,21 @@ function Settings() {
         }));
     };
 
-    const renderTemplatePreview = (tpl) => {
-        let text = `${tpl.subject || ""}\n\n${tpl.body || ""}`;
-        for (const [k, v] of Object.entries(TEMPLATE_SAMPLES)) {
-            text = text.split(`{{${k}}}`).join(v);
+    // v3.0.8: preview renderer — mirror of the backend shared
+    // renderer: %var%, {var} and {{var}}, aliases, %client%
+    // derivation, samples. Unknown placeholders stay literal.
+    const renderPreviewText = (template) => {
+        const values = {...TEMPLATE_SAMPLES};
+        for (const [alias, key] of Object.entries(TEMPLATE_VAR_ALIASES)) {
+            if (values[key] !== undefined) values[alias] = values[key];
         }
-        return text;
+        return String(template || "").replace(/%([A-Za-z0-9_]+)%|\{\{\s*([A-Za-z0-9_]+)\s*\}\}|\{([A-Za-z0-9_]+)\}/g, (m, p1, p2, p3) => {
+            const name = p1 || p2 || p3;
+            return values[name] !== undefined ? values[name] : m;
+        });
     };
+
+    const renderTemplatePreview = (tpl) => renderPreviewText(`${tpl.subject || ""}\n\n${tpl.body || ""}`);
 
     // --- Editable SMS/Telegram texts (v3.0.7) ---------------------------
     const setText = (event, channel, value) => {
@@ -457,16 +514,42 @@ function Settings() {
         return stored === undefined || stored === null ? DEFAULT_NOTIFY_TEXT[channel] : stored;
     };
 
-    // Live preview with sample values. Unknown placeholders are left
-    // literal — exactly like the backend render.
-    const renderTextPreview = (template) => {
-        const sampleTitle = "License created";
-        const sampleMessage = "License LIC-DEMO-1234-5678 for CloudPanel Pro was created.";
-        const values = {title: sampleTitle, message: sampleMessage, ...TEMPLATE_SAMPLES};
-        return String(template || "").replace(/\{([A-Za-z0-9_]+)\}/g, (m, name) =>
-            values[name] !== undefined ? values[name] : m
+    // Insert text at the caret of a controlled field, then restore
+    // focus + caret (React re-renders the value; the timeout runs
+    // after it). Without a field element, append at the end.
+    const insertAtCaret = (el, current, text, apply) => {
+        if (!el) { apply(current + text); return; }
+        const start = el.selectionStart ?? current.length;
+        const end = el.selectionEnd ?? current.length;
+        apply(current.slice(0, start) + text + current.slice(end));
+        const caret = start + text.length;
+        setTimeout(() => { el.focus(); el.setSelectionRange(caret, caret); }, 0);
+    };
+    const insertNotifyVar = (channel, event, text) => {
+        insertAtCaret(
+            textAreaRefs.current[`${channel}:${event}`],
+            getText(event, channel),
+            text,
+            (next) => setText(event, channel, next),
         );
     };
+    const insertEmailVar = (name, text) => {
+        const field = emailFocusRefs.current[name] || "body";
+        const tpl = (email.templates && email.templates[name]) || {subject: "", body: ""};
+        insertAtCaret(
+            emailFieldRefs.current[`${name}:${field}`],
+            tpl[field] || "",
+            text,
+            (next) => setEmail((prev) => ({
+                ...prev,
+                templates: {...prev.templates, [name]: {...tpl, [field]: next}},
+            })),
+        );
+    };
+
+    // Live preview with sample values. Unknown placeholders are left
+    // literal — exactly like the backend render.
+    const renderTextPreview = (template) => renderPreviewText(template);
 
     const notifyTextEditor = (channel) => (
         <div className="glass-card settings-section">
@@ -488,12 +571,17 @@ function Settings() {
                                 </span>
                             )}
                         </h4>
-                        <p className="hint">{t("settings.emailTemplateVars")}: {vars.map((v) => `{${v}}`).join(" ")}</p>
+                        <VariableGuide
+                            vars={["title", "message", "client", ...(NOTIFY_TEXT_VARIABLES[event] || []).map(varDisplay)]}
+                            onInsert={(text) => insertNotifyVar(channel, event, text)}
+                            target={`${channel}:${event}`}
+                        />
                         <label className="settings-field">
                             {t(`settings.notifyTexts${channel === "sms" ? "Sms" : "Telegram"}`)}
                             <textarea
                                 rows={2}
                                 data-notify-text={`${channel}:${event}`}
+                                ref={(el) => { textAreaRefs.current[`${channel}:${event}`] = el; }}
                                 value={getText(event, channel)}
                                 onChange={(e) => setText(event, channel, e.target.value)}
                             />
@@ -1074,11 +1162,18 @@ function Settings() {
                             return (
                                 <div key={name} className="email-template-card">
                                     <h4>{t(`settings.emailTemplates.${name}`)}</h4>
-                                    <p className="hint">{t("settings.emailTemplateVars")}: {(TEMPLATE_VARIABLES[name] || []).map((v) => `{{${v}}}`).join(" ")}</p>
+                                    <VariableGuide
+                                        vars={(TEMPLATE_VARIABLES[name] || []).map(varDisplay)}
+                                        onInsert={(text) => insertEmailVar(name, text)}
+                                        target={`email:${name}`}
+                                    />
                                     <label className="settings-field">
                                         {t("settings.emailTemplateSubject")}
                                         <input
                                             type="text"
+                                            data-email-subject={name}
+                                            ref={(el) => { emailFieldRefs.current[`${name}:subject`] = el; }}
+                                            onFocus={() => { emailFocusRefs.current[name] = "subject"; }}
                                             value={tpl.subject || ""}
                                             onChange={(e) => setEmail((prev) => ({
                                                 ...prev,
@@ -1090,6 +1185,9 @@ function Settings() {
                                         {t("settings.emailTemplateBody")}
                                         <textarea
                                             rows={4}
+                                            data-email-body={name}
+                                            ref={(el) => { emailFieldRefs.current[`${name}:body`] = el; }}
+                                            onFocus={() => { emailFocusRefs.current[name] = "body"; }}
                                             value={tpl.body || ""}
                                             onChange={(e) => setEmail((prev) => ({
                                                 ...prev,
@@ -1099,7 +1197,7 @@ function Settings() {
                                     </label>
                                     <details className="email-template-preview">
                                         <summary>{t("settings.emailTemplatePreview")}</summary>
-                                        <pre>{renderTemplatePreview(tpl)}</pre>
+                                        <pre data-email-preview={name}>{renderTemplatePreview(tpl)}</pre>
                                     </details>
                                 </div>
                             );

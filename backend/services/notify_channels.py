@@ -27,7 +27,6 @@ Telegram goes to the configured chats.
 """
 import json
 import logging
-import re
 
 from sqlalchemy.orm import Session
 
@@ -35,6 +34,7 @@ from models import User
 from services.audit import log_audit
 from services.notifications import notify_admins
 from services.settings import get_setting_default
+from services.template_render import render_template_text
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,15 @@ CHANNELS = ("email", "sms", "telegram")
 #
 # Defaults reproduce the pre-v3.0.7 hardcoded output byte-for-byte
 # (SMS "{title}: {message}", Telegram "{title}\n{message}").
-# Placeholders: {title} and {message} always, plus the event's context
-# variables (see NOTIFY_TEXT_VARIABLES). Unknown placeholders are left
-# literal (never a crash) and logged; a failed render never breaks the
-# triggering action — the default format is used instead.
+# Placeholders (v3.0.8, shared renderer in services/template_render):
+# %var% (WHMCS-style), {var} and {{var}} all work in every channel.
+# {title} and {message} always, plus the event's context variables
+# (see NOTIFY_TEXT_VARIABLES), plus %client% — always available, it
+# derives from the license owner's name / user_email local-part with
+# a «مشتری گرامی» fallback, so it is not part of the per-event lists.
+# Unknown placeholders are left literal (never a crash) and logged;
+# a failed render never breaks the triggering action — the default
+# format is used instead.
 TEXT_CHANNELS = ("sms", "telegram")
 MAX_TEXT_LENGTH = 2000
 
@@ -84,8 +89,6 @@ NOTIFY_TEXT_VARIABLES = {
     "user_created": ["user_email", "role"],
     "api_key_expiring": [],
 }
-
-_TEXT_VAR_RE = re.compile(r"\{([A-Za-z0-9_]+)\}")
 
 # Events that have a matching email template (license_reissued reuses
 # the license_renewed template).
@@ -315,27 +318,18 @@ def sample_pattern_params(event: str) -> dict:
 def render_notification_text(
     template: str, title: str, message: str, context: dict, fallback: str
 ) -> str:
-    """Render an SMS/Telegram template. `{title}` and `{message}` are
-    always available; context variables (license_key, product_name,
+    """Render an SMS/Telegram template through the shared renderer
+    (v3.0.8): %var%, {var} and {{var}} all work; {title} and {message}
+    are always available; context variables (license_key, product_name,
     expiry_date, days_left, user_email, role, site_name) substitute
-    when provided. Unknown placeholders are left literal and logged;
-    any render failure falls back to `fallback` — a send never crashes
-    the triggering action."""
-    try:
-        # title/message always win: a context key must never override them.
-        full = {**(context or {}), "title": title, "message": message}
-
-        def _sub(match):
-            name = match.group(1)
-            if name in full:
-                return str(full[name])
-            logger.warning("unknown placeholder {%s} in notification text", name)
-            return match.group(0)
-
-        return _TEXT_VAR_RE.sub(_sub, template)
-    except Exception:
-        logger.exception("notification text render failed, using fallback")
-        return fallback
+    when provided; %client% always resolves (see template_render).
+    Unknown placeholders are left literal and logged; any render
+    failure falls back to `fallback` — a send never crashes the
+    triggering action."""
+    # title/message always win: a context key must never override them.
+    return render_template_text(
+        template, {**(context or {}), "title": title, "message": message}, fallback
+    )
 
 
 def _admin_contacts(db: Session) -> tuple[list[str], list[str]]:

@@ -11,10 +11,10 @@ def test_news_returns_seeded_items(client):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data["items"], list)
-    assert len(data["items"]) == 5
+    assert len(data["items"]) == 6
     first = data["items"][0]
-    assert first["id"] == "v307-release"
-    assert "3.0.7" in first["title"]["en"]
+    assert first["id"] == "v308-release"
+    assert "3.0.8" in first["title"]["en"]
     assert first["title"]["fa"]
     assert first["body"]["en"] and first["body"]["fa"]
     assert first["date"] == "2026-11-27"

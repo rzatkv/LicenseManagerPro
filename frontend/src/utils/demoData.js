@@ -14,7 +14,7 @@ import {APP_VERSION} from "../version";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v21";
+const STORAGE_KEY = "lmp-demo-db-v22";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -26,6 +26,7 @@ const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/release
 // these; the Dashboard in demo mode tries the live file from
 // raw.githubusercontent.com first and falls back to these when offline.
 const NEWS_ITEMS = [
+    {id: "v308-release", title: {en: "LicenseManagerPro v3.0.8 is out", fa: "نسخه ۳٫۰٫۸ لایسنس منیجر پرو منتشر شد"}, body: {en: "Notification template variables with sample values — %client% and %license% (plus %var% aliases for every variable) now work in email, SMS and Telegram, with a click-to-insert variable guide and a live preview rendered with sample values.", fa: "متغیرهای قالب اعلان با مقادیر نمونه — %client% و %license% (به‌علاوه نام مستعار %var% برای همه متغیرها) حالا در ایمیل، پیامک و تلگرام کار می‌کنند، با راهنمای متغیرها برای درج با یک کلیک و پیش‌نمایش زنده با مقادیر نمونه."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v307-release", title: {en: "LicenseManagerPro v3.0.7 is out", fa: "نسخه ۳٫۰٫۷ لایسنس منیجر پرو منتشر شد"}, body: {en: "Editable SMS and Telegram notification texts for every event, plus IPPanel pattern sending — set a pattern code per event and the SMS goes out as a pattern instead of free text.", fa: "متن‌های قابل ویرایش برای اعلان‌های پیامکی و تلگرامی هر رویداد، به‌علاوه ارسال الگویی آی‌پنل — برای هر رویداد یک کد الگو بگذارید تا پیامک به‌صورت الگویی ارسال شود نه متن آزاد."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v306-release", title: {en: "LicenseManagerPro v3.0.6 is out", fa: "نسخه ۳٫۰٫۶ لایسنس منیجر پرو منتشر شد"}, body: {en: "Collapsible dashboard widgets, fixed dropdowns, API docs code boxes that grow to fit their content, a rational menu grouping, a duplicates cleanup and a full security audit with patches.", fa: "ویجت‌های داشبورد که جمع و باز می‌شوند، رفع مشکل دراپ‌داون‌ها، باکس‌های کد مستندات API که به اندازه محتوایشان بلند می‌شوند، طبقه‌بندی عقلانی منوها، پاک‌سازی موارد تکراری و ممیزی امنیتی کامل با پچ‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v305-release", title: {en: "LicenseManagerPro v3.0.5 is out", fa: "نسخه ۳٫۰٫۵ لایسنس منیجر پرو منتشر شد"}, body: {en: "Vazirmatn Persian font, grouped menus, a Telegram-style bottom nav, full glass design, a live News section, prettier gradient cards, 20 themes and bounded section sizes.", fa: "فونت فارسی وزیرمتن، منوهای طبقه‌بندی‌شده، منوی پایین به سبک تلگرام، طراحی کاملاً شیشه‌ای، بخش اخبار زنده، کارت‌های گرادیانی زیباتر، ۲۰ تم و اندازه‌های محدود برای بخش‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
@@ -228,7 +229,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.7", message: "Editable SMS and Telegram notification texts, IPPanel pattern sending, and a test-send that exercises the pattern path — see Settings → SMS.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.8", message: "Notification template variables with sample values, click-to-insert and a live preview — see Settings → Notifications and Settings → Email.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -627,13 +628,42 @@ function notificationTexts() {
     return merged;
 }
 
-// Mirror of backend render_notification_text: {title}/{message} plus
-// context vars; unknown placeholders stay literal, never a crash.
+// ---- Notification template variables (v3.0.8) -----------------------
+// Mirror of backend services/template_render: %alias% -> canonical
+// key, and the sample values the Settings guide + preview use. The
+// contract test pins both against the backend constants.
+// %client% derives: explicit client_name, else the user_email
+// local-part, else «مشتری گرامی» — never empty.
+const NOTIFY_VAR_ALIASES = {client: "client_name", license: "license_key", product: "product_name", expiry: "expiry_date", days: "days_left", email: "user_email"};
+const NOTIFY_VAR_SAMPLES = {title: "License created", message: "License LIC-DEMO-1234-5678 for CloudPanel Pro was created.", client_name: "علی رضایی", license_key: "XXXX-XXXX-XXXX-XXXX", product_name: "محصول نمونه", expiry_date: "۱۴۰۵/۰۹/۰۶", days_left: "۷", user_email: "client@example.com", role: "مدیر", site_name: "License Manager Pro", code: "482917"};
+
+function resolveClientName(context) {
+    const ctx = context || {};
+    if (typeof ctx.client_name === "string" && ctx.client_name.trim()) return ctx.client_name.trim();
+    if (typeof ctx.user_email === "string" && ctx.user_email.includes("@")) {
+        const local = ctx.user_email.split("@", 1)[0].trim();
+        if (local) return local;
+    }
+    return "مشتری گرامی";
+}
+
+function resolveTemplateVariables(context) {
+    const full = {...(context || {})};
+    full.client_name = resolveClientName(context);
+    for (const [alias, key] of Object.entries(NOTIFY_VAR_ALIASES)) {
+        if (full[key] !== undefined) full[alias] = full[key];
+    }
+    return full;
+}
+
+// Mirror of backend render_notification_text: %var%, {var} and
+// {{var}} all work; unknown placeholders stay literal, never a crash.
 function renderNotificationText(template, title, message, context) {
-    const full = {...(context || {}), title, message};
-    return String(template).replace(/\{([A-Za-z0-9_]+)\}/g, (m, name) =>
-        full[name] !== undefined ? String(full[name]) : m
-    );
+    const full = resolveTemplateVariables({...context, title, message});
+    return String(template).replace(/%([A-Za-z0-9_]+)%|\{\{\s*([A-Za-z0-9_]+)\s*\}\}|\{([A-Za-z0-9_]+)\}/g, (m, p1, p2, p3) => {
+        const name = p1 || p2 || p3;
+        return full[name] !== undefined ? String(full[name]) : m;
+    });
 }
 
 // ---- IPPanel pattern codes (v3.0.7, added scope) ------------------------

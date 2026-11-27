@@ -1,72 +1,72 @@
 {
   "drupal": {
     "description": "Drupal module: settings form and a /user/licenses page for customers.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-drupal-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-drupal-3.0.8.zip",
     "name": "Drupal Module",
     "path": "modules/drupal",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "joomla": {
     "description": "Joomla component: admin configuration and license actions via the API.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-joomla-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-joomla-3.0.8.zip",
     "name": "Joomla Component",
     "path": "modules/joomla",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "magento": {
     "description": "Magento 2 module: mints a license when an order is paid, with admin configuration.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-magento-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-magento-3.0.8.zip",
     "name": "Magento Module",
     "path": "modules/magento",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "odoo": {
     "description": "Odoo module: license model, portal page and minting on sale order confirmation.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-odoo-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-odoo-3.0.8.zip",
     "name": "Odoo Module",
     "path": "modules/odoo",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "opencart": {
     "description": "OpenCart extension: admin settings and license minting on order completion.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-opencart-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-opencart-3.0.8.zip",
     "name": "OpenCart Extension",
     "path": "modules/opencart",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "prestashop": {
     "description": "PrestaShop module: mints a license when an order reaches a paid status.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-prestashop-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-prestashop-3.0.8.zip",
     "name": "PrestaShop Module",
     "path": "modules/prestashop",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "shopware": {
     "description": "Shopware 6 plugin: mints a license when an order is placed/paid.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-shopware-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-shopware-3.0.8.zip",
     "name": "Shopware Plugin",
     "path": "modules/shopware",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "whmcs": {
     "description": "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-whmcs-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-whmcs-3.0.8.zip",
     "name": "WHMCS Module",
     "path": "modules/whmcs",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "woocommerce": {
     "description": "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-woocommerce-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-woocommerce-3.0.8.zip",
     "name": "WooCommerce Plugin",
     "path": "modules/woocommerce",
-    "version": "3.0.7"
+    "version": "3.0.8"
   },
   "wordpress": {
     "description": "WordPress plugin (no WooCommerce): license minting on demand, a shortcode and a My Licenses page.",
-    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.7/licensemanagerpro-wordpress-3.0.7.zip",
+    "download": "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-wordpress-3.0.8.zip",
     "name": "WordPress Plugin",
     "path": "modules/wordpress",
-    "version": "3.0.7"
+    "version": "3.0.8"
   }
 }
