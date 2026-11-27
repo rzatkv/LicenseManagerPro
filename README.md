@@ -303,7 +303,7 @@ Ten platform modules live in `modules/`, one per platform, each with `version.js
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **359 passed** (v3.0.7).
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it.
 
 ```bash
 cd backend
