@@ -247,3 +247,68 @@ def test_validate_setting_value_rejects_garbage():
             validate_setting_value(key, "maybe")
         validate_setting_value(key, "on")
         validate_setting_value(key, "off")
+
+
+def _js_object_map(text, anchor):
+    """Parse `anchor = {event: [...], ...}` in JS source into
+    {event: [items]} (single-line entries only)."""
+    start = text.index(anchor)
+    end = text.index("\n};", start)
+    body = text[start:end]
+    out = {}
+    for m in re.finditer(r'(\w+): \[([^\]]*)\]', body):
+        out[m.group(1)] = re.findall(r'"([^"]+)"', m.group(2))
+    return out
+
+
+def test_notification_texts_and_patterns_match_frontend():
+    """v3.0.7: the editable texts + ippanel pattern codes exist once per
+    side — same events, same per-event variables, same defaults, same
+    pattern param keys and length caps. Edit one side without the other
+    and this fails loudly instead of drifting silently."""
+    from services.notify_channels import (
+        DEFAULT_TEXTS,
+        EVENTS,
+        MAX_PATTERN_CODE_LENGTH,
+        MAX_TEXT_LENGTH,
+        NOTIFY_TEXT_VARIABLES,
+        PATTERN_PARAM_KEYS,
+    )
+
+    # Events: backend, Settings page, demo mock.
+    settings_js = _read(FRONTEND / "pages" / "Settings.js")
+    assert _quoted_list(settings_js, r"const NOTIFY_EVENTS") == set(EVENTS)
+    demo = _read(FRONTEND / "utils" / "demoData.js")
+    assert _quoted_list(demo, r"const NOTIFY_EVENTS") == set(EVENTS)
+
+    # Per-event template variables: backend vs Settings page.
+    assert _js_object_map(settings_js, "const NOTIFY_TEXT_VARIABLES = {") == {
+        event: list(NOTIFY_TEXT_VARIABLES[event]) for event in EVENTS
+    }
+
+    # Defaults: backend vs demo mock (byte-identical hardcoded output).
+    assert re.search(
+        r'const DEFAULT_NOTIFY_TEXT = \{sms: "\{title\}: \{message\}", telegram: "\{title\}\\n\{message\}"\}',
+        demo,
+    ), "demo DEFAULT_NOTIFY_TEXT drifted from the backend defaults"
+    for event in EVENTS:
+        assert DEFAULT_TEXTS[event] == {
+            "sms": "{title}: {message}",
+            "telegram": "{title}\n{message}",
+        }
+
+    # Pattern params: backend vs demo mock, same keys and cap.
+    assert _quoted_list(demo, r"const PATTERN_PARAM_KEYS") == set(PATTERN_PARAM_KEYS)
+    assert re.search(
+        rf"const MAX_PATTERN_CODE_LENGTH = {MAX_PATTERN_CODE_LENGTH};", demo
+    ), "demo pattern-code cap drifted"
+    assert re.search(
+        rf"const MAX_NOTIFY_TEXT_LENGTH = {MAX_TEXT_LENGTH};", demo
+    ), "demo text cap drifted"
+
+    # The pattern send only ever carries the listed variables.
+    assert set(PATTERN_PARAM_KEYS) == set(NOTIFY_TEXT_VARIABLES["license_expiring"]) | {
+        "title",
+        "message",
+        "role",
+    }

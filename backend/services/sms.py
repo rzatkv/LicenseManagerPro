@@ -126,6 +126,40 @@ def active_provider(db: Session) -> str:
     return get_sms_config(db).get("active_provider") or ""
 
 
+def send_pattern_sms(db: Session, to: str, pattern_code: str, params: dict) -> bool:
+    """Send one ippanel PATTERN sms (v3.0.7).
+
+    ippanel-only: returns False when ippanel is not the active
+    provider or is not configured. The Edge pattern send allows
+    exactly ONE recipient per call — callers loop per phone.
+    Failures are logged, never raised.
+    """
+    cfg = get_sms_config(db)
+    if cfg.get("active_provider") != "ippanel":
+        return False
+    fields = (cfg.get("providers") or {}).get("ippanel") or {}
+    try:
+        from services import sms_ippanel as ippanel
+
+        try:
+            ippanel.send_pattern(
+                fields["api_key"], fields.get("sender", ""), pattern_code, to, params
+            )
+        except ippanel.IppanelAuthError:
+            logger.warning("SMS pattern send via ippanel failed: API key rejected")
+            return False
+        except ippanel.IppanelError as exc:
+            logger.warning("SMS pattern send via ippanel failed: %s", exc)
+            return False
+        return True
+    except KeyError:
+        logger.warning("SMS provider ippanel is active but missing credentials")
+        return False
+    except Exception as exc:  # noqa: BLE001 - provider failure must not break callers
+        logger.warning("SMS pattern send via ippanel failed: %s", exc)
+        return False
+
+
 def send_sms(db: Session, to: str, text: str) -> bool:
     """Send one SMS via the single active provider. Returns False when
     no provider is active/configured or the provider call fails (the

@@ -14,7 +14,7 @@ import {APP_VERSION} from "../version";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v20";
+const STORAGE_KEY = "lmp-demo-db-v21";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -26,6 +26,7 @@ const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/release
 // these; the Dashboard in demo mode tries the live file from
 // raw.githubusercontent.com first and falls back to these when offline.
 const NEWS_ITEMS = [
+    {id: "v307-release", title: {en: "LicenseManagerPro v3.0.7 is out", fa: "نسخه ۳٫۰٫۷ لایسنس منیجر پرو منتشر شد"}, body: {en: "Editable SMS and Telegram notification texts for every event, plus IPPanel pattern sending — set a pattern code per event and the SMS goes out as a pattern instead of free text.", fa: "متن‌های قابل ویرایش برای اعلان‌های پیامکی و تلگرامی هر رویداد، به‌علاوه ارسال الگویی آی‌پنل — برای هر رویداد یک کد الگو بگذارید تا پیامک به‌صورت الگویی ارسال شود نه متن آزاد."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v306-release", title: {en: "LicenseManagerPro v3.0.6 is out", fa: "نسخه ۳٫۰٫۶ لایسنس منیجر پرو منتشر شد"}, body: {en: "Collapsible dashboard widgets, fixed dropdowns, API docs code boxes that grow to fit their content, a rational menu grouping, a duplicates cleanup and a full security audit with patches.", fa: "ویجت‌های داشبورد که جمع و باز می‌شوند، رفع مشکل دراپ‌داون‌ها، باکس‌های کد مستندات API که به اندازه محتوایشان بلند می‌شوند، طبقه‌بندی عقلانی منوها، پاک‌سازی موارد تکراری و ممیزی امنیتی کامل با پچ‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v305-release", title: {en: "LicenseManagerPro v3.0.5 is out", fa: "نسخه ۳٫۰٫۵ لایسنس منیجر پرو منتشر شد"}, body: {en: "Vazirmatn Persian font, grouped menus, a Telegram-style bottom nav, full glass design, a live News section, prettier gradient cards, 20 themes and bounded section sizes.", fa: "فونت فارسی وزیرمتن، منوهای طبقه‌بندی‌شده، منوی پایین به سبک تلگرام، طراحی کاملاً شیشه‌ای، بخش اخبار زنده، کارت‌های گرادیانی زیباتر، ۲۰ تم و اندازه‌های محدود برای بخش‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "news-howto", title: {en: "How news works in this panel", fa: "اخبار در این پنل چطور کار می‌کند؟"}, body: {en: "Edit this file (news.json) in the repository and the news appears on every panel dashboard automatically — no deploy needed for the demo, which reads the file straight from GitHub.", fa: "همین فایل (news.json) را در مخزن ویرایش کنید تا خبرها به‌صورت خودکار روی داشبورد همه پنل‌ها بیایند؛ نسخه دمو فایل را مستقیم از گیت‌هاب می‌خواند و نیازی به استقرار دوباره ندارد."}, date: "2026-11-27", link: null},
@@ -222,10 +223,12 @@ function seed() {
             email_config: JSON.stringify({}),
             telegram_config: JSON.stringify({bot_token: "", chat_ids: []}),
             notification_channels: JSON.stringify({}),
+            notification_texts: JSON.stringify({}),
+            sms_ippanel_patterns: JSON.stringify({}),
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.6", message: "Dashboard: collapsible widgets, fixed dropdowns, API docs code boxes that grow to fit, rational menu groups, duplicates cleanup and a security audit — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.7", message: "Editable SMS and Telegram notification texts, IPPanel pattern sending, and a test-send that exercises the pattern path — see Settings → SMS.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -456,7 +459,7 @@ function isValidHostname(value) {
 // Settings the demo mock accepts through PUT /settings/{key} (mirrors the
 // backend allowlist); system-managed keys are rejected, unknown keys 404.
 const EDITABLE_SETTINGS = ["site_name", "logo_url", "daily_request_limit", "panel_domain", "maintenance_mode", "maintenance_message", "date_calendar", "strip_4byte", "twofa_channel", "system_encoding", "product_notes_enabled"];
-const SYSTEM_MANAGED_SETTINGS = ["app_version", "latest_version", "last_updated", "license_security", "captcha_config", "sms_config", "email_config", "telegram_config", "notification_channels"];
+const SYSTEM_MANAGED_SETTINGS = ["app_version", "latest_version", "last_updated", "license_security", "captcha_config", "sms_config", "email_config", "telegram_config", "notification_channels", "notification_texts", "sms_ippanel_patterns"];
 
 function validateSettingValue(key, value) {
     if (key === "panel_domain") {
@@ -604,10 +607,93 @@ function notificationChannels() {
     return merged;
 }
 
+// ---- Notification texts (v3.0.7): editable SMS/Telegram templates ----
+// Defaults reproduce the pre-v3.0.7 hardcoded output byte-for-byte.
+const NOTIFY_TEXT_CHANNELS = ["sms", "telegram"];
+const DEFAULT_NOTIFY_TEXT = {sms: "{title}: {message}", telegram: "{title}\n{message}"};
+const MAX_NOTIFY_TEXT_LENGTH = 2000;
+
+function notificationTexts() {
+    let stored = {};
+    try {
+        stored = JSON.parse(db.settings.notification_texts || "{}");
+    } catch {
+        stored = {};
+    }
+    const merged = {};
+    for (const event of NOTIFY_EVENTS) {
+        merged[event] = {sms: DEFAULT_NOTIFY_TEXT.sms, telegram: DEFAULT_NOTIFY_TEXT.telegram, ...(stored[event] || {})};
+    }
+    return merged;
+}
+
+// Mirror of backend render_notification_text: {title}/{message} plus
+// context vars; unknown placeholders stay literal, never a crash.
+function renderNotificationText(template, title, message, context) {
+    const full = {...(context || {}), title, message};
+    return String(template).replace(/\{([A-Za-z0-9_]+)\}/g, (m, name) =>
+        full[name] !== undefined ? String(full[name]) : m
+    );
+}
+
+// ---- IPPanel pattern codes (v3.0.7, added scope) ------------------------
+// Per-event pattern code, ippanel only; empty = free text via webservice.
+const MAX_PATTERN_CODE_LENGTH = 200;
+const PATTERN_PARAM_KEYS = ["title", "message", "license_key", "product_name", "expiry_date", "days_left", "user_email", "role"];
+
+function ippanelPatterns() {
+    let stored = {};
+    try {
+        stored = JSON.parse(db.settings.sms_ippanel_patterns || "{}");
+    } catch {
+        stored = {};
+    }
+    const merged = {};
+    for (const event of NOTIFY_EVENTS) {
+        merged[event] = typeof stored[event] === "string" ? stored[event] : "";
+    }
+    return merged;
+}
+
+// Mirror of backend build_pattern_params: title/message + context vars,
+// stringified; missing/empty values omitted.
+function buildPatternParams(title, message, context) {
+    const full = {...(context || {}), title, message};
+    const params = {};
+    for (const key of PATTERN_PARAM_KEYS) {
+        const value = full[key];
+        if (value === undefined || value === null) continue;
+        const text = String(value);
+        if (text === "") continue;
+        params[key] = text;
+    }
+    return params;
+}
+
+// Sample values for the demo test-send (same values as the backend).
+const SAMPLE_PATTERN_CONTEXT = {
+    license_created: {license_key: "LIC-DEMO-1234-5678", product_name: "CloudPanel Pro", expiry_date: "2026-12-31", user_email: "customer@example.com"},
+    license_reissued: {license_key: "LIC-DEMO-1234-5678", product_name: "CloudPanel Pro", expiry_date: "2026-12-31", user_email: "customer@example.com"},
+    license_expiring: {license_key: "LIC-DEMO-1234-5678", product_name: "CloudPanel Pro", expiry_date: "2026-12-31", days_left: "7", user_email: "customer@example.com"},
+    license_expired: {license_key: "LIC-DEMO-1234-5678", product_name: "CloudPanel Pro", expiry_date: "2026-12-31", user_email: "customer@example.com"},
+    webhook_failed: {},
+    webhook_blocked: {},
+    user_created: {user_email: "new@example.com", role: "support"},
+    api_key_expiring: {},
+};
+
+function samplePatternParams(event) {
+    return buildPatternParams("License created", "License LIC-DEMO-1234-5678 for CloudPanel Pro was created.", SAMPLE_PATTERN_CONTEXT[event] || {});
+}
+
 // Per-channel log (v3.0): records a send outcome in the audit trail so
 // the Logs page filters + sending charts see it. Demo only: no real send.
-function logChannelSend(channel, event, ok, to) {
-    logAudit(`notify.${channel}_${ok ? "sent" : "failed"}`, "notification", null, {event, channel, to: to || ""}, "system");
+// `extra` (e.g. mode/pattern_code) is merged into the audit details.
+function logChannelSend(channel, event, ok, to, text, extra) {
+    const details = {event, channel, to: to || ""};
+    if (text !== undefined) details.text = text;
+    if (extra) Object.assign(details, extra);
+    logAudit(`notify.${channel}_${ok ? "sent" : "failed"}`, "notification", null, details, "system");
 }
 
 // Demo "send": simulates an outbound send per the channel matrix and
@@ -616,9 +702,22 @@ function notifyEvent(event, title, message, type, link, context) {
     notify(title, message, type, link, null);
     const channels = notificationChannels();
     if (!channels[event]) return;
+    const texts = notificationTexts();
+    const ctx = {...(context || {}), site_name: "License Manager Pro"};
     if (channels[event].email) logChannelSend("email", event, true, "admin@demo");
-    if (channels[event].sms) logChannelSend("sms", event, true, "+989000000000");
-    if (channels[event].telegram) logChannelSend("telegram", event, true, "");
+    if (channels[event].sms) {
+        // v3.0.7: pattern path when ippanel is active and a code is set
+        // for the event — the demo log records the mode + params, so the
+        // Logs page shows what a real send would have done.
+        const cfg = smsConfig();
+        const code = ippanelPatterns()[event] || "";
+        if (cfg.active_provider === "ippanel" && code) {
+            logChannelSend("sms", event, true, "+989000000000", `[pattern ${code}]`, {mode: "pattern", pattern_code: code, params: buildPatternParams(title, message, ctx)});
+        } else {
+            logChannelSend("sms", event, true, "+989000000000", renderNotificationText(texts[event].sms, title, message, ctx), {mode: "webservice"});
+        }
+    }
+    if (channels[event].telegram) logChannelSend("telegram", event, true, "", renderNotificationText(texts[event].telegram, title, message, ctx));
 }
 
 function effectiveStatus(license) {
@@ -1180,7 +1279,10 @@ export async function mockRequest(method, endpoint, body) {
             };
             db.licenses.unshift(created);
             logAudit("license.create", "license", created.id, {product: created.product, owner_email: created.owner_email});
-            notifyEvent("license_created", "License created", `License ${created.key} (${created.product}) was created.`, "success", "/licenses");
+            // v3.0.7: pass the same context the backend sends, so the
+            // editable SMS/Telegram texts (and pattern params) render
+            // the real values in the demo too.
+            notifyEvent("license_created", "License created", `License ${created.key} (${created.product}) was created.`, "success", "/licenses", {license_key: created.key, product_name: created.product, expiry_date: created.expires_at, user_email: created.owner_email});
             if (product && product.webhook_url) recordDelivery(product.id, "license.created", product.webhook_url);
             save();
             return {...created};
@@ -1517,7 +1619,8 @@ export async function mockRequest(method, endpoint, body) {
             };
             db.users.push(created);
             logAudit("user.create", "user", created.id, {email: created.email, role: created.role});
-            notifyEvent("user_created", "User created", `User ${created.email} (${created.role}) was created.`, "info", "/users");
+            // v3.0.7: same context the backend sends for user_created.
+            notifyEvent("user_created", "User created", `User ${created.email} (${created.role}) was created.`, "info", "/users", {user_email: created.email, role: created.role});
             save();
             return {...created};
         }
@@ -1773,7 +1876,7 @@ export async function mockRequest(method, endpoint, body) {
     // Specific config routes (sms/email/telegram/notification-channels,
     // handled below) must not be swallowed by this generic single-setting
     // block — it runs first in the file.
-    const CONFIG_ROUTES = ["sms-config", "email-config", "telegram-config", "notification-channels"];
+    const CONFIG_ROUTES = ["sms-config", "email-config", "telegram-config", "notification-channels", "notification-texts", "notification-patterns"];
     if (parts[0] === "settings" && !CONFIG_ROUTES.includes(parts[1])) {
         if (method === "GET" && parts.length === 1) {
             const {captcha_config: _hidden, sms_config: _sms, email_config: _email, telegram_config: _tg, ...rest} = db.settings;
@@ -1935,6 +2038,53 @@ export async function mockRequest(method, endpoint, body) {
         }
     }
 
+    if (parts[0] === "settings" && parts[1] === "notification-texts") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(ADMIN_MANAGER);
+            return notificationTexts();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin"]); // admin-only: managers can read, not change
+            const patch = body || {};
+            for (const event of Object.keys(patch)) {
+                if (!NOTIFY_EVENTS.includes(event)) fail(400, `Unknown notification event: ${event}`);
+                const texts = patch[event] || {};
+                if (typeof texts !== "object" || texts === null || Array.isArray(texts)) fail(400, `Texts for ${event} must be an object`);
+                for (const channel of Object.keys(texts)) {
+                    if (!NOTIFY_TEXT_CHANNELS.includes(channel)) fail(400, `Unknown channel: ${channel}`);
+                    if (typeof texts[channel] !== "string") fail(400, `Text for ${event}/${channel} must be a string`);
+                    if (texts[channel].length > MAX_NOTIFY_TEXT_LENGTH) fail(400, `Text for ${event}/${channel} exceeds ${MAX_NOTIFY_TEXT_LENGTH} characters`);
+                }
+            }
+            db.settings.notification_texts = JSON.stringify(patch);
+            logAudit("setting.update", "setting", "notification_texts", {});
+            save();
+            return notificationTexts();
+        }
+    }
+
+    if (parts[0] === "settings" && parts[1] === "notification-patterns") {
+        if (method === "GET" && parts.length === 2) {
+            requireRole(ADMIN_MANAGER);
+            return ippanelPatterns();
+        }
+        if (method === "PUT" && parts.length === 2) {
+            requireRole(["admin"]); // admin-only: managers can read, not change
+            const patch = body || {};
+            for (const event of Object.keys(patch)) {
+                if (!NOTIFY_EVENTS.includes(event)) fail(400, `Unknown notification event: ${event}`);
+                if (typeof patch[event] !== "string") fail(400, `Pattern code for ${event} must be a string`);
+                if (patch[event].length > MAX_PATTERN_CODE_LENGTH) fail(400, `Pattern code for ${event} exceeds ${MAX_PATTERN_CODE_LENGTH} characters`);
+            }
+            const cleaned = {};
+            for (const event of Object.keys(patch)) cleaned[event] = patch[event].trim();
+            db.settings.sms_ippanel_patterns = JSON.stringify(cleaned);
+            logAudit("setting.update", "setting", "sms_ippanel_patterns", {});
+            save();
+            return ippanelPatterns();
+        }
+    }
+
     // ---- Audit logs ---------------------------------------------------------
     if (parts[0] === "audit-logs" && method === "GET" && parts.length === 1) {
         requireRole(ADMIN_MANAGER);
@@ -2007,9 +2157,26 @@ export async function mockRequest(method, endpoint, body) {
         requireRole(["admin"]);
         const cfg = smsConfig();
         const sent = Boolean(cfg.active_provider);
-        logAudit(`notify.sms_${sent ? "sent" : "failed"}`, "notification", null, {event: "sms_test", channel: "sms", to: (body && body.to) || ""}, "system");
+        // v3.0.7: an event exercises exactly what that event would send
+        // — the pattern path (with sample params) when ippanel is active
+        // and a code is set, else the editable SMS text for the event.
+        let mode = "webservice";
+        let patternCode = "";
+        const event = (body && body.event) || null;
+        if (event !== null && !NOTIFY_EVENTS.includes(event)) fail(400, `Unknown notification event: ${event}`);
+        if (event !== null) {
+            const code = ippanelPatterns()[event] || "";
+            if (cfg.active_provider === "ippanel" && code) {
+                mode = "pattern";
+                patternCode = code;
+            }
+        }
+        const details = {event: "sms_test", channel: "sms", to: (body && body.to) || "", mode};
+        if (mode === "pattern") details.pattern_code = patternCode;
+        if (event !== null) details.test_event = event;
+        logAudit(`notify.sms_${sent ? "sent" : "failed"}`, "notification", null, details, "system");
         save();
-        return {sent, provider: cfg.active_provider || ""};
+        return {sent, provider: cfg.active_provider || "", mode, event};
     }
     // v3.0: sending stats — per-day, per-channel sent/failed counts
     // aggregated from the demo audit-log channel stream.

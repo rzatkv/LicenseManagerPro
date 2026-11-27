@@ -50,6 +50,10 @@ SYSTEM_MANAGED: frozenset[str] = frozenset(
         "email_config",
         "telegram_config",
         "notification_channels",
+        # v3.0.7: editable texts + ippanel pattern codes have their own
+        # typed endpoints too — never via the generic settings PUT.
+        "notification_texts",
+        "sms_ippanel_patterns",
     }
 )
 

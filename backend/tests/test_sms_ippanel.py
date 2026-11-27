@@ -321,7 +321,14 @@ def test_sms_test_send_real(client, auth_headers, monkeypatch):
         "/api/sms/test", json={"to": TO, "message": "ping"}, headers=auth_headers
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"sent": True, "provider": "ippanel"}
+    # v3.0.7: the test-send response also reports the path taken
+    # ("webservice" here — no event was given) and the tested event.
+    assert resp.json() == {
+        "sent": True,
+        "provider": "ippanel",
+        "mode": "webservice",
+        "event": None,
+    }
     assert len(fake.calls) == 1
     # Logged so the Logs page's SMS filter + sending charts see it.
     logs = client.get("/api/audit-logs?channel=sms", headers=auth_headers)

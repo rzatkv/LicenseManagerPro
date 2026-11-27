@@ -35,6 +35,21 @@ const SMS_PROVIDER_FIELDS = {
     faraz: ["username", "password", "sender"],
 };
 const NOTIFY_EVENTS = ["license_created", "license_reissued", "license_expiring", "license_expired", "webhook_failed", "webhook_blocked", "user_created", "api_key_expiring"];
+// v3.0.7: context variables each event provides to its SMS/Telegram
+// templates (mirrors backend NOTIFY_TEXT_VARIABLES). {title} and
+// {message} are always available on top of these.
+const NOTIFY_TEXT_VARIABLES = {
+    license_created: ["license_key", "product_name", "expiry_date", "user_email"],
+    license_reissued: ["license_key", "product_name", "expiry_date", "user_email"],
+    license_expiring: ["license_key", "product_name", "expiry_date", "days_left", "user_email"],
+    license_expired: ["license_key", "product_name", "expiry_date", "user_email"],
+    webhook_failed: [],
+    webhook_blocked: [],
+    user_created: ["user_email", "role"],
+    api_key_expiring: [],
+};
+// v3.0.7: defaults reproduce the pre-v3.0.7 hardcoded output exactly.
+const DEFAULT_NOTIFY_TEXT = {sms: "{title}: {message}", telegram: "{title}\n{message}"};
 const TEMPLATE_NAMES = ["twofa_code", "license_created", "license_renewed", "license_expiring", "license_expired", "user_created"];
 const TEMPLATE_VARIABLES = {
     twofa_code: ["code"],
@@ -126,6 +141,15 @@ function Settings() {
     const [email, setEmail] = useState({smtp_host: "", smtp_port: 587, encryption: "tls", username: "", password: "", from_address: "", from_name: "", signature: "", templates: {}});
     const [telegram, setTelegram] = useState({bot_token: "", chat_ids: "", token_configured: false});
     const [channels, setChannels] = useState({});
+    // v3.0.7: editable SMS/Telegram texts, per event × channel. Global
+    // settings (same as the channel matrix), not per-admin.
+    const [texts, setTexts] = useState({});
+    // v3.0.7 (added scope): per-event IPPanel pattern codes. Global
+    // setting, ippanel only; empty means the event sends as free text.
+    const [patterns, setPatterns] = useState({});
+    // SMS test-send event (v3.0.7): the test exercises exactly what
+    // this event would send — the pattern path when a code is set.
+    const [smsTestEvent, setSmsTestEvent] = useState("license_created");
     const [telegramTest, setTelegramTest] = useState(null);
     // SMS test-send (v3.0): a REAL send via POST /api/sms/test to the
     // number typed here, using the single active provider.
@@ -180,6 +204,14 @@ function Settings() {
                 const ch = await get("/api/settings/notification-channels");
                 setChannels(ch || {});
             } catch (err) { /* channels stay at defaults */ }
+            try {
+                const tx = await get("/api/settings/notification-texts");
+                setTexts(tx || {});
+            } catch (err) { /* texts stay at defaults */ }
+            try {
+                const pt = await get("/api/settings/notification-patterns");
+                setPatterns(pt || {});
+            } catch (err) { /* patterns stay empty */ }
             setLoaded(true);
         })();
     }, [applySettingsMap]);
@@ -263,6 +295,8 @@ function Settings() {
             }
             await put("/api/settings/sms-config", {active_provider: sms.active_provider || null, providers});
             await put("/api/settings/notification-channels", channels);
+            await put("/api/settings/notification-texts", texts);
+            await put("/api/settings/notification-patterns", patterns);
             toast.success(t("settings.saved"));
         } catch (err) {
             toast.error(err.message || t("settings.updateFailed"));
@@ -311,6 +345,7 @@ function Settings() {
             if (telegram.bot_token) payload.bot_token = telegram.bot_token;
             await put("/api/settings/telegram-config", payload);
             await put("/api/settings/notification-channels", channels);
+            await put("/api/settings/notification-texts", texts);
             setTelegram((prev) => ({...prev, bot_token: "", token_configured: prev.token_configured || !!telegram.bot_token}));
             toast.success(t("settings.saved"));
         } catch (err) {
@@ -335,16 +370,20 @@ function Settings() {
 
     // SMS test-send (v3.0): REALLY sends via the active provider —
     // POST /api/sms/test returns sent:false (never a fake "sent") when
-    // no provider is active or the provider rejects the call.
+    // no provider is active or the provider rejects the call. v3.0.7:
+    // the chosen event is sent along, so the test exercises exactly
+    // what that event would send — the ippanel pattern path (with
+    // sample params) when a pattern code is set for the event, else
+    // the editable SMS text for that event.
     const handleSmsTest = async () => {
-        setSmsTest({sending: true, ok: null});
+        setSmsTest({sending: true, ok: null, mode: null});
         try {
-            const res = await post("/api/sms/test", {to: smsTestNumber.trim()});
-            setSmsTest({sending: false, ok: !!res.sent});
+            const res = await post("/api/sms/test", {to: smsTestNumber.trim(), event: smsTestEvent});
+            setSmsTest({sending: false, ok: !!res.sent, mode: res.mode || "webservice"});
             if (res.sent) toast.success(t("settings.testSendOk"));
             else toast.error(t("settings.testSendFail"));
         } catch (err) {
-            setSmsTest({sending: false, ok: false});
+            setSmsTest({sending: false, ok: false, mode: null});
             toast.error(err.message || t("settings.testSendFail"));
         }
     };
@@ -404,6 +443,97 @@ function Settings() {
         }
         return text;
     };
+
+    // --- Editable SMS/Telegram texts (v3.0.7) ---------------------------
+    const setText = (event, channel, value) => {
+        setTexts((prev) => ({
+            ...prev,
+            [event]: {...(prev[event] || {}), [channel]: value},
+        }));
+    };
+
+    const getText = (event, channel) => {
+        const stored = texts[event] && texts[event][channel];
+        return stored === undefined || stored === null ? DEFAULT_NOTIFY_TEXT[channel] : stored;
+    };
+
+    // Live preview with sample values. Unknown placeholders are left
+    // literal — exactly like the backend render.
+    const renderTextPreview = (template) => {
+        const sampleTitle = "License created";
+        const sampleMessage = "License LIC-DEMO-1234-5678 for CloudPanel Pro was created.";
+        const values = {title: sampleTitle, message: sampleMessage, ...TEMPLATE_SAMPLES};
+        return String(template || "").replace(/\{([A-Za-z0-9_]+)\}/g, (m, name) =>
+            values[name] !== undefined ? values[name] : m
+        );
+    };
+
+    const notifyTextEditor = (channel) => (
+        <div className="glass-card settings-section">
+            <h3>{t("settings.notifyTextsTitle")}</h3>
+            <p className="hint">{t("settings.notifyTextsHint")}</p>
+            {NOTIFY_EVENTS.map((event) => {
+                const vars = ["title", "message", ...(NOTIFY_TEXT_VARIABLES[event] || [])];
+                const patternCode = (patterns[event] || "").trim();
+                return (
+                    <div key={event} className="email-template-card">
+                        <h4>
+                            {t(`settings.notifyEvents.${event}`)}{" "}
+                            {channel === "sms" && (
+                                <span
+                                    className={`badge${patternCode ? " badge-accent" : ""}`}
+                                    data-notify-mode={event}
+                                >
+                                    {patternCode ? t("settings.notifyPatternBadge") : t("settings.notifyFreeTextBadge")}
+                                </span>
+                            )}
+                        </h4>
+                        <p className="hint">{t("settings.emailTemplateVars")}: {vars.map((v) => `{${v}}`).join(" ")}</p>
+                        <label className="settings-field">
+                            {t(`settings.notifyTexts${channel === "sms" ? "Sms" : "Telegram"}`)}
+                            <textarea
+                                rows={2}
+                                data-notify-text={`${channel}:${event}`}
+                                value={getText(event, channel)}
+                                onChange={(e) => setText(event, channel, e.target.value)}
+                            />
+                        </label>
+                        {channel === "sms" && (
+                            <>
+                                <label className="settings-field">
+                                    {t("settings.notifyPatternCode")}
+                                    <input
+                                        type="text"
+                                        data-notify-pattern={event}
+                                        placeholder={t("settings.notifyPatternPlaceholder")}
+                                        value={patterns[event] || ""}
+                                        onChange={(e) => setPatterns((prev) => ({...prev, [event]: e.target.value}))}
+                                    />
+                                </label>
+                                <p className="hint">
+                                    {t("settings.notifyPatternHint")}: {vars.map((v) => `{${v}}`).join(" ")}
+                                </p>
+                            </>
+                        )}
+                        <details className="email-template-preview">
+                            <summary>{t("settings.emailTemplatePreview")}</summary>
+                            <pre data-notify-preview={`${channel}:${event}`}>{renderTextPreview(getText(event, channel))}</pre>
+                        </details>
+                        <div className="row-actions">
+                            <button
+                                type="button"
+                                className="btn-ghost"
+                                data-notify-reset={`${channel}:${event}`}
+                                onClick={() => setText(event, channel, DEFAULT_NOTIFY_TEXT[channel])}
+                            >
+                                {t("settings.notifyTextsReset")}
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     const channelToggles = (channel) => (
         <div className="glass-card settings-section">
@@ -854,6 +984,14 @@ function Settings() {
                         })}
                         <div className="row-actions">
                             <label className="settings-field sms-test-field">
+                                {t("settings.smsTestEvent")}
+                                <select value={smsTestEvent} onChange={(e) => setSmsTestEvent(e.target.value)}>
+                                    {NOTIFY_EVENTS.map((ev) => (
+                                        <option key={ev} value={ev}>{t(`settings.notifyEvents.${ev}`)}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="settings-field sms-test-field">
                                 {t("settings.smsTestNumber")}
                                 <input
                                     type="tel"
@@ -868,11 +1006,15 @@ function Settings() {
                             {smsTest && !smsTest.sending && (
                                 <span className={smsTest.ok ? "test-ok" : "test-fail"}>
                                     {smsTest.ok ? t("settings.testSendOk") : t("settings.testSendFail")}
+                                    {smsTest.ok && smsTest.mode && (
+                                        <> ({smsTest.mode === "pattern" ? t("settings.smsTestModePattern") : t("settings.smsTestModeWebservice")})</>
+                                    )}
                                 </span>
                             )}
                         </div>
                     </div>
                     {channelToggles("sms")}
+                    {notifyTextEditor("sms")}
                     <div className="settings-save-row">
                         <button type="button" onClick={handleSaveSms} disabled={saving || !loaded}>{t("common.save")}</button>
                     </div>
@@ -1017,6 +1159,7 @@ function Settings() {
                         </div>
                     </div>
                     {channelToggles("telegram")}
+                    {notifyTextEditor("telegram")}
                     <div className="settings-save-row">
                         <button type="button" onClick={handleSaveTelegram} disabled={saving || !loaded}>{t("common.save")}</button>
                     </div>

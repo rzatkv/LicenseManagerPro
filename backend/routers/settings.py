@@ -263,6 +263,65 @@ def update_notification_channels(
     return matrix
 
 
+@router.get("/notification-texts")
+def get_notification_texts(
+    db: Session = Depends(get_db),
+    _current_user=Depends(require_permission("settings:write")),
+):
+    """The editable SMS/Telegram texts (v3.0.7): for every event, the
+    template used for the SMS and the Telegram message. Defaults
+    reproduce the pre-v3.0.7 hardcoded output byte-for-byte."""
+    return notify_channels_service.get_notification_texts(db)
+
+
+@router.put("/notification-texts")
+def update_notification_texts(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("notifications:write")),
+):
+    """Replace the editable SMS/Telegram texts (v3.0.7). Unknown events
+    or channels, non-string values and over-long texts are rejected
+    with 400. Admin-only: a manager can read the texts but cannot
+    change them."""
+    try:
+        matrix = notify_channels_service.set_notification_texts(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    log_audit(db, current_user.email, "setting.update", "setting",
+              "notification_texts", {})
+    return matrix
+
+
+@router.get("/notification-patterns")
+def get_notification_patterns(
+    db: Session = Depends(get_db),
+    _current_user=Depends(require_permission("settings:write")),
+):
+    """The per-event IPPanel pattern codes (v3.0.7): one code per event,
+    ippanel only; empty means the event sends as free text."""
+    return notify_channels_service.get_ippanel_patterns(db)
+
+
+@router.put("/notification-patterns")
+def update_notification_patterns(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("notifications:write")),
+):
+    """Replace the per-event IPPanel pattern codes (v3.0.7). Unknown
+    events, non-string values and over-long codes are rejected with
+    400. Admin-only: a manager can read the codes but cannot change
+    them."""
+    try:
+        mapping = notify_channels_service.set_ippanel_patterns(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    log_audit(db, current_user.email, "setting.update", "setting",
+              "sms_ippanel_patterns", {})
+    return mapping
+
+
 @router.get("", response_model=dict)
 def get_all_system_settings(
     db: Session = Depends(get_db),

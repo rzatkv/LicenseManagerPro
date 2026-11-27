@@ -35,6 +35,11 @@ class SmsTestRequest(BaseModel):
         default="Test SMS from LicenseManagerPro — your SMS provider is connected.",
         max_length=500,
     )
+    # v3.0.7: optional event — the test then exercises exactly what that
+    # event would send: the pattern path (with sample params) when
+    # ippanel is active and a pattern code is set for the event, else
+    # the editable SMS text for that event with sample values.
+    event: str | None = Field(default=None, max_length=64)
 
 
 @router.get("/balance")
@@ -95,18 +100,65 @@ def test_sms(
     needs to verify the provider can read the balance (sms:read).
 
     400 when no provider is active. The result is honest: ``sent``
-    is True only when the provider call succeeded.
+    is True only when the provider call succeeded. ``mode`` reports
+    which path the test took: "pattern" (ippanel pattern send with
+    sample params) or "webservice" (free text).
     """
+    from services import notify_channels as notify_channels_service
+    from services.settings import get_setting_default
+
     provider = sms_service.active_provider(db)
     if not provider:
         raise HTTPException(status_code=400, detail="No SMS provider is active")
-    sent = sms_service.send_sms(db, payload.to, payload.message)
+    mode = "webservice"
+    pattern_code = ""
+    if payload.event is not None:
+        if payload.event not in notify_channels_service.EVENTS:
+            raise HTTPException(
+                status_code=400, detail=f"Unknown notification event: {payload.event!r}"
+            )
+        code = notify_channels_service.get_ippanel_patterns(db).get(payload.event, "")
+        if provider == "ippanel" and code:
+            # Pattern path: sample params, exactly what the event
+            # would send.
+            params = notify_channels_service.sample_pattern_params(payload.event)
+            sent = sms_service.send_pattern_sms(db, payload.to, code, params)
+            mode = "pattern"
+            pattern_code = code
+        else:
+            # Free-text path: the editable SMS text for this event,
+            # rendered with the same sample values the UI preview uses.
+            site = get_setting_default(db, "site_name", "License Manager Pro")
+            text = notify_channels_service.render_notification_text(
+                notify_channels_service.get_notification_texts(db)[payload.event]["sms"],
+                notify_channels_service.SAMPLE_PATTERN_TITLE,
+                notify_channels_service.SAMPLE_PATTERN_MESSAGE,
+                {
+                    "site_name": site,
+                    **notify_channels_service.SAMPLE_PATTERN_CONTEXT.get(payload.event, {}),
+                },
+                f"{notify_channels_service.SAMPLE_PATTERN_TITLE}: "
+                f"{notify_channels_service.SAMPLE_PATTERN_MESSAGE}",
+            )
+            sent = sms_service.send_sms(db, payload.to, text)
+    else:
+        sent = sms_service.send_sms(db, payload.to, payload.message)
+    details = {
+        "event": "sms_test",
+        "channel": "sms",
+        "to": payload.to,
+        "mode": mode,
+    }
+    if mode == "pattern":
+        details["pattern_code"] = pattern_code
+    if payload.event is not None:
+        details["test_event"] = payload.event
     log_audit(
         db,
         "system",
         f"notify.sms_{'sent' if sent else 'failed'}",
         "notification",
         None,
-        {"event": "sms_test", "channel": "sms", "to": payload.to},
+        details,
     )
-    return {"sent": sent, "provider": provider}
+    return {"sent": sent, "provider": provider, "mode": mode, "event": payload.event}
