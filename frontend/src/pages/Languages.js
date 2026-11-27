@@ -1,8 +1,9 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {usePageSize} from "../utils/responsive";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
@@ -11,7 +12,6 @@ import {en as enDict, fa as faDict, SECTIONS} from "../i18n/translations";
 import "../styles/Languages.css";
 
 const ALL_KEYS = Object.keys(enDict);
-const KEYS_PER_PAGE = 20;
 
 /** Language management (v3.0): lives as its own tab inside Settings
  * (Settings → Languages). The standalone /languages route redirects
@@ -31,6 +31,12 @@ export function LanguagesPanel() {
   const [search, setSearch] = useState("");
   const [section, setSection] = useState(SECTIONS[0]);
   const [keyPage, setKeyPage] = useState(1);
+  // v3.0.9: the keys list has the same live page-size selector as the
+  // other paginated lists — default 20 (the old fixed KEYS_PER_PAGE),
+  // the user's choice persists per list. Changing the size resets to
+  // page 1, like search/section changes above.
+  const [keysPerPage, setKeysPerPage] = usePageSize("languages-keys", 20);
+  useEffect(() => { setKeyPage(1); }, [keysPerPage]);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -116,7 +122,7 @@ export function LanguagesPanel() {
     if (search && !key.toLowerCase().includes(search.toLowerCase()) && !(values[key] || "").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-  const pageKeys = filteredKeys.slice((keyPage - 1) * KEYS_PER_PAGE, keyPage * KEYS_PER_PAGE);
+  const pageKeys = filteredKeys.slice((keyPage - 1) * keysPerPage, keyPage * keysPerPage);
 
   return (
     <div className="languages-panel">
@@ -182,7 +188,7 @@ export function LanguagesPanel() {
               </div>
             ))}
           </div>
-          <Pagination page={keyPage} total={filteredKeys.length} pageSize={KEYS_PER_PAGE} onPageChange={setKeyPage} />
+          <Pagination page={keyPage} total={filteredKeys.length} pageSize={keysPerPage} onPageChange={setKeyPage} onPageSizeChange={setKeysPerPage} />
           {!isBuiltin && <button onClick={handleSave}>{t("languages.save")}</button>}
         </div>
       )}

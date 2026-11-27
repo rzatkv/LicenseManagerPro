@@ -1,8 +1,18 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.8) lives in the [README](README.md#whats-new-in-v308) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.9) lives in the [README](README.md#whats-new-in-v309) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.8 — 2026-11-27
+
+Notification template variables with sample values, as the user asked from his own phone — his example was `%client% عزیز / لایسنس شما ایجاد شد. / کد لایسنس : %license%`:
+
+- **Variables in every channel:** notification templates now support real variables in email, SMS and Telegram — `%client%` (the customer's name), `%license%` (the license code), plus `%var%` aliases for every existing variable (`%product%`, `%expiry%`, `%days%`, `%email%`, `%title%`, `%message%`). All three placeholder styles work everywhere through one shared renderer: `%var%` (WHMCS-style, what the user wrote), `{var}` (the SMS/Telegram style) and `{{var}}` (the email style) — existing templates keep working unchanged.
+- **%client% never renders empty:** the system stores no customer name (a license has only an owner email), so `%client%` resolves from an explicit `client_name` when the event carries one, else the local-part of the owner's email, else «مشتری گرامی» as the fallback.
+- **Variable guide with sample values:** in Settings → Notifications (SMS tab / Telegram tab) and the Email templates editor, every variable is shown as a chip with its sample value (`%client%` → «علی رضایی», `%license%` → «XXXX-XXXX-XXXX-XXXX», `%product%` → «محصول نمونه», `%expiry%` → «۱۴۰۵/۰۹/۰۶», `%days%` → «۷», `%email%` → «client@example.com», `%role%` → «مدیر»). Click a chip to insert the variable at the cursor. The live preview renders the template with the sample values, so the admin sees the final message — the user's example previews as «علی رضایی عزیز / لایسنس شما ایجاد شد. / کد لایسنس : XXXX-XXXX-XXXX-XXXX».
+- **Same guarantees as before:** unknown placeholders stay literal and are logged, never a crash; a failed render falls back to the default text and never breaks the triggering action. The demo mock mirrors the renderer, the samples and the guide.
+- **Version bump:** 3.0.8 everywhere, demo storage key `lmp-demo-db-v22`, `smoke_test_308.py`, all 10 module ZIPs rebuilt at 3.0.8 parity.
 
 ## v3.0.7 — 2026-11-27
 

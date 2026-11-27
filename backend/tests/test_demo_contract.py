@@ -358,3 +358,108 @@ def test_template_variables_match_frontend():
     for name, _ in VARIABLE_GUIDE:
         assert render_template_text(f"%{name}%", ctx, "FB") != f"%{name}%", name
 
+
+
+# ---- ApiDocs sync (v3.0.9) -------------------------------------------------
+# The in-app API docs page (frontend/src/pages/ApiDocs.js) drifted from
+# the backend twice: the validate samples showed the full license record
+# the public endpoint stopped returning in v3.0.6, and the endpoint
+# table missed whole backend areas (2FA, roles, search, SMS, the v3.0.7
+# notification settings). These tests pin the docs to the real backend
+# so the next drift fails loudly instead of shipping stale samples.
+
+def _apidocs_endpoints():
+    """Parse the [method, path, i18n-key] rows of ApiDocs.js ENDPOINTS."""
+    docs = _read(FRONTEND / "pages" / "ApiDocs.js")
+    start = docs.index("const ENDPOINTS = [")
+    end = docs.index("];", start)
+    body = docs[start:end]
+    rows = re.findall(r'\["(GET|POST|PUT|DELETE|PATCH)",\s*"([^"]+)",\s*"([^"]+)"\]', body)
+    assert rows, "no ENDPOINTS rows parsed from ApiDocs.js"
+    return rows, docs
+
+
+def _backend_routes():
+    """(method, normalised path) for every real route — `{param}` names
+    are normalised away, so docs `{id}` matches backend `{license_id}`.
+    Uses app.openapi(): app.routes holds the 20 routers as lazy
+    _IncludedRouter entries (no .path/.methods of their own), so a
+    plain app.routes walk only sees the 5 top-level routes."""
+    from main import app
+
+    routes = set()
+    for path, methods in app.openapi()["paths"].items():
+        norm = re.sub(r"\{[^}]+\}", "{}", path)
+        for method in methods:
+            if method.upper() in ("GET", "POST", "PUT", "DELETE", "PATCH"):
+                routes.add((method.upper(), norm))
+    return routes
+
+
+def test_apidocs_endpoints_exist_in_backend():
+    """Every row of the ApiDocs endpoint table must be a real route."""
+    rows, _ = _apidocs_endpoints()
+    routes = _backend_routes()
+    for method, path, _key in rows:
+        bare = path.split("?")[0]
+        norm = re.sub(r"\{[^}]+\}", "{}", bare)
+        assert (method, norm) in routes, f"docs endpoint missing in backend: {method} {path}"
+
+
+def test_apidocs_covers_new_v309_endpoints():
+    """The v3.0.9 additions (2FA, captcha, roles, search, news, SMS,
+    notification settings, key rotation) must all be in the table."""
+    rows, _ = _apidocs_endpoints()
+    have = {(m, p.split("?")[0]) for m, p, _ in rows}
+    expected = {
+        ("POST", "/api/auth/verify-2fa"),
+        ("GET", "/api/auth/2fa/status"),
+        ("POST", "/api/auth/2fa/setup"),
+        ("POST", "/api/auth/2fa/verify"),
+        ("POST", "/api/auth/2fa/disable"),
+        ("GET", "/api/captcha/config"),
+        ("POST", "/api/captcha/challenge"),
+        ("POST", "/api/api-keys/{id}/rotate"),
+        ("GET", "/api/roles"),
+        ("POST", "/api/roles"),
+        ("GET", "/api/roles/permissions"),
+        ("PUT", "/api/roles/{id}"),
+        ("DELETE", "/api/roles/{id}"),
+        ("GET", "/api/news"),
+        ("GET", "/api/search"),
+        ("GET", "/api/sms/balance"),
+        ("POST", "/api/sms/test"),
+        ("GET", "/api/settings/notification-texts"),
+        ("PUT", "/api/settings/notification-texts"),
+        ("GET", "/api/settings/notification-channels"),
+        ("PUT", "/api/settings/notification-channels"),
+        ("GET", "/api/settings/notification-patterns"),
+        ("PUT", "/api/settings/notification-patterns"),
+        ("GET", "/api/settings/captcha-config"),
+        ("PUT", "/api/settings/captcha-config"),
+    }
+    missing = expected - have
+    assert not missing, f"endpoints missing from ApiDocs table: {sorted(missing)}"
+
+
+def test_apidocs_validate_samples_show_minimal_response():
+    """The validate samples must show the real 7-field LicenseValidateInfo
+    (v3.0.6) — never the full record — and the observed-IP note in every
+    language. The webhook payload sample must be the flat shape the
+    backend actually sends (license_key, not a nested license object)."""
+    _, docs = _apidocs_endpoints()
+    # No stale "full record" shapes anywhere in the docs source.
+    assert '"license": {...}' not in docs
+    assert '"license": {"id": 12' not in docs
+    assert '"product": {"id": 1, "name": "CloudPanel Pro"' not in docs
+    # The cURL validate sample shows all 7 fields of the real response.
+    start = docs.index("validate: {")
+    curl = docs[start:docs.index("python:", start)]
+    for field in ("product", "product_id", "billing_cycle", "status", "expires_at", "max_activations", "activations"):
+        assert f'"{field}"' in curl, f"validate cURL sample missing field: {field}"
+    # The observed-IP note is in every validate sample language (8x).
+    assert docs.count("connection IP, not this field") == 8
+    # The webhook payload is the flat license_payload shape.
+    payload = docs[docs.index("const WEBHOOK_PAYLOAD"):docs.index("`;", docs.index("const WEBHOOK_PAYLOAD"))]
+    assert '"license_key"' in payload
+    assert '"license": {' not in payload

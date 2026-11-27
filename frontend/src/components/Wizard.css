@@ -53,6 +53,23 @@
 .wizard-step.done .wizard-step-dot { background: var(--success); color: var(--on-accent); }
 .wizard-step-label { overflow: hidden; text-overflow: ellipsis; }
 .wizard-body { display: flex; flex-direction: column; gap: 10px; }
+/* v3.0.9: on wide screens the wizard body is a 2-column grid, so a
+   wizard inside the (now wider, v3.0.9) modal stops being a tall
+   single-column sheet — single-line fields sit side by side. Anything
+   wide spans both columns by default (textarea fields, the chip
+   multi-select, the review list, the 2-field form rows, the error line
+   and any other step content); only a plain single-line .field-label
+   takes one column. Phones keep the single column. */
+@media (min-width: 1024px) {
+  .modal-details-body .wizard-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 14px;
+    align-items: start;
+  }
+  .modal-details-body .wizard-body > * { grid-column: 1 / -1; }
+  .modal-details-body .wizard-body > .field-label:not(:has(textarea)) { grid-column: auto; }
+}
 /* Every step child must be allowed to shrink below its content width,
    or a long unbreakable label/value overflows the wizard card in RTL. */
 .wizard-body > * { min-width: 0; }

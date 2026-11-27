@@ -5,7 +5,7 @@
    v3.0.1: 90dvh cap (was 85dvh) — the header is a non-scrolling flex
    sibling, so the × stays visible while the body scrolls; the card
    itself can never be taller than the viewport. */
-.modal-card-details {
+.modal-card.modal-card-details {
     width: min(600px, 100%);
     max-height: 90dvh;
     display: flex;
@@ -50,5 +50,35 @@
 .detail-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 
 /* Wide variant for large editors (Languages key editor): same 90dvh cap
-   and internal scroll, just a wider card. */
-.modal-card-wide { width: min(900px, 100%); }
+   and internal scroll, just a wider card.
+   v3.0.9: modal widths are RESPONSIVE now — one fixed width on every
+   screen wasted the laptop width (a 600px sheet on a 1920px screen)
+   while the phone sheet was right. Phones (<=640px) keep the current
+   near-full-width sheet (the min(..., 100%) does that on its own);
+   tablets get a medium card, laptops/desktops wider, >=1440px the
+   widest. The 90dvh cap, internal body scroll and the always-visible
+   x stay exactly as they were.
+   CASCADE TRAP (found by measuring, v3.0.9): index.css loads AFTER
+   Modal.css in the bundle, so its .modal-card width (440px, 0,1,0)
+   beat every equal-specificity .modal-card-details/.modal-card-wide
+   width rule — details modals were really 440px on every screen, not
+   the 600px the CSS said, and the wide editor never got its 900px.
+   The width rules below are scoped .modal-card.modal-card-* (0,2,0)
+   so they win whichever stylesheet loads last. */
+.modal-card.modal-card-wide { width: min(900px, 100%); }
+@media (min-width: 768px) {
+  .modal-card.modal-card-details { width: min(680px, 100%); }
+}
+@media (min-width: 1024px) {
+  .modal-card.modal-card-details { width: min(720px, 100%); padding: 24px; }
+  .modal-card.modal-card-wide { width: min(1000px, 100%); }
+  /* Confirm dialogs are plain .modal-card (no details/wide class):
+     the :not() scope (0,3,0) beats the index.css base rule (0,1,0)
+     whichever stylesheet loads last. */
+  .modal-card:not(.modal-card-details):not(.modal-card-wide) { width: min(520px, 100%); }
+}
+@media (min-width: 1440px) {
+  .modal-card.modal-card-details { width: min(860px, 100%); }
+  .modal-card.modal-card-wide { width: min(1100px, 100%); }
+  .modal-card:not(.modal-card-details):not(.modal-card-wide) { width: min(560px, 100%); }
+}

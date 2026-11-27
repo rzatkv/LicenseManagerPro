@@ -9,7 +9,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
-import {useResponsivePageSize} from "../utils/responsive";
+import {usePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import Modal from "../components/Modal";
@@ -47,7 +47,7 @@ function LicenseList() {
     const [licenses, setLicenses] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const pageSize = useResponsivePageSize();
+    const [pageSize, setPageSize] = usePageSize("licenses");
     // Breakpoint change resets to page 1 (the fetch refetches via its
     // pageSize dep below).
     useEffect(() => { setPage(1); }, [pageSize]);
@@ -541,7 +541,7 @@ function LicenseList() {
                 </tbody>
             </table>
             </div>
-            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+            <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
             </>
             )}
             <Modal open={editing !== null} title={editing ? `${t("licenses.edit")} #${editing.id}` : ""} onClose={() => { setEditing(null); setEditForm(null); }}>

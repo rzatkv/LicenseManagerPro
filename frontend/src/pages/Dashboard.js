@@ -14,7 +14,7 @@ import {
     KeyRound, Users, UserPlus, ShieldCheck, ShieldOff, CalendarClock,
     FileText, Plus, Sparkles, Zap, MessageSquare, Settings as SettingsIcon, SlidersHorizontal,
     GripVertical, ChevronUp, ChevronDown, RefreshCw, Check, X, BookOpen,
-    Newspaper, ExternalLink,
+    Newspaper, ExternalLink, LayoutDashboard,
 } from "lucide-react";
 import {DEMO_MODE} from "../config";
 import {APP_VERSION} from "../version";
@@ -478,9 +478,10 @@ function normalizeLayout(saved) {
     }
     // v3.0.6: collapsed widgets — unknown ids are dropped, non-boolean
     // values ignored, so layouts saved before v3.0.6 keep working.
+    // v3.0.9: sections collapse too — the same filter covers them.
     const collapsed = {};
     for (const [id, v] of Object.entries(saved.collapsed || {})) {
-        if (WIDGET_IDS.includes(id) && v === true) collapsed[id] = true;
+        if ((WIDGET_IDS.includes(id) || SECTION_IDS.includes(id)) && v === true) collapsed[id] = true;
     }
     return {
         order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
@@ -906,8 +907,35 @@ function Dashboard() {
     // customizing. Density only changes padding/row height, never the
     // section width: sections are not widgets, so they never get S/M/L.
     const sectionDensityClass = (id) => `section-density-${(layout.sectionSizes && layout.sectionSizes[id]) || "normal"}`;
+    // v3.0.9: collapse for EVERY dashboard block — the same 32px
+    // chevron + per-admin persisted layout.collapsed[id] the chart
+    // widgets got in v3.0.6, extended to the 8 sections (summary,
+    // actions, highlights, news, expiring, recent licenses/API keys/
+    // users). Sections stay visibility-only for S/M/L (v3.0.4 rule);
+    // collapse is separate from visibility and from size. A collapsed
+    // block shows only its title row + expand chevron; the state
+    // persists like any other layout field (localStorage +
+    // /users/me/preferences) and survives a reload.
+    const isCollapsed = (id) => !!(layout.collapsed && layout.collapsed[id]);
+    const toggleCollapse = (id) => setLayout((prev) => ({...prev, collapsed: {...(prev.collapsed || {}), [id]: !prev.collapsed[id]}}));
+    const collapseBtnFor = (id, extraClass) => {
+        const collapsed = isCollapsed(id);
+        return (
+            <button
+                type="button"
+                className={`widget-collapse-btn${extraClass ? ` ${extraClass}` : ""}${collapsed ? " collapsed" : ""}`}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
+                title={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
+                data-collapse-section={id}
+                onClick={() => toggleCollapse(id)}
+            >
+                <ChevronDown size={16} />
+            </button>
+        );
+    };
     const sectionDensityControl = (id) => {
-        if (!customizing) return null;
+        if (!customizing || isCollapsed(id)) return null;
         const current = (layout.sectionSizes && layout.sectionSizes[id]) || "normal";
         return (
             <div className="section-density-control" role="group" aria-label={t("dashboard.sectionSize")}>
@@ -938,8 +966,9 @@ function Dashboard() {
         // and survives a reload. The size/reorder controls above stay
         // reachable while collapsed; the chart-type/range controls live
         // under the chart, so they are reachable once expanded again.
-        const collapsed = !!(layout.collapsed && layout.collapsed[id]);
-        const toggleCollapse = () => setLayout((prev) => ({...prev, collapsed: {...(prev.collapsed || {}), [id]: !prev.collapsed[id]}}));
+        // v3.0.9: the chevron + toggle live in the shared collapseBtnFor
+        // helper above (sections use it too).
+        const collapsed = isCollapsed(id);
         const widgetTitle = (wid) => {
             switch (wid) {
                 case "trend": return t("dashboard.trendTitle");
@@ -953,18 +982,7 @@ function Dashboard() {
                 default: return wid;
             }
         };
-        const collapseBtn = (
-            <button
-                type="button"
-                className={`widget-collapse-btn${collapsed ? " collapsed" : ""}`}
-                aria-expanded={!collapsed}
-                aria-label={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
-                title={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
-                onClick={toggleCollapse}
-            >
-                <ChevronDown size={16} />
-            </button>
-        );
+        const collapseBtn = collapseBtnFor(id);
         // Position among the widgets visible on the single page
         // (v3.0.3): the ↑/↓ buttons move the widget within the page
         // order, so the change is always visible. The old version
@@ -1269,27 +1287,36 @@ function Dashboard() {
             {isVisible("summary") && (
             <>
             {sectionDensityControl("summary")}
+            <div className="section-head">
+                <span className="section-head-title"><LayoutDashboard size={16} />{t("dashboard.sections.summary")}</span>
+                {collapseBtnFor("summary", "section-collapse-btn")}
+            </div>
+            {!isCollapsed("summary") && (
             <div className={`dashboard-summary ${sectionDensityClass("summary")}`}>
                 {[
-                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount, variant: "violet"},
-                    {label: t("dashboard.users"), value: summary.usersCount, variant: "blue"},
-                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses, variant: "green"},
-                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses, variant: "rose"},
+                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount, variant: "violet", to: "/api-keys", card: "apiKeys"},
+                    {label: t("dashboard.users"), value: summary.usersCount, variant: "blue", to: "/users", card: "users"},
+                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses, variant: "green", to: "/licenses", card: "active"},
+                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses, variant: "rose", to: "/licenses", card: "inactive"},
                 ].map((box, i) => (
-                    <motion.div key={box.label} className={`summary-box glass-card summary-box--${box.variant}`} {...cardMotion(i * 0.07)}>
-                        <span className="summary-icon">{SUMMARY_ICONS[i]}</span>
-                        <span className="summary-text"><h2>{box.label}</h2><p>{box.value}</p></span>
-                        <span className="summary-deco" aria-hidden="true">{SUMMARY_ICONS[i]}</span>
-                    </motion.div>
+                    <Link key={box.label} to={box.to} className="summary-box-link" data-summary-card={box.card} aria-label={`${box.label}: ${box.value}`}>
+                        <motion.div className={`summary-box glass-card summary-box--${box.variant}`} {...cardMotion(i * 0.07)}>
+                            <span className="summary-icon">{SUMMARY_ICONS[i]}</span>
+                            <span className="summary-text"><h2>{box.label}</h2><p>{box.value}</p></span>
+                            <span className="summary-deco" aria-hidden="true">{SUMMARY_ICONS[i]}</span>
+                        </motion.div>
+                    </Link>
                 ))}
             </div>
+            )}
             </>
             )}
             {isVisible("actions") && (
             <>
             {sectionDensityControl("actions")}
             <div className={`dashboard-actions ${sectionDensityClass("actions")}`}>
-                <h2><Zap size={16} />{t("dashboard.quickActions")}</h2>
+                <h2><Zap size={16} />{t("dashboard.quickActions")}{collapseBtnFor("actions", "section-collapse-btn")}</h2>
+                {!isCollapsed("actions") && (
                 <div className="action-buttons">
                     <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
                     <Link className="action-btn" to="/api-keys"><KeyRound size={16} />{t("dashboard.createApiKey")}</Link>
@@ -1298,12 +1325,18 @@ function Dashboard() {
                     <Link className="action-btn" to="/docs"><BookOpen size={16} />{t("nav.apiDocs")}</Link>
                     <Link className="action-btn" to="/settings"><SettingsIcon size={16} />{t("dashboard.settings")}</Link>
                 </div>
+                )}
             </div>
             </>
             )}
             {isVisible("highlights") && (
             <>
             {sectionDensityControl("highlights")}
+            <div className="section-head">
+                <span className="section-head-title"><Sparkles size={16} />{t("dashboard.sections.highlights")}</span>
+                {collapseBtnFor("highlights", "section-collapse-btn")}
+            </div>
+            {!isCollapsed("highlights") && (
             <div className={`highlights-slider glass-card ${sectionDensityClass("highlights")}`} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
                 <div className="slide slide-fade" key={slide}>
                     <h3><Sparkles size={16} />{slides[slide].title}</h3>
@@ -1315,12 +1348,15 @@ function Dashboard() {
                     ))}
                 </div>
             </div>
+            )}
             </>
             )}
             {isVisible("news") && (
             <motion.div className={`dashboard-section news-section ${sectionDensityClass("news")}`} {...cardMotion(0)}>
                 {sectionDensityControl("news")}
-                <h2>{SECTION_ICONS.news}{t("news.title")}</h2>
+                <h2>{SECTION_ICONS.news}{t("news.title")}{collapseBtnFor("news", "section-collapse-btn")}</h2>
+                {!isCollapsed("news") && (
+                <>
                 {newsItems.length === 0 ? (
                     <p className="dashboard-empty">{t("news.empty")}</p>
                 ) : (
@@ -1341,6 +1377,8 @@ function Dashboard() {
                         })}
                     </ul>
                 )}
+                </>
+                )}
             </motion.div>
             )}
             {visibleWidgets.length > 0 && (
@@ -1352,7 +1390,9 @@ function Dashboard() {
             {isVisible("expiring") && (
             <motion.div className={`dashboard-section ${sectionDensityClass("expiring")}`} {...cardMotion(0)}>
                 {sectionDensityControl("expiring")}
-                <h2>{SECTION_ICONS.expiring}{t("dashboard.expiringSoon")}</h2>
+                <h2>{SECTION_ICONS.expiring}{t("dashboard.expiringSoon")}{collapseBtnFor("expiring", "section-collapse-btn")}</h2>
+                {!isCollapsed("expiring") && (
+                <>
                 {expiringSoon.length === 0 ? (
                     <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
                 ) : (
@@ -1372,12 +1412,16 @@ function Dashboard() {
                     </table>
                     </div>
                 )}
+                </>
+                )}
             </motion.div>
             )}
             {isVisible("recentLicenses") && (
             <motion.div className={`dashboard-section ${sectionDensityClass("recentLicenses")}`} {...cardMotion(0.05)}>
                 {sectionDensityControl("recentLicenses")}
-                <h2>{SECTION_ICONS.recentLicenses}{t("dashboard.recentLicenses")}</h2>
+                <h2>{SECTION_ICONS.recentLicenses}{t("dashboard.recentLicenses")}{collapseBtnFor("recentLicenses", "section-collapse-btn")}</h2>
+                {!isCollapsed("recentLicenses") && (
+                <>
                 {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -1387,12 +1431,16 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                </>
+                )}
             </motion.div>
             )}
             {isVisible("recentApiKeys") && (
             <motion.div className={`dashboard-section ${sectionDensityClass("recentApiKeys")}`} {...cardMotion(0.1)}>
                 {sectionDensityControl("recentApiKeys")}
-                <h2>{SECTION_ICONS.recentApiKeys}{t("dashboard.recentApiKeys")}</h2>
+                <h2>{SECTION_ICONS.recentApiKeys}{t("dashboard.recentApiKeys")}{collapseBtnFor("recentApiKeys", "section-collapse-btn")}</h2>
+                {!isCollapsed("recentApiKeys") && (
+                <>
                 {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -1402,12 +1450,16 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+                </>
+                )}
             </motion.div>
             )}
             {isVisible("recentUsers") && (
             <motion.div className={`dashboard-section ${sectionDensityClass("recentUsers")}`} {...cardMotion(0.15)}>
                 {sectionDensityControl("recentUsers")}
-                <h2>{SECTION_ICONS.recentUsers}{t("dashboard.recentUsers")}</h2>
+                <h2>{SECTION_ICONS.recentUsers}{t("dashboard.recentUsers")}{collapseBtnFor("recentUsers", "section-collapse-btn")}</h2>
+                {!isCollapsed("recentUsers") && (
+                <>
                 {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
                     <div className="table-wrap">
                     <table>
@@ -1417,6 +1469,8 @@ function Dashboard() {
                     </div>
                 )}
                 <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
+                </>
+                )}
             </motion.div>
             )}
 

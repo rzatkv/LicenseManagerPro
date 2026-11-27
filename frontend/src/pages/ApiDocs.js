@@ -206,12 +206,17 @@ func main() {
     validate: {
         curl: `# License checks are PUBLIC (v3.0) — no API key, no JWT.
 # 60 checks/min per IP; a blacklisted IP/domain is rejected.
+# "ip" is optional and informational only — the IP lock uses your
+# connection IP, not this field (v3.0.6).
 curl -X POST ${BASE}/api/licenses/validate \\
   -H "Content-Type: application/json" \\
   -d '{"key": "LIC-XXXX-XXXX-XXXX", "domain": "example.com", "ip": "203.0.113.10", "install_path": "/var/www/html"}'
-# => {"valid": true, "detail": "License is valid", "license": {...}, "grace": false, "warnings": []}
-# => {"valid": false, "detail": "License has expired", "license": {...}, "grace": false, "warnings": []}
+# => {"valid": true, "detail": "License is valid", "license": {"product": "CloudPanel Pro", "product_id": 1, "billing_cycle": "annual", "status": "active", "expires_at": "2027-11-26T00:00:00Z", "max_activations": 10, "activations": 3}, "grace": false, "warnings": []}
+# => {"valid": false, "detail": "License has expired", "license": {"product": "CloudPanel Pro", "product_id": 1, "billing_cycle": "annual", "status": "expired", "expires_at": "2026-11-01T00:00:00Z", "max_activations": 10, "activations": 3}, "grace": false, "warnings": []}
 # => {"valid": false, "detail": "blocked: blacklisted", "license": null, "grace": false, "warnings": []}
+# "license" holds only 7 fields (v3.0.6) — product, product_id,
+# billing_cycle, status, expires_at, max_activations, activations —
+# never the key, the owner email or the lock lists.
 # In lenient mode a lock mismatch returns valid: true with grace: true and a warning.`,
         python: `import requests
 
@@ -228,8 +233,12 @@ resp = requests.post(
 )
 resp.raise_for_status()  # 429 when the 60/min per-IP limit is hit
 data = resp.json()
+# data["license"] holds only 7 fields (v3.0.6): product, product_id,
+# billing_cycle, status, expires_at, max_activations, activations.
+# It never contains the key, the owner email or the lock lists.
 if data["valid"]:
-    print("valid:", data["license"])
+    lic = data["license"]
+    print("valid:", lic["product"], lic["status"], "expires", lic["expires_at"])
     if data.get("grace"):
         print("grace warnings:", data.get("warnings", []))
 else:
@@ -247,8 +256,11 @@ const res = await fetch("${BASE}/api/licenses/validate", {
 });
 if (!res.ok) throw new Error(\`Validate failed: \${res.status}\`); // 429 at 60/min per IP
 const data = await res.json();
+// data.license holds only 7 fields (v3.0.6): product, product_id,
+// billing_cycle, status, expires_at, max_activations, activations.
+// It never contains the key, the owner email or the lock lists.
 if (data.valid) {
-  console.log("valid:", data.license);
+  console.log("valid:", data.license.product, data.license.status, "expires", data.license.expires_at);
   if (data.grace) console.log("grace warnings:", data.warnings);
 } else {
   console.log("invalid:", data.detail); // expired, wrong domain, blocked: blacklisted, ...
@@ -269,8 +281,12 @@ curl_setopt_array($ch, [
 ]);
 $data = json_decode(curl_exec($ch), true);
 curl_close($ch);
+// $data['license'] holds only 7 fields (v3.0.6): product, product_id,
+// billing_cycle, status, expires_at, max_activations, activations.
+// It never contains the key, the owner email or the lock lists.
 if (!empty($data['valid'])) {
-    echo 'valid';
+    $lic = $data['license'];
+    echo 'valid: ' . $lic['product'] . ' / ' . $lic['status'] . ', expires ' . ($lic['expires_at'] ?? 'never');
     if (!empty($data['grace'])) echo ' (grace: ' . implode(', ', $data['warnings'] ?? []) . ')';
 } else {
     echo 'invalid: ' . ($data['detail'] ?? 'unknown'); // expired, wrong domain, blocked: blacklisted, ...
@@ -301,11 +317,23 @@ func main() {
 	var data struct {
 		Valid    bool     \`json:"valid"\`
 		Detail   string   \`json:"detail"\`
+		License  *struct {
+			Product        string \`json:"product"\`
+			ProductID      int    \`json:"product_id"\`
+			BillingCycle   string \`json:"billing_cycle"\`
+			Status         string \`json:"status"\`
+			ExpiresAt      string \`json:"expires_at"\`
+			MaxActivations int    \`json:"max_activations"\`
+			Activations    int    \`json:"activations"\`
+		} \`json:"license"\` // only these 7 fields (v3.0.6) — never the key, owner or locks
 		Grace    bool     \`json:"grace"\`
 		Warnings []string \`json:"warnings"\`
 	}
 	json.NewDecoder(resp.Body).Decode(&data)
 	fmt.Println(data.Valid, data.Detail, data.Grace, data.Warnings)
+	if data.License != nil {
+		fmt.Println(data.License.Product, data.License.Status, data.License.ExpiresAt)
+	}
 }`,
         ruby: `require "net/http"
 require "json"
@@ -319,8 +347,12 @@ res = Net::HTTP.post(uri, JSON.generate({
   "install_path" => "/var/www/html",  # optional; checked against the license locks
 }), "Content-Type" => "application/json")
 data = JSON.parse(res.body)
+# data["license"] holds only 7 fields (v3.0.6): product, product_id,
+# billing_cycle, status, expires_at, max_activations, activations.
+# It never contains the key, the owner email or the lock lists.
 if data["valid"]
-  puts "valid: #{data["license"]}"
+  lic = data["license"]
+  puts "valid: #{lic["product"]} (#{lic["status"]}), expires #{lic["expires_at"]}"
   puts "grace warnings: #{data["warnings"]}" if data["grace"]
 else
   puts "invalid: #{data["detail"]}" # expired, wrong domain, blocked: blacklisted, ...
@@ -333,6 +365,8 @@ import java.net.http.HttpResponse;
 public class ValidateLicense {
     public static void main(String[] args) throws Exception {
         // License checks are PUBLIC (v3.0) — no API key, no JWT.
+        // "ip" is optional and informational only — the IP lock uses
+        // your connection IP, not this field (v3.0.6).
         String body = "{\\"key\\": \\"LIC-XXXX-XXXX-XXXX\\", \\"domain\\": \\"example.com\\", \\"ip\\": \\"203.0.113.10\\", \\"install_path\\": \\"/var/www/html\\"}";
         HttpRequest req = HttpRequest.newBuilder()
             .uri(URI.create("${BASE}/api/licenses/validate"))
@@ -341,8 +375,9 @@ public class ValidateLicense {
             .build();
         String res = HttpClient.newHttpClient()
             .send(req, HttpResponse.BodyHandlers.ofString()).body();
-        // {"valid": true, "detail": "License is valid", "license": {...}, "grace": false, "warnings": []}
-        // {"valid": false, "detail": "License has expired" | "blocked: blacklisted" | ..., ...}
+        // {"valid": true, "detail": "License is valid", "license": {"product": "CloudPanel Pro", "product_id": 1, "billing_cycle": "annual", "status": "active", "expires_at": "2027-11-26T00:00:00Z", "max_activations": 10, "activations": 3}, "grace": false, "warnings": []}
+        // {"valid": false, "detail": "License has expired" | "blocked: blacklisted" | ..., "license": {...same 7 fields...} | null, "grace": false, "warnings": []}
+        // "license" holds only 7 fields (v3.0.6) — never the key, the owner email or the lock lists.
         System.out.println(res);
     }
 }`,
@@ -366,7 +401,11 @@ var res = await client.PostAsync("${BASE}/api/licenses/validate", body);
 var data = JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
 if (data.GetProperty("valid").GetBoolean())
 {
-    System.Console.WriteLine("valid");
+    // "license" holds only 7 fields (v3.0.6): product, product_id,
+    // billing_cycle, status, expires_at, max_activations, activations —
+    // never the key, the owner email or the lock lists.
+    var lic = data.GetProperty("license");
+    System.Console.WriteLine("valid: " + lic.GetProperty("product").GetString() + " / " + lic.GetProperty("status").GetString() + ", expires " + lic.GetProperty("expires_at").GetString());
     if (data.GetProperty("grace").GetBoolean())
         System.Console.WriteLine("grace warnings: " + data.GetProperty("warnings"));
 }
@@ -522,19 +561,19 @@ func main() {
     },
 };
 
+// Webhook payload (v3.0.9): the flat shape the backend actually sends
+// (services/webhooks.py license_payload) — event, license key, product
+// slug, owner email, expiry; "reason" only on failure events. The old
+// nested {"license": {...full record...}, "product": {...}, "sent_at"}
+// shape never existed server-side. The event name also travels in the
+// X-LMP-Event header, and the HMAC signature in X-LMP-Signature (see
+// the verify tab).
 const WEBHOOK_PAYLOAD = `{
   "event": "license.expiring",
-  "license": {
-    "id": 12,
-    "key": "LIC-XXXX-XXXX-XXXX",
-    "product_id": 1,
-    "billing_cycle": "annual",
-    "owner_email": "buyer@example.com",
-    "status": "active",
-    "expires_at": "2026-12-01T00:00:00Z"
-  },
-  "product": {"id": 1, "name": "CloudPanel Pro", "slug": "cloudpanel-pro"},
-  "sent_at": "2026-11-24T00:00:00Z"
+  "license_key": "LIC-XXXX-XXXX-XXXX",
+  "product_slug": "cloudpanel-pro",
+  "owner_email": "buyer@example.com",
+  "expires_at": "2026-12-01T00:00:00Z"
 }`;
 
 // Webhook verification: HMAC-SHA256 over the RAW request body with the
@@ -555,7 +594,7 @@ def lmp_webhook():
     if not hmac.compare_digest(expected, request.headers.get("X-LMP-Signature", "")):
         abort(401)
     event = request.get_json()
-    # event["event"] is e.g. "license.expiring"; event["license"]["key"] ...
+    # event["event"] is e.g. "license.expiring"; event["license_key"] ...
     return {"ok": True}`,
     php: `<?php
 // Receiving endpoint: verify the HMAC-SHA256 signature over the raw body.
@@ -567,7 +606,7 @@ if (!hash_equals($expected, $_SERVER['HTTP_X_LMP_SIGNATURE'] ?? '')) {
     exit('bad signature');
 }
 $event = json_decode($payload, true);
-// $event['event'] is e.g. "license.expiring"; $event['license']['key'] ...
+// $event['event'] is e.g. "license.expiring"; $event['license_key'] ...
 http_response_code(200);
 echo json_encode(['ok' => true]);`,
     javascript: `// node webhook-receiver.js — no dependencies.
@@ -587,7 +626,7 @@ http.createServer((req, res) => {
       crypto.timingSafeEqual(Buffer.from(header), Buffer.from(expected));
     if (!ok) { res.writeHead(401); res.end("bad signature"); return; }
     const event = JSON.parse(raw.toString("utf8"));
-    // event.event is e.g. "license.expiring"; event.license.key ...
+    // event.event is e.g. "license.expiring"; event.license_key ...
     res.writeHead(200, {"Content-Type": "application/json"});
     res.end(JSON.stringify({ok: true}));
   });
@@ -617,7 +656,7 @@ func main() {
 		}
 		var event map[string]any
 		json.Unmarshal(raw, &event)
-		// event["event"] is e.g. "license.expiring"; event["license"].(map[string]any)["key"] ...
+		// event["event"] is e.g. "license.expiring"; event["license_key"] ...
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(\`{"ok": true}\`))
 	})
@@ -643,7 +682,7 @@ server.mount_proc "/lmp-webhook" do |req, res|
     next
   end
   event = JSON.parse(raw)
-  # event["event"] is e.g. "license.expiring"; event["license"]["key"] ...
+  # event["event"] is e.g. "license.expiring"; event["license_key"] ...
   res["Content-Type"] = "application/json"
   res.body = '{"ok": true}'
 end
@@ -676,7 +715,7 @@ public class WebhookReceiver {
                     ex.getResponseBody().close();
                     return;
                 }
-                // event JSON: {"event": "license.expiring", "license": {"key": ...}, ...}
+                // event JSON: {"event": "license.expiring", "license_key": "LIC-...", ...}
                 byte[] out = "{\\"ok\\": true}".getBytes(StandardCharsets.UTF_8);
                 ex.getResponseHeaders().set("Content-Type", "application/json");
                 ex.sendResponseHeaders(200, out.length);
@@ -712,7 +751,7 @@ app.MapPost("/lmp-webhook", async (HttpRequest req) =>
         CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(sig));
     if (!ok) return Results.Unauthorized();
-    // event JSON: {"event": "license.expiring", "license": {"key": ...}, ...}
+    // event JSON: {"event": "license.expiring", "license_key": "LIC-...", ...}
     return Results.Ok(new { ok = true });
 });
 
@@ -726,7 +765,7 @@ curl ${BASE}/api/products \\
 # Test connection:
 curl ${BASE}/api/system/info \\
   -H "X-API-Key: lmp_..."
-# => {"version": "3.0.3", "lastUpdated": "2026-11-26"}
+# => {"version": "3.0.9", "lastUpdated": "2026-11-27"}
 
 # Exception: license checks (POST /api/licenses/validate) are PUBLIC —
 # they send NO key at all (see the Guides tab: "Connect a product").
@@ -742,11 +781,19 @@ $timestamp = (string) time();
 $body = json_encode($data); // '' for GET requests
 $message = "POST\\n/api/licenses\\n" . $timestamp . "\\n" . hash('sha256', $body);
 $signature = hash_hmac('sha256', $message, hash('sha256', $api_key, true));
-// Headers: X-API-Key, X-LMP-Timestamp: $timestamp, X-LMP-Signature: $signature`;
+// Headers: X-API-Key, X-LMP-Timestamp: $timestamp, X-LMP-Signature: $signature
+// The server rejects timestamps older than 5 minutes (and replays) with 401.`;
 
 const ENDPOINTS = [
   ["POST", "/api/auth/login", "docs.ep.authLogin"],
   ["POST", "/api/auth/register", "docs.ep.authRegister"],
+  ["POST", "/api/auth/verify-2fa", "docs.ep.authVerify2fa"],
+  ["GET", "/api/auth/2fa/status", "docs.ep.twoFaStatus"],
+  ["POST", "/api/auth/2fa/setup", "docs.ep.twoFaSetup"],
+  ["POST", "/api/auth/2fa/verify", "docs.ep.twoFaVerify"],
+  ["POST", "/api/auth/2fa/disable", "docs.ep.twoFaDisable"],
+  ["GET", "/api/captcha/config", "docs.ep.captchaPublicConfig"],
+  ["POST", "/api/captcha/challenge", "docs.ep.captchaChallenge"],
   ["GET", "/api/products", "docs.ep.productsList"],
   ["POST", "/api/products", "docs.ep.productsCreate"],
   ["GET", "/api/products/{id}", "docs.ep.productsGet"],
@@ -758,6 +805,7 @@ const ENDPOINTS = [
   ["GET", "/api/blacklist?type=", "docs.ep.blacklistList"],
   ["GET", "/api/notifications", "docs.ep.notificationsList"],
   ["POST", "/api/notifications/{id}/read", "docs.ep.notificationsRead"],
+  ["GET", "/api/news", "docs.ep.newsList"],
   ["GET", "/api/downloads", "docs.ep.downloadsList"],
   ["GET", "/api/downloads/{module_id}", "docs.ep.downloadsGet"],
   ["GET", "/api/downloads/versions", "docs.ep.downloadsVersions"],
@@ -774,13 +822,29 @@ const ENDPOINTS = [
   ["GET", "/api/api-keys", "docs.ep.apiKeysList"],
   ["POST", "/api/api-keys", "docs.ep.apiKeysCreate"],
   ["GET", "/api/api-keys/check-access", "docs.ep.apiKeysCheckAccess"],
+  ["POST", "/api/api-keys/{id}/rotate", "docs.ep.apiKeysRotate"],
   ["GET", "/api/users/me", "docs.ep.usersMe"],
   ["GET", "/api/users", "docs.ep.usersList"],
   ["POST", "/api/users", "docs.ep.usersCreate"],
   ["PUT", "/api/users/{id}", "docs.ep.usersUpdate"],
   ["DELETE", "/api/users/{id}", "docs.ep.usersDelete"],
+  ["GET", "/api/roles", "docs.ep.rolesList"],
+  ["POST", "/api/roles", "docs.ep.rolesCreate"],
+  ["GET", "/api/roles/permissions", "docs.ep.rolesPermissions"],
+  ["PUT", "/api/roles/{id}", "docs.ep.rolesUpdate"],
+  ["DELETE", "/api/roles/{id}", "docs.ep.rolesDelete"],
   ["GET", "/api/settings", "docs.ep.settingsList"],
   ["PUT", "/api/settings/{key}", "docs.ep.settingsUpdate"],
+  ["GET", "/api/settings/notification-texts", "docs.ep.notifTextsGet"],
+  ["PUT", "/api/settings/notification-texts", "docs.ep.notifTextsPut"],
+  ["GET", "/api/settings/notification-channels", "docs.ep.notifChannelsGet"],
+  ["PUT", "/api/settings/notification-channels", "docs.ep.notifChannelsPut"],
+  ["GET", "/api/settings/notification-patterns", "docs.ep.notifPatternsGet"],
+  ["PUT", "/api/settings/notification-patterns", "docs.ep.notifPatternsPut"],
+  ["GET", "/api/settings/captcha-config", "docs.ep.captchaConfigGet"],
+  ["PUT", "/api/settings/captcha-config", "docs.ep.captchaConfigPut"],
+  ["GET", "/api/sms/balance", "docs.ep.smsBalance"],
+  ["POST", "/api/sms/test", "docs.ep.smsTest"],
   ["GET", "/api/system/info", "docs.ep.systemInfo"],
   ["GET", "/api/system/check-updates", "docs.ep.systemCheckUpdates"],
   ["GET", "/api/system/update-check", "docs.ep.updateCheck"],
@@ -794,6 +858,7 @@ const ENDPOINTS = [
   ["GET", "/api/dashboard/summary", "docs.ep.dashboardSummary"],
   ["GET", "/api/dashboard/license-trend?days=14", "docs.ep.dashboardTrend"],
   ["GET", "/api/audit-logs?skip=&limit=&entity=&actor=", "docs.ep.auditLogs"],
+  ["GET", "/api/search", "docs.ep.search"],
 ];
 
 function ApiDocs() {
@@ -1043,19 +1108,30 @@ api-key: lmp_...
                 <h3>{t("docs.connectResponseTitle")}</h3>
                 <p>{t("docs.connectResponseText")}</p>
                 <DocsSample text={`{"valid": true, "detail": "License is valid",
- "license": {"id": 12, "key": "LIC-XXXX-XXXX-XXXX", "product": "CloudPanel Pro",
-             "status": "active", "expires_at": "2027-11-26T00:00:00Z",
+ "license": {"product": "CloudPanel Pro", "product_id": 1,
+             "billing_cycle": "annual", "status": "active",
+             "expires_at": "2027-11-26T00:00:00Z",
              "max_activations": 5, "activations": 1},
  "grace": false, "warnings": []}
 
-{"valid": false, "detail": "License has expired", "license": {...},
+// "license" holds only these 7 fields (v3.0.6) — never the key,
+// the owner email or the lock lists.
+{"valid": false, "detail": "License has expired",
+ "license": {"product": "CloudPanel Pro", "product_id": 1,
+             "billing_cycle": "annual", "status": "expired",
+             "expires_at": "2025-11-26T00:00:00Z",
+             "max_activations": 5, "activations": 1},
  "grace": false, "warnings": []}
 
 {"valid": false, "detail": "blocked: blacklisted", "license": null,
  "grace": false, "warnings": []}
 
 // Lenient mode: a lock mismatch still validates, but flagged:
-{"valid": true, "detail": "License is valid (grace)", "license": {...},
+{"valid": true, "detail": "License is valid (grace)",
+ "license": {"product": "CloudPanel Pro", "product_id": 1,
+             "billing_cycle": "annual", "status": "active",
+             "expires_at": "2027-11-26T00:00:00Z",
+             "max_activations": 5, "activations": 1},
  "grace": true, "warnings": ["domain mismatch (grace)"]}`} label="JSON" />
               </>
             )}

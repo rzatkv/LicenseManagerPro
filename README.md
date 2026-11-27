@@ -17,15 +17,18 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.8
+## What's new in v3.0.9
 
-Notification template variables with sample values, as the user asked from his own phone — his example was `%client% عزیز / لایسنس شما ایجاد شد. / کد لایسنس : %license%`:
+The desktop dashboard, as the user asked from his laptop screenshot — the dashboard was a centred 1000px column with empty space on both sides and widgets too big to sit side by side:
 
-- **Variables in every channel:** notification templates now support real variables in email, SMS and Telegram — `%client%` (the customer's name), `%license%` (the license code), plus `%var%` aliases for every existing variable (`%product%`, `%expiry%`, `%days%`, `%email%`, `%title%`, `%message%`). All three placeholder styles work everywhere through one shared renderer: `%var%` (WHMCS-style, what the user wrote), `{var}` (the SMS/Telegram style) and `{{var}}` (the email style) — existing templates keep working unchanged.
-- **%client% never renders empty:** the system stores no customer name (a license has only an owner email), so `%client%` resolves from an explicit `client_name` when the event carries one, else the local-part of the owner's email, else «مشتری گرامی» as the fallback.
-- **Variable guide with sample values:** in Settings → Notifications (SMS tab / Telegram tab) and the Email templates editor, every variable is shown as a chip with its sample value (`%client%` → «علی رضایی», `%license%` → «XXXX-XXXX-XXXX-XXXX», `%product%` → «محصول نمونه», `%expiry%` → «۱۴۰۵/۰۹/۰۶», `%days%` → «۷», `%email%` → «client@example.com», `%role%` → «مدیر»). Click a chip to insert the variable at the cursor. The live preview renders the template with the sample values, so the admin sees the final message — the user's example previews as «علی رضایی عزیز / لایسنس شما ایجاد شد. / کد لایسنس : XXXX-XXXX-XXXX-XXXX».
-- **Same guarantees as before:** unknown placeholders stay literal and are logged, never a crash; a failed render falls back to the default text and never breaks the triggering action. The demo mock mirrors the renderer, the samples and the guide.
-- **Version bump:** 3.0.8 everywhere, demo storage key `lmp-demo-db-v22`, `smoke_test_308.py`, all 10 module ZIPs rebuilt at 3.0.8 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **Full-width dashboard:** on wide screens the dashboard spans the whole content width (24–32px side padding, no 900/1000px caps); the sidebar is unchanged, and phones/tablets keep their single-column layout.
+- **Real responsive widget grid:** at laptop width the grid has two columns and at very wide screens three; S/M/L are grid spans now (S = one column, M = two, L = the full row), so widgets can sit side by side — set the size from Customize, per admin.
+- **Collapse for every block:** the 32px chevron the chart widgets got in v3.0.6 now works on the summary, quick actions, highlights, news, expiring-soon and the three recent lists too; a collapsed block shows only its title row + expand chevron, and the state persists per admin.
+- **Summary cards navigate:** the four top cards are links now — API keys → API Keys page, Users → Users page, Active/Inactive licenses → Licenses page — with button/link semantics and a visible focus ring; the entrance animation is unchanged.
+- **Responsive modals:** details popups, wide editors, confirm dialogs and wizards size per breakpoint now (phone keeps the near-full-width vertical sheet, laptop gets a wider card, very wide screens the widest); wizard fields use two columns on wide screens, one on phones. The 90dvh cap, internal body scroll and the always-visible × stay.
+- **Proper pagination + live page-size selector:** every paginated list gets first + previous + numbered window + ellipsis + last + next, and a page-size selector that refetches live on the same page and resets to page 1; the user's choice persists per list. Phones get a compact but complete pager instead of hiding all non-active numbers.
+- **API docs synced with the backend:** the validate samples in every language now show the real 7-field response (product, product_id, billing_cycle, status, expires_at, max_activations, activations) and the observed-IP note; the endpoint table gains the 2FA, captcha, roles, search, news, SMS, notification-texts/channels/patterns and key-rotation endpoints; the webhook payload sample now shows the real flat shape the backend sends.
+- **Version bump:** 3.0.9 everywhere, demo storage key `lmp-demo-db-v23`, `smoke_test_309.py`, all 10 module ZIPs rebuilt at 3.0.9 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Publishing news
 

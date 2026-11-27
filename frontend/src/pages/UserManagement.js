@@ -7,7 +7,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
-import {useResponsivePageSize} from "../utils/responsive";
+import {usePageSize} from "../utils/responsive";
 import {TableSkeleton} from "../components/Skeleton";
 import ToggleSwitch from "../components/ToggleSwitch";
 import "../styles/UserManagement.css";
@@ -28,7 +28,7 @@ function UserManagement() {
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const pageSize = useResponsivePageSize();
+    const [pageSize, setPageSize] = usePageSize("users");
     // Breakpoint change resets to page 1 (the fetch refetches via its
     // pageSize dep below).
     useEffect(() => { setPage(1); }, [pageSize]);
@@ -230,7 +230,7 @@ function UserManagement() {
                     </tbody>
                 </table>
                 </div>
-                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
                 </>
             )}
 

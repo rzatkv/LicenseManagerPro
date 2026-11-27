@@ -27,8 +27,11 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 16px;
-    max-width: 900px;
-    margin: 0 auto 8px;
+    /* v3.0.9: no centered 900px cap — the summary spans the full
+       content width on large screens (the old cap left ~460px empty
+       on each side at 1920px). */
+    max-width: none;
+    margin: 0 0 8px;
 }
 
 .summary-box {
@@ -77,8 +80,8 @@
 }
 
 .dashboard-actions {
-    margin: 30px auto;
-    max-width: 900px;
+    margin: 30px 0;
+    max-width: none;
 }
 
 .dashboard-actions h2,
@@ -88,7 +91,30 @@
     color: var(--text);
     margin-bottom: 15px;
 }
-.dashboard-actions h2 svg, .dashboard-section h2 svg { flex: 0 0 auto; width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: 10px; background: var(--accent-gradient); color: #fff; }
+.dashboard-actions h2 > svg, .dashboard-section h2 > svg { flex: 0 0 auto; width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: 10px; background: var(--accent-gradient); color: #fff; }
+/* v3.0.9: section collapse — the same 32px chevron the widgets got in
+   v3.0.6, now on every dashboard block. Sections with an h2 carry the
+   chevron at the h2's inline end, absolutely positioned so the centred
+   title does not shift (the h2 svg rule above is direct-child only, so
+   the chevron svg inside the button never gets the gradient chip).
+   Summary and highlights have no h2, so they get a slim head row
+   above the block instead; a collapsed block shows only its title
+   row + expand chevron. */
+.dashboard-actions h2, .dashboard-section h2 { position: relative; }
+.dashboard-actions h2 .section-collapse-btn, .dashboard-section h2 .section-collapse-btn { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.section-head-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--text); }
+.section-head-title svg { flex: 0 0 auto; width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: 10px; background: var(--accent-gradient); color: #fff; }
+/* v3.0.9: summary cards are links to their list pages (API keys ->
+   /api-keys, Users -> /users, Active/Inactive licenses -> /licenses).
+   The <a> is the grid item and the motion card inside fills it; the
+   link has a visible focus ring, a pointer cursor, and no underline
+   on hover (the global a:hover underline would strike through the
+   card text). The entrance motion animation stays on the card. */
+.summary-box-link { display: block; border-radius: 20px; text-decoration: none; color: inherit; cursor: pointer; }
+.summary-box-link:hover { text-decoration: none; }
+.summary-box-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.summary-box-link .summary-box { height: 100%; }
 /* v3.0.5: bounded section density — padding/row height only, never
    width. The control bar shows while customizing (same pill buttons as
    the widget size control). */
@@ -142,8 +168,8 @@
 }
 
 .dashboard-section {
-    margin: 30px auto;
-    max-width: 900px;
+    margin: 30px 0;
+    max-width: none;
 }
 
 .dashboard-section table {
@@ -173,8 +199,15 @@
     color: var(--muted);
 }
 
-/* v2.0 charts + highlights slider */
-.charts-row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 24px auto; max-width: 1000px; }
+/* v2.0 charts + highlights slider.
+   v3.0.9: a real responsive GRID, not a centered flex row of capped
+   fractions. Base is one column (phones/tablets keep the v3.0.3–v3.0.8
+   single-column look); >=1024px two columns, >=1440px three. S/M/L
+   are grid spans: S = 1 column, M = 2 columns, L = the full row. The
+   per-size chart heights (below + the size prop in Dashboard.js) keep
+   S/M/L visibly different at every width, including the single-column
+   widths where every span is the full row. */
+.charts-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin: 24px 0; max-width: none; }
 .chart-card {
   background: var(--glass);
   border: 1px solid var(--glass-border);
@@ -189,7 +222,7 @@
 .chart-title-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 10px; background: var(--accent-gradient); color: #fff; flex: 0 0 auto; }
 .chart-title-icon svg { width: 16px; height: 16px; }
 /* The 14-day trend chart spans the full row. */
-.chart-card-wide { flex: 1 1 100%; max-width: 1000px; }
+.chart-card-wide { flex: 1 1 100%; max-width: none; }
 
 /* Customizable widgets (v2.3): the wrapper carries the size; the chart
    card inside fills it. S/M/L = small / medium / full-width.
@@ -202,12 +235,26 @@
    the class and nothing on screen moved (measured: S/M/L all 296x296,
    svg 262x82). Widths are now fractions of the row (the row centers
    them with justify-content: center), and each size also sets the
-   chart height, so the chart itself grows, not just its frame. */
+   chart height, so the chart itself grows, not just its frame.
+   v3.0.9: the row is a GRID now, so S/M/L are column spans instead of
+   row fractions (S 62%/340px, M 82%/520px, L 100%/1000px could never
+   sit side by side — two M alone needed 164% of the row). At >=1024px
+   the grid has 2 columns (S = 1, M = 2 = full row, L = full row); at
+   >=1440px it has 3 (S = 1, M = 2, L = full row). Below 1024px the
+   grid is a single column, so every size spans the full row and the
+   sizes differ by chart height only — the v3.0.3 phone behaviour. */
 .dashboard-widget { display: flex; flex-direction: column; min-width: 0; }
 .dashboard-widget .chart-card { flex: 1; max-width: none; min-width: 0; width: 100%; }
-.widget-size-s { flex: 0 1 62%; max-width: 340px; }
-.widget-size-m { flex: 0 1 82%; max-width: 520px; }
-.widget-size-l { flex: 1 1 100%; max-width: 1000px; }
+.widget-size-s { grid-column: span 1; }
+.widget-size-m { grid-column: span 1; }
+.widget-size-l { grid-column: 1 / -1; }
+@media (min-width: 1024px) {
+  .charts-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .widget-size-m { grid-column: span 2; }
+}
+@media (min-width: 1440px) {
+  .charts-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 /* Per-size chart heights (v3.0.3, Recharts v3.0.4): the chart
    components render a ResponsiveContainer with an explicit pixel
    height per size (Trend/Sending 150/200/280, Bar 140/190/250, donut
@@ -224,7 +271,7 @@
 .donut-wrap { position: relative; flex: 0 0 auto; }
 .donut-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: var(--text); pointer-events: none; }
 .widget-customizing { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 20px; }
-.dashboard-customize-bar { display: flex; justify-content: flex-end; max-width: 1000px; margin: 8px auto 0; }
+.dashboard-customize-bar { display: flex; justify-content: flex-end; max-width: none; margin: 8px 0 0; }
 .widget-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 4px; font-size: 13px; color: var(--muted); }
 .widget-drag-handle { cursor: grab; font-size: 16px; color: var(--muted); display: inline-flex; align-items: center; }
 .widget-control-group { display: inline-flex; align-items: center; gap: 6px; }
@@ -273,7 +320,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
-  padding: 16px 20px; margin: 0 auto 20px; max-width: 900px;
+  padding: 16px 20px; margin: 0 0 20px; max-width: none;
   box-shadow: var(--shadow);
   text-align: center;
   backdrop-filter: blur(20px);
@@ -292,7 +339,7 @@
    not fit — clipped unreachable content is never acceptable
    (Layout.css, v3.0.2). The header row holds the title plus the gear
    (widget visibility) and customize controls. */
-.dashboard-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1000px; margin: 0 auto 12px; }
+.dashboard-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: none; margin: 0 0 12px; }
 .dashboard-title { font-size: 24px; font-weight: 800; }
 .dashboard-header-actions { display: flex; align-items: center; gap: 8px; }
 .dashboard-gear-btn { font-size: 18px; line-height: 1; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; }
@@ -311,7 +358,7 @@
 .chart-range-btn.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
 .chart-channel-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
 .chart-legend-line { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 0; }
-.sending-tab { max-width: 1000px; margin: 0 auto; }
+.sending-tab { max-width: none; margin: 0; }
 
 /* Service status widget (v3.0): lazy-loaded rows with status dots.
    v3.0.3: the Services tab content is centered like every other
@@ -324,7 +371,7 @@
    centered with the re-check button at the edge, and the state is a
    fixed-width end-aligned column so every row's state starts at the
    same x. */
-.service-status-card { max-width: 1000px; margin: 0 auto; }
+.service-status-card { max-width: none; margin: 0; }
 /* The side columns are minmax(0, 1fr): a plain 1fr track cannot shrink
    below its content's min-content, and the re-check button's text
    (~119px) forced its track wider than its share, pushing the centered
@@ -354,7 +401,7 @@
    has zero slack (the content bottom padding clears the fixed mobile
    bottom nav and must not be reduced), so every extra pixel here
    would scroll the tab. */
-.sms-balance-card { max-width: 1000px; margin: 8px auto 0; padding: 10px 14px; }
+.sms-balance-card { max-width: none; margin: 8px 0 0; padding: 10px 14px; }
 /* v3.0.3: the SMS row title is centered like the service-status title
    (same 1fr/auto/1fr grid), and the value/meta/empty texts are
    centered like every other widget's content — they used to be

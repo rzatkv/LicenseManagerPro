@@ -7,7 +7,7 @@ import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
-import {useResponsivePageSize} from "../utils/responsive";
+import {usePageSize} from "../utils/responsive";
 import EmptyState from "../components/EmptyState";
 import TabDropdown from "../components/TabDropdown";
 import {List, Mail, MessageSquare, Send, KeyRound, Server} from "lucide-react";
@@ -42,7 +42,7 @@ function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-    const pageSize = useResponsivePageSize();
+    const [pageSize, setPageSize] = usePageSize("audit-logs");
     // Breakpoint change resets to page 1 (the fetch refetches via its
     // pageSize dep below).
     useEffect(() => { setPage(1); }, [pageSize]);
@@ -246,7 +246,7 @@ function AuditLogs() {
             </tbody>
           </table>
           </div>
-          <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+          <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </>
       )}
       <Modal open={!!selected} title={selected ? `${t("audit.details")} #${selected.id}` : ""} onClose={() => setSelected(null)}>

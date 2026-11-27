@@ -51,10 +51,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v3.0 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 3.0.8
+  // 1. Seed versions bumped to 3.0.9
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 3.0.8", settings.app_version === "3.0.8", JSON.stringify(settings.app_version));
-  check("seed latest_version is 3.0.8", settings.latest_version === "3.0.8", JSON.stringify(settings.latest_version));
+  check("seed app_version is 3.0.9", settings.app_version === "3.0.9", JSON.stringify(settings.app_version));
+  check("seed latest_version is 3.0.9", settings.latest_version === "3.0.9", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 1b. v3.0.6: "/api/..." callers must hit the bare-path routes — the
@@ -210,13 +210,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v3.0.8", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.8/licensemanagerpro-whmcs-3.0.8.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v3.0.9", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.9/licensemanagerpro-whmcs-3.0.9.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 3.0.8", versions.whmcs && versions.whmcs.local === "3.0.8" && versions.odoo && versions.odoo.latest === "3.0.8", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 3.0.9", versions.whmcs && versions.whmcs.local === "3.0.9" && versions.odoo && versions.odoo.latest === "3.0.9", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.8", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.9", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
@@ -329,10 +329,10 @@ function check(name, cond, extra) {
   // more, so assert the running total and the 100% success rate.
   check("webhook stats track all deliveries with 100% success", whStats.total >= 2 && whStats.success === whStats.total && whStats.success_rate === 100 && whStats.by_event["license.created"].total >= 1, JSON.stringify(whStats));
 
-  // 33. v3.0.8: panel news — the mock mirrors the repo-root news.json.
+  // 33. v3.0.9: panel news — the mock mirrors the repo-root news.json.
   const news = await mockRequest("GET", "/news");
-  check("news returns the 6 seeded items", Array.isArray(news.items) && news.items.length === 6, JSON.stringify(news.items && news.items.length));
-  check("news first item is the v3.0.8 release note, both languages", news.items[0].id === "v308-release" && news.items[0].title.en.includes("3.0.8") && news.items[0].title.fa.length > 0 && news.items[0].body.en.length > 0 && news.items[0].body.fa.length > 0, JSON.stringify(news.items[0] && news.items[0].id));
+  check("news returns the 7 seeded items", Array.isArray(news.items) && news.items.length === 7, JSON.stringify(news.items && news.items.length));
+  check("news first item is the v3.0.9 release note, both languages", news.items[0].id === "v309-release" && news.items[0].title.en.includes("3.0.9") && news.items[0].title.fa.length > 0 && news.items[0].body.en.length > 0 && news.items[0].body.fa.length > 0, JSON.stringify(news.items[0] && news.items[0].id));
 
   // 34. v3.0.7: editable notification texts + ippanel pattern codes.
   const texts0 = await mockRequest("GET", "/settings/notification-texts");
@@ -370,7 +370,7 @@ function check(name, cond, extra) {
   const freeTest = await mockRequest("POST", "/sms/test", {to: "+989121234567", event: "user_created"});
   check("sms test without a pattern reports mode=webservice", freeTest.sent === true && freeTest.mode === "webservice" && freeTest.event === "user_created", JSON.stringify(freeTest));
 
-  // 35. v3.0.8: notification template variables — %var% aliases,
+  // 35. v3.0.9: notification template variables — %var% aliases,
   // %client% derivation, unknown placeholders stay literal (demo mock
   // mirrors the backend shared renderer). The pattern code for
   // license_created is cleared first so the sends take the free-text

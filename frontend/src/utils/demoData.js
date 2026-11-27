@@ -14,7 +14,7 @@ import {APP_VERSION} from "../version";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v22";
+const STORAGE_KEY = "lmp-demo-db-v23";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -26,6 +26,7 @@ const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/release
 // these; the Dashboard in demo mode tries the live file from
 // raw.githubusercontent.com first and falls back to these when offline.
 const NEWS_ITEMS = [
+    {id: "v309-release", title: {en: "LicenseManagerPro v3.0.9 is out", fa: "نسخه ۳٫۰٫۹ لایسنس منیجر پرو منتشر شد"}, body: {en: "Full-width desktop dashboard with a real responsive widget grid — widgets sit side by side on wide screens, every block collapses, summary cards link to their pages, modals size per breakpoint, proper pagination with a live page-size selector, and the in-app API docs are synced with the backend.", fa: "داشبورد دسکتاپ تمام‌عرض با گرید واکنش‌گرای واقعی — ویجت‌ها در صفحه‌های عریض کنار هم می‌نشینند، هر بخش جمع می‌شود، کارت‌های خلاصه به صفحه‌هایشان لینک می‌دهند، مودال‌ها بر اساس اندازه صفحه بزرگ می‌شوند، صفحه‌بندی درست با انتخاب‌گر زنده اندازه صفحه، و مستندات API داخل برنامه با بک‌اند همگام شد."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v308-release", title: {en: "LicenseManagerPro v3.0.8 is out", fa: "نسخه ۳٫۰٫۸ لایسنس منیجر پرو منتشر شد"}, body: {en: "Notification template variables with sample values — %client% and %license% (plus %var% aliases for every variable) now work in email, SMS and Telegram, with a click-to-insert variable guide and a live preview rendered with sample values.", fa: "متغیرهای قالب اعلان با مقادیر نمونه — %client% و %license% (به‌علاوه نام مستعار %var% برای همه متغیرها) حالا در ایمیل، پیامک و تلگرام کار می‌کنند، با راهنمای متغیرها برای درج با یک کلیک و پیش‌نمایش زنده با مقادیر نمونه."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v307-release", title: {en: "LicenseManagerPro v3.0.7 is out", fa: "نسخه ۳٫۰٫۷ لایسنس منیجر پرو منتشر شد"}, body: {en: "Editable SMS and Telegram notification texts for every event, plus IPPanel pattern sending — set a pattern code per event and the SMS goes out as a pattern instead of free text.", fa: "متن‌های قابل ویرایش برای اعلان‌های پیامکی و تلگرامی هر رویداد، به‌علاوه ارسال الگویی آی‌پنل — برای هر رویداد یک کد الگو بگذارید تا پیامک به‌صورت الگویی ارسال شود نه متن آزاد."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v306-release", title: {en: "LicenseManagerPro v3.0.6 is out", fa: "نسخه ۳٫۰٫۶ لایسنس منیجر پرو منتشر شد"}, body: {en: "Collapsible dashboard widgets, fixed dropdowns, API docs code boxes that grow to fit their content, a rational menu grouping, a duplicates cleanup and a full security audit with patches.", fa: "ویجت‌های داشبورد که جمع و باز می‌شوند، رفع مشکل دراپ‌داون‌ها، باکس‌های کد مستندات API که به اندازه محتوایشان بلند می‌شوند، طبقه‌بندی عقلانی منوها، پاک‌سازی موارد تکراری و ممیزی امنیتی کامل با پچ‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
@@ -229,7 +230,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.8", message: "Notification template variables with sample values, click-to-insert and a live preview — see Settings → Notifications and Settings → Email.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.9", message: "Full-width desktop dashboard, collapsible blocks, summary links, responsive modals, proper pagination and synced API docs — see the dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],

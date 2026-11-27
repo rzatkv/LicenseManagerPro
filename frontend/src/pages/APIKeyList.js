@@ -8,7 +8,7 @@ import Modal from "../components/Modal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
-import {useResponsivePageSize} from "../utils/responsive";
+import {usePageSize} from "../utils/responsive";
 import {useListFetch} from "../utils/useListFetch";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
@@ -46,7 +46,7 @@ function APIKeyList() {
     const [apiKeys, setApiKeys] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const pageSize = useResponsivePageSize();
+    const [pageSize, setPageSize] = usePageSize("api-keys");
     // Breakpoint change resets to page 1 (the fetch refetches via its
     // pageSize dep below).
     useEffect(() => { setPage(1); }, [pageSize]);
@@ -434,7 +434,7 @@ function APIKeyList() {
                     </tbody>
                 </table>
                 </div>
-                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+                <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
                 </>
             )}
             <Modal open={!!detailsKey} title={detailsKey ? `${t("apikeys.key")} #${detailsKey.id}` : ""} onClose={() => setDetailsKey(null)}>

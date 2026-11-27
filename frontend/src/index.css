@@ -421,17 +421,16 @@ pre::-webkit-scrollbar-track { background: transparent; }
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 18px 0 4px; }
 .pagination-info { color: var(--muted); font-size: 13px; margin-inline-end: auto; }
-/* Real phones (≤640px): the "Showing 1–8 of 8 results" text plus five
-   page buttons pushed Prev/Next onto a second line and the "1" button
-   to the container edge (measured live-DOM at 400/360px). SPLIT, don't
-   squeeze: the info line and the non-current page numbers hide, so only
-   Prev + current page + Next stay — always on one line, never wrapped
-   or clipped, at any width down to 320px. */
-@media (max-width: 640px) {
-  .pagination { flex-wrap: nowrap; }
-  .pagination-info { display: none; }
-  .pagination .pagination-page:not(.active) { display: none; }
-}
+.pagination-pages { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+/* v3.0.9: the pager is complete now — first/prev/window/ellipsis/last/
+   next + a live page-size selector. The nav glyphs flip in RTL so
+   "first" still points at the start (this rule MUST stay after the
+   :hover rule below: equal specificity, later wins, so hovering never
+   unflips the glyph). The selector sits at the inline end; the
+   ellipsis is a plain centred mark, never a button. */
+.pagination-ellipsis { color: var(--muted); padding: 0 2px; user-select: none; }
+.pagination-size { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin-inline-start: auto; }
+.pagination-size select { padding: 6px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
 .pagination button {
     background: var(--surface);
     color: var(--text);
@@ -443,11 +442,27 @@ pre::-webkit-scrollbar-track { background: transparent; }
     min-width: 36px;
 }
 .pagination button:hover:not(:disabled) { box-shadow: var(--shadow); transform: none; }
+[dir="rtl"] .pagination button.pagination-nav { transform: scaleX(-1); }
 .pagination button.active {
     background: var(--accent-gradient);
     background-color: var(--accent);
     color: var(--on-accent);
     border-color: transparent;
+}
+/* Real phones (≤640px): v3.0.9 — the pager is COMPACT but COMPLETE.
+   The old rule hid every non-active number, so the user could not see
+   or reach other pages. Now the first/last buttons hide (the 1 / last
+   numbers ARE those targets), the info hides, and the size selector
+   drops to its own line; the numbers + prev/next stay, and the buttons
+   shrink so the worst case (5 numbers + 2 nav + 2 ellipsis) fits
+   360px on one line, never wrapped or clipped. This block MUST stay
+   after the base button rules above: equal specificity, later wins. */
+@media (max-width: 640px) {
+  .pagination-info { display: none; }
+  .pagination-first, .pagination-last { display: none; }
+  .pagination button { min-width: 32px; padding: 6px 8px; }
+  .pagination-pages { gap: 4px; }
+  .pagination-size { flex-basis: 100%; justify-content: flex-end; }
 }
 
 /* Skeletons */
