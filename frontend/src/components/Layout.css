@@ -5,7 +5,7 @@
 .layout { display: flex; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--text); }
 .layout-sidebar {
   width: 280px; flex-shrink: 0;
-  background: var(--glass);
+  background: var(--glass-menu);
   border-inline-end: 1px solid var(--glass-border);
   padding: 16px 12px; position: sticky; top: 0; height: 100dvh; overflow-y: auto;
   backdrop-filter: blur(20px);
@@ -88,7 +88,7 @@
 .layout-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .layout-topbar {
   display: flex; align-items: center; gap: 12px; padding: 12px 20px;
-  background: var(--glass);
+  background: var(--glass-menu);
   border-bottom: 1px solid var(--glass-border);
   position: sticky; top: 0; z-index: 50; flex-shrink: 0;
   backdrop-filter: blur(20px);
@@ -190,7 +190,7 @@
     inset-inline: 0;
     bottom: 0;
     z-index: 60;
-    background: var(--glass);
+    background: var(--glass-menu);
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);

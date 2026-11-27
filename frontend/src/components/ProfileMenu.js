@@ -1,8 +1,9 @@
-import React, {useState, useEffect, useRef} from "react";
+import React, {useState, useRef} from "react";
 import {useNavigate} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import {getCurrentUser, logout} from "../utils/auth";
 import {useAnimatedOpen} from "../utils/useAnimatedOpen";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 import "./ProfileMenu.css";
 
 /** Header profile menu (v2.3): avatar (photo or initials) with a modern
@@ -15,18 +16,9 @@ function ProfileMenu() {
   const rootRef = useRef(null);
   const user = getCurrentUser();
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
+  // Dismiss on outside tap / Escape (v3.0.6 shared hook; the old copy
+  // listened even while closed).
+  useDismissOnOutsideOrEscape(rootRef, () => setOpen(false), {enabled: open});
 
   if (!user) return null;
   const name = user.display_name || user.email || "?";

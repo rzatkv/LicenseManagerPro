@@ -85,9 +85,14 @@ def get_sms_balance(
 def test_sms(
     payload: SmsTestRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("sms:write")),
+    current_user: User = Depends(require_permission("*")),
 ):
     """Send a REAL test SMS via the active provider (admin settings).
+
+    v3.0.6 (security, M3): admin-only. It used to require only
+    ``sms:write``, which managers hold — any manager could send an
+    arbitrary SMS to any number at the owner's expense. A manager who
+    needs to verify the provider can read the balance (sms:read).
 
     400 when no provider is active. The result is honest: ``sent``
     is True only when the provider call succeeded.

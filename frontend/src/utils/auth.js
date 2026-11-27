@@ -1,5 +1,11 @@
 import {API_BASE_URL, DEMO_MODE} from "../config";
-import {mockRequest} from "./demoData";
+// v3.0.6 (security, M7): demoData is loaded LAZILY, only in demo mode.
+// It used to be a static import, so the demo mock (demo users, demo API
+// keys, the demo 2FA code) shipped inside EVERY production bundle even
+// though it never ran there. A dynamic import keeps it in a separate
+// chunk that only the demo build loads; the main bundle carries no
+// demo secrets at all.
+const loadMockRequest = async () => (await import("./demoData")).mockRequest;
 
 const USER_KEY = "lmp-user";
 
@@ -48,7 +54,7 @@ export const login = async (email, password, captcha) => {
         // verified (the mock fails closed on a wrong/missing answer when
         // captcha is on) and 2FA is honoured. No seed user has TOTP on,
         // so the plain demo login still lands straight on the dashboard.
-        const data = await mockRequest("POST", "/auth/login", {email, password, ...(captcha || {})});
+        const data = await (await loadMockRequest())("POST", "/auth/login", {email, password, ...(captcha || {})});
         if (data.requires_2fa) {
             const err = new Error("Two-factor authentication required");
             err.requires2fa = true;
@@ -58,7 +64,7 @@ export const login = async (email, password, captcha) => {
             throw err;
         }
         localStorage.setItem("token", data.access_token || "demo-token");
-        const me = await mockRequest("GET", "/users/me");
+        const me = await (await loadMockRequest())("GET", "/users/me");
         storeUser({id: me.id, email: me.email || email, role: me.role || "admin"});
         notifyAuthChange();
         return;

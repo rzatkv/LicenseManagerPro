@@ -1,7 +1,8 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState} from "react";
 import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
@@ -34,16 +35,13 @@ export function LanguagesPanel() {
   const [newName, setNewName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
-  const fetchList = useCallback(async () => {
-    try {
-      const data = await get("/languages");
-      setLanguages(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || t("common.failedFetch"));
-    }
-  }, [t, toast]);
-
-  useEffect(() => { fetchList(); }, [fetchList]);
+  // v3.0.6: shared list fetch (toast on error; this page has no loading
+  // state — the list simply renders when it arrives).
+  const {reload: fetchList} = useListFetch(
+    async () => get("/languages"),
+    [],
+    {onData: (data) => setLanguages(Array.isArray(data) ? data : [])},
+  );
 
   const openEditor = async (lang) => {
     try {

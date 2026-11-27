@@ -40,7 +40,11 @@ if tar -tzf "$TARBALL" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
     echo "Refusing to apply $TARBALL: archive contains unsafe paths." >&2
     exit 1
 fi
-if tar -tvzf "$TARBALL" | grep -Eq '^[bcdlps]'; then
+# v3.0.6 (security, M4): the type class MUST include 'h' — GNU tar
+# shows hard links as "hrw-... link to ...", so the old class
+# [bcdlps] let hard links through. All links are refused outright,
+# so no link target can ever escape the extract directory.
+if tar -tvzf "$TARBALL" | grep -Eq '^[bcdlpsh]'; then
     echo "Refusing to apply $TARBALL: archive contains non-regular members." >&2
     exit 1
 fi
@@ -48,22 +52,31 @@ fi
 echo "Applying $TARBALL to $INSTALL_DIR ..."
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-tar -xzf "$TARBALL" -C "$TMP_DIR" --strip-components=1
+# v3.0.6 (security, M4): never keep the archive's owner or modes —
+# a setuid bit in a crafted tarball would survive into the install.
+tar -xzf "$TARBALL" -C "$TMP_DIR" --strip-components=1 --no-same-owner --no-same-permissions
 
 # Copy everything except live config/data. (rsync is preferred when
 # available; plain cp -a is the fallback.)
 EXCLUDES=(--exclude=.env --exclude=*.db --exclude=license_manager.db --exclude=updates)
 if command -v rsync >/dev/null 2>&1; then
-    rsync -a "${EXCLUDES[@]}" "$TMP_DIR"/ "$INSTALL_DIR"/
+    rsync -a --no-perms --no-owner --no-group "${EXCLUDES[@]}" "$TMP_DIR"/ "$INSTALL_DIR"/
 else
     # cp fallback: back up the protected files first, copy, then restore.
     BACKUP_DIR="$(mktemp -d)"
     trap 'rm -rf "$TMP_DIR" "$BACKUP_DIR"' EXIT
     cp -a .env "$BACKUP_DIR"/ 2>/dev/null || true
     cp -a -- *.db "$BACKUP_DIR"/ 2>/dev/null || true
-    cp -a "$TMP_DIR"/. "$INSTALL_DIR"/
+    # v3.0.6 (security, M4): plain cp -r, not cp -a — the archive's
+    # modes (incl. setuid) must not survive. (.env/*.db above keep cp -a:
+    # those are the operator's own live files being restored.)
+    cp -r "$TMP_DIR"/. "$INSTALL_DIR"/
     cp -a "$BACKUP_DIR"/. "$INSTALL_DIR"/ 2>/dev/null || true
 fi
+
+# Belt and braces (v3.0.6, M4): strip any setuid/setgid bit that
+# survived the copy, whichever copy path was used.
+find "$INSTALL_DIR" -perm /6000 -exec chmod a-s {} + 2>/dev/null || true
 
 echo "Files updated."
 

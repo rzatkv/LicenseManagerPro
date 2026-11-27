@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, field_validator
 
 # --- Auth -------------------------------------------------------------------
 
@@ -29,15 +29,37 @@ class TokenResponse(BaseModel):
     twofa_channel: str | None = None
 
 
+def _validate_password_length(password: str) -> str:
+    """v3.0.6 (security, L7): bcrypt silently truncates passwords past
+    72 BYTES, so two long passwords sharing the first 72 bytes would
+    be equivalent. Reject anything over 72 bytes at the boundary
+    instead of silently weakening it. (Login does NOT enforce this:
+    an account created before this check with a long password must
+    still be able to log in with its first-72-bytes equivalent.)"""
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes")
+    return password
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, description="At least 8 characters")
+
+    @field_validator("password")
+    @classmethod
+    def _password_length(cls, value: str) -> str:
+        return _validate_password_length(value)
     role: str = Field(default="admin", description="admin, manager, support or viewer")
 
 
 class UserCreateRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def _password_length(cls, value: str) -> str:
+        return _validate_password_length(value)
     role: str = Field(default="viewer", description="admin, manager, support or viewer")
     # v2.3: link to a custom role row instead of a legacy role name.
     role_id: int | None = None
@@ -459,10 +481,27 @@ class LicenseResponse(BaseModel):
     updated_at: datetime
 
 
+class LicenseValidateInfo(BaseModel):
+    """The only license fields the PUBLIC validate endpoint returns
+    (v3.0.6, security M2): status + expiry + activation counts are what
+    modules actually use (e.g. the WooCommerce "My Licenses" page).
+    owner_email, notes, allowed_domains, allowed_ips, install_path and
+    the key itself never leave the server through this unauthenticated
+    endpoint."""
+
+    product: str
+    product_id: int | None = None
+    billing_cycle: str | None = None
+    status: str
+    expires_at: datetime | None = None
+    max_activations: int
+    activations: int
+
+
 class LicenseValidateResponse(BaseModel):
     valid: bool
     detail: str
-    license: LicenseResponse | None = None
+    license: LicenseValidateInfo | None = None
     # v2.3 lenient mode: valid but with a grace warning (e.g. a lock
     # mismatch that was allowed through in lenient mode).
     grace: bool = False

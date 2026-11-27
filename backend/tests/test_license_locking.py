@@ -99,6 +99,10 @@ def test_validate_lock_domain(client, auth_headers):
 
 
 def test_validate_lock_ip_and_install_path(client, auth_headers):
+    """The IP lock is enforced against the OBSERVED connection IP
+    (v3.0.6, H2) — the TestClient presents itself as "testclient",
+    the same IP the rate limiter sees. A body `ip` that disagrees
+    with the connection neither helps nor hurts: it is ignored."""
     product = _create_product(client, auth_headers)
     lic = _create_license_from_product(
         client,
@@ -107,15 +111,33 @@ def test_validate_lock_ip_and_install_path(client, auth_headers):
         "monthly",
         key="LOCK-IP-000001",
         allowed_domains=["example.com"],
-        allowed_ips=["1.2.3.4"],
+        allowed_ips=["testclient"],
         install_path="/opt/app",
     )
-    good = {"key": lic["key"], "domain": "example.com", "ip": "1.2.3.4", "install_path": "/opt/app"}
+    good = {"key": lic["key"], "domain": "example.com", "install_path": "/opt/app"}
     response = client.post("/api/licenses/validate", json=good, headers=auth_headers)
     assert response.json()["valid"] is True
 
-    bad_ip = dict(good, ip="9.9.9.9")
-    response = client.post("/api/licenses/validate", json=bad_ip, headers=auth_headers)
+    # A wrong body ip changes nothing: the observed IP still matches.
+    wrong_body_ip = dict(good, ip="9.9.9.9")
+    response = client.post("/api/licenses/validate", json=wrong_body_ip, headers=auth_headers)
+    assert response.json()["valid"] is True
+
+    # But a spoofed body ip cannot satisfy the lock when the observed
+    # IP does not match: a license locked to 1.2.3.4 stays denied even
+    # when the caller claims to be 1.2.3.4 (H2 regression).
+    lic2 = _create_license_from_product(
+        client,
+        auth_headers,
+        product["id"],
+        "monthly",
+        key="LOCK-IP-000002",
+        allowed_domains=["example.com"],
+        allowed_ips=["1.2.3.4"],
+        install_path="/opt/app",
+    )
+    spoof = {"key": lic2["key"], "domain": "example.com", "ip": "1.2.3.4", "install_path": "/opt/app"}
+    response = client.post("/api/licenses/validate", json=spoof, headers=auth_headers)
     assert response.json()["valid"] is False
     assert response.json()["detail"] == "ip not allowed"
 
@@ -169,7 +191,11 @@ def test_lock_fields_accept_comma_separated_string(client, auth_headers):
         json={
             "product": "Widget",
             "allowed_domains": "example.com, shop.example.com",
-            "allowed_ips": "1.2.3.4",
+            # v3.0.6 (security, H2): the good case must list the OBSERVED
+            # ip — the TestClient presents itself as "testclient", and
+            # the route enforces the IP lock against the connection IP,
+            # never the body `ip`.
+            "allowed_ips": "1.2.3.4, testclient",
             "install_path": "/var/www/app",
         },
         headers=auth_headers,
@@ -177,7 +203,7 @@ def test_lock_fields_accept_comma_separated_string(client, auth_headers):
     assert response.status_code == 201, response.text
     created = response.json()
     assert created["allowed_domains"] == ["example.com", "shop.example.com"]
-    assert created["allowed_ips"] == ["1.2.3.4"]
+    assert created["allowed_ips"] == ["1.2.3.4", "testclient"]
 
     # The locks are enforced with the string form stored.
     bad = client.post(

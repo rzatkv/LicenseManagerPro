@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas import CaptchaChallengeResponse, CaptchaPublicConfigResponse
 from services import captcha as captcha_service
+from utils.rate_limit import rate_limit_captcha
 
 router = APIRouter()
 
@@ -23,7 +24,11 @@ def get_public_config(db: Session = Depends(get_db)):
     return captcha_service.public_captcha_config(db)
 
 
-@router.post("/challenge", response_model=CaptchaChallengeResponse)
+@router.post(
+    "/challenge",
+    response_model=CaptchaChallengeResponse,
+    dependencies=[Depends(rate_limit_captcha)],
+)
 def new_challenge(db: Session = Depends(get_db)):
     """Mint one single-use custom challenge (5-minute expiry)."""
     cfg = captcha_service.get_captcha_config(db)

@@ -18,7 +18,7 @@
   /* A long custom-language list must not run off the viewport (or
      down over the login hero): cap the height and scroll inside. */
   max-height: min(60vh, 320px); overflow-y: auto;
-  background: var(--glass);
+  background: var(--glass-menu);
   border: 1px solid var(--glass-border); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;
   animation: lm-pop 0.18s ease;

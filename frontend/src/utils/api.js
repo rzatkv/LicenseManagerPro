@@ -1,51 +1,78 @@
 import {API_BASE_URL, DEMO_MODE} from "../config";
-import {mockRequest} from "./demoData";
+// v3.0.6 (security, M7): demoData is loaded LAZILY, only in demo mode.
+// It used to be a static import, so the demo mock (demo users, demo API
+// keys, the demo 2FA code) shipped inside EVERY production bundle even
+// though it never ran there. A dynamic import keeps it in a separate
+// chunk that only the demo build loads; the main bundle carries no
+// demo secrets at all.
+const loadMockRequest = async () => (await import("./demoData")).mockRequest;
 
 const authHeaders = () => {
     const token = localStorage.getItem("token");
     return token ? {Authorization: `Bearer ${token}`} : {};
 };
 
-const handleResponse = async (response, endpoint) => {
-    if (!response.ok) {
-        let detail = `Error: ${response.status}`;
-        try {
-            const err = await response.json();
-            detail = err.detail || detail;
-        } catch (e) {
-            // Keep the status-based message when the body is not JSON.
-        }
-        const error = new Error(detail);
-        error.status = response.status;
-        throw error;
+// Shared error parsing for non-2xx responses (v3.0.6): getList used to
+// re-implement this inline instead of calling handleResponse.
+const throwForBadResponse = async (response) => {
+    if (response.ok) return;
+    let detail = `Error: ${response.status}`;
+    try {
+        const err = await response.json();
+        detail = err.detail || detail;
+    } catch (e) {
+        // Keep the status-based message when the body is not JSON.
     }
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
+};
+
+const handleResponse = async (response, endpoint) => {
+    await throwForBadResponse(response);
     return response.json();
 };
+
+// Single implementation behind get/post/put/del (v3.0.6 — the four verbs
+// used to be four copies of the same ~15-line block: demo branch ->
+// mockRequest -> log -> rethrow; live branch -> fetch with authHeaders
+// -> handleResponse). Behaviour is unchanged: GET/DELETE send no body
+// and no Content-Type; POST/PUT always send Content-Type and a JSON
+// body (JSON.stringify(undefined) is undefined, so a missing body sends
+// nothing, as before). Errors are logged as `${METHOD} ${endpoint}
+// failed:` and rethrown in both modes.
+async function request(method, endpoint, body) {
+    if (DEMO_MODE) {
+        try {
+            return await (await loadMockRequest())(method, endpoint, body);
+        } catch (error) {
+            console.error(`${method} ${endpoint} failed:`, error);
+            throw error;
+        }
+    }
+    const hasBody = method === "POST" || method === "PUT";
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method,
+            headers: {
+                ...(hasBody ? {"Content-Type": "application/json"} : {}),
+                ...authHeaders(),
+            },
+            ...(hasBody ? {body: JSON.stringify(body)} : {}),
+        });
+        return await handleResponse(response, endpoint);
+    } catch (error) {
+        console.error(`${method} ${endpoint} failed:`, error);
+        throw error;
+    }
+}
 
 /**
  * Send a GET request to the API
  * @param {string} endpoint
  * @returns {Promise<any>}
  */
-export const get = async (endpoint) => {
-    if (DEMO_MODE) {
-        try {
-            return await mockRequest("GET", endpoint);
-        } catch (error) {
-            console.error(`GET ${endpoint} failed:`, error);
-            throw error;
-        }
-    }
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            headers: {...authHeaders()},
-        });
-        return await handleResponse(response, endpoint);
-    } catch (error) {
-        console.error(`GET ${endpoint} failed:`, error);
-        throw error;
-    }
-};
+export const get = (endpoint) => request("GET", endpoint);
 
 /**
  * Send a POST request to the API
@@ -53,30 +80,7 @@ export const get = async (endpoint) => {
  * @param {object} body
  * @returns {Promise<any>}
  */
-export const post = async (endpoint, body) => {
-    if (DEMO_MODE) {
-        try {
-            return await mockRequest("POST", endpoint, body);
-        } catch (error) {
-            console.error(`POST ${endpoint} failed:`, error);
-            throw error;
-        }
-    }
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeaders(),
-            },
-            body: JSON.stringify(body),
-        });
-        return await handleResponse(response, endpoint);
-    } catch (error) {
-        console.error(`POST ${endpoint} failed:`, error);
-        throw error;
-    }
-};
+export const post = (endpoint, body) => request("POST", endpoint, body);
 
 /**
  * Send a PUT request to the API
@@ -84,56 +88,14 @@ export const post = async (endpoint, body) => {
  * @param {object} body
  * @returns {Promise<any>}
  */
-export const put = async (endpoint, body) => {
-    if (DEMO_MODE) {
-        try {
-            return await mockRequest("PUT", endpoint, body);
-        } catch (error) {
-            console.error(`PUT ${endpoint} failed:`, error);
-            throw error;
-        }
-    }
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeaders(),
-            },
-            body: JSON.stringify(body),
-        });
-        return await handleResponse(response, endpoint);
-    } catch (error) {
-        console.error(`PUT ${endpoint} failed:`, error);
-        throw error;
-    }
-};
+export const put = (endpoint, body) => request("PUT", endpoint, body);
 
 /**
  * Send a DELETE request to the API
  * @param {string} endpoint
  * @returns {Promise<any>}
  */
-export const del = async (endpoint) => {
-    if (DEMO_MODE) {
-        try {
-            return await mockRequest("DELETE", endpoint);
-        } catch (error) {
-            console.error(`DELETE ${endpoint} failed:`, error);
-            throw error;
-        }
-    }
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method: "DELETE",
-            headers: {...authHeaders()},
-        });
-        return await handleResponse(response, endpoint);
-    } catch (error) {
-        console.error(`DELETE ${endpoint} failed:`, error);
-        throw error;
-    }
-};
+export const del = (endpoint) => request("DELETE", endpoint);
 
 /**
  * Paginated list fetch: GET path?skip=&limit= (+ any query already in path).
@@ -150,7 +112,7 @@ export const getList = async (path, {skip = 0, limit = 10} = {}) => {
     const url = `${path}${sep}skip=${skip}&limit=${limit}`;
     if (DEMO_MODE) {
         try {
-            const data = await mockRequest("GET", url);
+            const data = await (await loadMockRequest())("GET", url);
             if (data && Array.isArray(data.items)) {
                 return {items: data.items, total: data.total != null ? data.total : data.items.length};
             }
@@ -168,16 +130,7 @@ export const getList = async (path, {skip = 0, limit = 10} = {}) => {
         const response = await fetch(`${API_BASE_URL}${url}`, {
             headers: {...authHeaders()},
         });
-        if (!response.ok) {
-            let detail = `Error: ${response.status}`;
-            try {
-                const err = await response.json();
-                detail = err.detail || detail;
-            } catch (e) {}
-            const error = new Error(detail);
-            error.status = response.status;
-            throw error;
-        }
+        await throwForBadResponse(response);
         const body = await response.json();
         const totalHeader = Number(response.headers.get("X-Total-Count"));
         const items = Array.isArray(body) ? body : (body.api_keys || []);

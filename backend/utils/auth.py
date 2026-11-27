@@ -26,6 +26,11 @@ security = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
+    # v3.0.6 (security, L7): bcrypt truncates past 72 bytes — refuse
+    # instead of silently hashing a prefix. The API schemas reject
+    # long passwords first; this guards direct callers.
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes")
     return pwd_context.hash(password)
 
 

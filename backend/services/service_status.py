@@ -86,7 +86,8 @@ def _check_database(db: Session) -> dict:
         db.execute(text("SELECT 1"))
         return _item("database", "Database", "connected", "Query answered")
     except Exception as exc:  # noqa: BLE001
-        return _item("database", "Database", "unreachable", str(exc)[:120])
+        logger.warning("Service check failed for database: %s", exc)
+        return _item("database", "Database", "unreachable", "Could not reach the database")
 
 
 def _check_email(cfg: dict) -> dict:
@@ -103,7 +104,8 @@ def _check_email(cfg: dict) -> dict:
     except smtplib.SMTPAuthenticationError:
         return _item("email", "Email (SMTP)", "auth_failed", "SMTP login rejected — check credentials")
     except Exception as exc:  # noqa: BLE001
-        return _item("email", "Email (SMTP)", "unreachable", str(exc)[:120])
+        logger.warning("Service check failed for email: %s", exc)
+        return _item("email", "Email (SMTP)", "unreachable", "Could not reach the SMTP server")
 
 
 def _check_sms(cfg: dict) -> dict:
@@ -127,7 +129,8 @@ def _check_sms(cfg: dict) -> dict:
                 return _item("sms", label, "auth_failed", "Kavenegar rejected the API key")
             return _item("sms", label, "unreachable", f"Kavenegar HTTP {resp.status_code}")
         except Exception as exc:  # noqa: BLE001
-            return _item("sms", label, "unreachable", str(exc)[:120])
+            logger.warning("Service check failed for sms (%s): %s", name, exc)
+            return _item("sms", label, "unreachable", "Could not reach the SMS provider")
     if name == "ippanel":
         # Real key-validating check: the documented credit endpoint
         # (GET /api/payment/credit/mine — see services/sms_ippanel.py).
@@ -145,7 +148,8 @@ def _check_sms(cfg: dict) -> dict:
         except ippanel.IppanelAuthError:
             return _item("sms", label, "auth_failed", "IPPanel rejected the API key")
         except Exception as exc:  # noqa: BLE001
-            return _item("sms", label, "unreachable", str(exc)[:120])
+            logger.warning("Service check failed for sms (%s): %s", name, exc)
+            return _item("sms", label, "unreachable", "Could not reach the SMS provider")
     # faraz has no documented ping endpoint: host reachability.
     hosts = {"faraz": "rest.payamak-panel.com"}
     host = hosts.get(name)
@@ -158,7 +162,8 @@ def _check_sms(cfg: dict) -> dict:
         sock.close()
         return _item("sms", label, "connected", f"{host} reachable")
     except Exception as exc:  # noqa: BLE001
-        return _item("sms", label, "unreachable", str(exc)[:120])
+        logger.warning("Service check failed for sms (%s): %s", name, exc)
+        return _item("sms", label, "unreachable", "Could not reach the SMS provider")
 
 
 def _check_telegram(cfg: dict) -> dict:
@@ -179,7 +184,8 @@ def _check_telegram(cfg: dict) -> dict:
             return _item("telegram", "Telegram bot", "auth_failed", "Telegram rejected the bot token")
         return _item("telegram", "Telegram bot", "unreachable", f"Telegram HTTP {resp.status_code}")
     except Exception as exc:  # noqa: BLE001
-        return _item("telegram", "Telegram bot", "unreachable", str(exc)[:120])
+        logger.warning("Service check failed for telegram: %s", exc)
+        return _item("telegram", "Telegram bot", "unreachable", "Could not reach Telegram")
 
 
 def _check_github() -> dict:
@@ -189,7 +195,8 @@ def _check_github() -> dict:
             return _item("github", "GitHub (updates)", "connected", "GitHub reachable")
         return _item("github", "GitHub (updates)", "unreachable", f"GitHub HTTP {resp.status_code}")
     except Exception as exc:  # noqa: BLE001
-        return _item("github", "GitHub (updates)", "unreachable", str(exc)[:120])
+        logger.warning("Service check failed for github: %s", exc)
+        return _item("github", "GitHub (updates)", "unreachable", "Could not reach GitHub")
 
 
 def check_all_services(db: Session) -> dict:

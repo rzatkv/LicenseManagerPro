@@ -6,6 +6,7 @@ import {get} from "../utils/api";
 import NotificationsBell from "./NotificationsBell";
 import GlobalSearch from "./GlobalSearch";
 import ThemeToggle from "./ThemeToggle";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 import LanguageMenu from "./LanguageMenu";
 import ProfileMenu from "./ProfileMenu";
 import {DEMO_MODE} from "../config";
@@ -74,14 +75,9 @@ function Layout() {
   }, []);
 
   // Escape closes the mobile drawer (listener only while it is open).
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") setSidebarOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [sidebarOpen]);
+  // v3.0.6: shared dismiss hook (Escape-only here — outside taps are
+  // handled by the content-area click below).
+  useDismissOnOutsideOrEscape([], () => setSidebarOpen(false), {enabled: sidebarOpen, outsideClick: false});
 
   // Custom languages (if any) are merged into the i18n dictionaries here
   // so nav labels and page strings use them; the language picker itself
@@ -96,14 +92,25 @@ function Layout() {
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
 
-  /* Hierarchical menu (v3.0.4, extended v3.0.5): EVERY sidebar item
-     lives in an accordion group — no flat top-level links. A group
-     parent only toggles its sub-menu (it does not navigate). Activity
-     History and API Docs live inside the Settings group. */
+  /* Hierarchical menu (v3.0.4, extended v3.0.5, regrouped v3.0.6): EVERY
+     sidebar item lives in an accordion group — except Settings, which
+     is a top-level link (it is the one configuration area, a different
+     kind of thing from every group, so a group of one would be
+     dishonest). A group parent only toggles its sub-menu (it does not
+     navigate). Grouping rationale (v3.0.6 — ask "what IS this?" per
+     item): Overview = the read-only monitoring/info pages (Dashboard,
+     Notifications, Activity History, About); Licenses = the license
+     domain; Access = access control; Resources = the take-away
+     integration resources (module ZIPs + API docs) — Downloads is
+     distribution, not management, and API Docs is documentation, not a
+     setting. Notifications is an alert inbox, not management; Activity
+     History is a record of what happened, not a setting. */
   const [openGroups, setOpenGroups] = useState({});
   const GROUPS = [
-    {id: "overview", label: t("nav.groupOverview"), icon: ICONS.dashboard, routes: ["/dashboard", "/about"], items: [
+    {id: "overview", label: t("nav.groupOverview"), icon: ICONS.dashboard, routes: ["/dashboard", "/notifications", "/audit-logs", "/about"], items: [
       {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
+      {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
+      {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
       {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
     ]},
     {id: "licenses", label: t("nav.groupLicenses"), icon: ICONS.licenses, routes: ["/licenses", "/products", "/product-groups"], items: [
@@ -117,13 +124,8 @@ function Layout() {
       {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
       {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
     ]},
-    {id: "management", label: t("nav.management"), icon: ICONS.downloads, routes: ["/downloads", "/notifications"], items: [
+    {id: "resources", label: t("nav.groupResources"), icon: ICONS.downloads, routes: ["/downloads", "/docs"], items: [
       {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
-      {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
-    ]},
-    {id: "settings", label: t("nav.settings"), icon: ICONS.settings, routes: ["/settings", "/audit-logs", "/docs"], items: [
-      {to: "/settings", label: t("settings.tabs.general"), icon: ICONS.settings, show: true},
-      {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
       {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
     ]},
   ];
@@ -202,6 +204,13 @@ function Layout() {
         </div>
         <nav>
           {GROUPS.map((group) => renderGroup(group.id, group.label, group.icon, group.items, groupActive(group)))}
+          {/* Settings is a top-level link, not a group (v3.0.6): it is
+              the one configuration area, a different kind of thing from
+              every group. */}
+          <NavLink to="/settings" className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
+            <span className="layout-nav-icon">{ICONS.settings}</span>
+            <span>{t("nav.settings")}</span>
+          </NavLink>
         </nav>
       </aside>
       <div

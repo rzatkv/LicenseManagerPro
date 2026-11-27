@@ -1,8 +1,9 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect} from "react";
 import {getList, post, del} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
@@ -25,30 +26,25 @@ function Blacklist() {
     useEffect(() => { setPage(1); }, [pageSize]);
     const [typeFilter, setTypeFilter] = useState("");
     const [search, setSearch] = useState("");
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [type, setType] = useState("ip");
     const [value, setValue] = useState("");
     const [reason, setReason] = useState("");
     const [addOpen, setAddOpen] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
 
-    const fetchEntries = useCallback(async () => {
-        setLoading(true);
-        try {
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchEntries} = useListFetch(
+        async () => {
             const q = typeFilter ? `?type=${typeFilter}` : "";
-            const {items, total: t} = await getList(`/blacklist${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
-            setEntries(items);
-            setTotal(t);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setEntries([]);
-            setTotal(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [page, pageSize, typeFilter, toast, t]);
-
-    useEffect(() => { fetchEntries(); }, [fetchEntries]);
+            return getList(`/blacklist${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
+        },
+        [page, pageSize, typeFilter],
+        {
+            onData: ({items, total: t}) => { setEntries(items); setTotal(t); },
+            onError: () => { setEntries([]); setTotal(0); },
+        },
+    );
 
     const handleAdd = async (e) => {
         e.preventDefault();

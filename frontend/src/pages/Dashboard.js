@@ -27,6 +27,12 @@ import {SkeletonCard} from "../components/Skeleton";
 import Modal from "../components/Modal";
 import "../styles/Dashboard.css";
 
+// v3.0.6 (security, L10): news items come from news.json, which is
+// operator-controlled — but a javascript: (or data:) link would execute
+// on click if it ever slipped in. Only http(s) links are rendered.
+const isSafeHttpUrl = (url) =>
+    typeof url === "string" && /^(https?:\/\/)/i.test(url.trim());
+
 const daysLeft = (expiresAt) => {
     if (!expiresAt) return null;
     return Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
@@ -76,23 +82,38 @@ function SplitTick(props) {
     );
 }
 
-function ChartTitle({icon, title}) {
+/** Chart header: icon + centered title. With `action` (v3.0.6, the widget
+ * collapse button) the header becomes the same 1fr/auto/1fr grid the
+ * Services header already uses, so the title stays EXACTLY centered
+ * and the action sits at the end — never overlapping the title. */
+function ChartTitle({icon, title, action}) {
+    if (!action) {
+        return (
+            <h3>
+                {icon ? <span className="chart-title-icon">{icon}</span> : null}
+                {title}
+            </h3>
+        );
+    }
     return (
-        <h3>
-            {icon ? <span className="chart-title-icon">{icon}</span> : null}
-            {title}
+        <h3 className="chart-title-with-action">
+            <span className="chart-title-text">
+                {icon ? <span className="chart-title-icon">{icon}</span> : null}
+                {title}
+            </span>
+            <span className="chart-title-action">{action}</span>
         </h3>
     );
 }
 
 /** Donut / pie / bar breakdown of licenses by status (Recharts, v3.0.4). */
-function DonutChart({data, title, t, size = "M", type = "donut", icon}) {
+function DonutChart({data, title, t, size = "M", type = "donut", icon, action}) {
     const total = Object.values(data).reduce((a, b) => a + b, 0);
     const entries = Object.entries(data).filter(([, v]) => v > 0).map(([key, value]) => ({key, value}));
     const donutPx = DONUT_SIZE[size] || 180;
     return (
         <div className="chart-card">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             {total === 0 ? <p className="dashboard-empty">—</p> : type === "bar" ? (
                 <div className="chart-body">
                     <ResponsiveContainer width="100%" height={donutPx}>
@@ -142,12 +163,12 @@ function DonutChart({data, title, t, size = "M", type = "donut", icon}) {
 }
 
 /** Bar / line / area chart of values per label (Recharts, v3.0.4). */
-function BarChart({data, title, color, size = "M", type = "bar", icon}) {
+function BarChart({data, title, color, size = "M", type = "bar", icon, action}) {
     const height = BAR_HEIGHT[size] || 190;
     const donutPx = DONUT_SIZE[size] || 180;
     return (
         <div className="chart-card">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             {data.length === 0 ? <p className="dashboard-empty">—</p> : type === "pie" || type === "donut" ? (
                 <div className="chart-body">
                     <div className="donut-wrap" style={{width: donutPx, height: donutPx}}>
@@ -214,12 +235,12 @@ function BarChart({data, title, color, size = "M", type = "bar", icon}) {
 }
 
 /** 14-day line / area / bar chart of licenses created per day (Recharts, v3.0.4). */
-function TrendChart({points, title, lang, size = "M", type = "line", icon, widgetId = "trend"}) {
+function TrendChart({points, title, lang, size = "M", type = "line", icon, widgetId = "trend", action}) {
     const height = CHART_HEIGHT[size] || 200;
     const gradId = `trend-fill-${widgetId}`;
     return (
         <div className="chart-card chart-card-wide">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             {points.length === 0 ? <p className="dashboard-empty">—</p> : (
                 <ResponsiveContainer width="100%" height={height}>
                     {type === "bar" ? (
@@ -267,10 +288,10 @@ function TrendChart({points, title, lang, size = "M", type = "line", icon, widge
 /** Webhook delivery stats widget (v2.3, Recharts line variant v3.0.4):
  * overall success rate + a row per event; the "line" type draws the
  * per-event success rate as a line chart instead of bars. */
-function WebhookStatsWidget({stats, title, t, type = "bar", icon}) {
+function WebhookStatsWidget({stats, title, t, type = "bar", icon, action}) {
     if (!stats) return (
         <div className="chart-card">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             <p className="dashboard-empty">—</p>
         </div>
     );
@@ -281,7 +302,7 @@ function WebhookStatsWidget({stats, title, t, type = "bar", icon}) {
     }));
     return (
         <div className="chart-card">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             <div className="webhook-rate">
                 <span className="webhook-rate-value">{stats.success_rate}%</span>
                 <span className="webhook-rate-label">{t("dashboard.webhookSuccessRate")}</span>
@@ -324,13 +345,13 @@ function WebhookStatsWidget({stats, title, t, type = "bar", icon}) {
 
 /** Sending activity chart (v3.0, Recharts v3.0.4): per-day sent (green)
  * + failed (red) bars / lines / areas for one channel (or all). */
-function SendingChart({series, title, t, size = "M", type = "bar", icon}) {
+function SendingChart({series, title, t, size = "M", type = "bar", icon, action}) {
     const height = CHART_HEIGHT[size] || 200;
     const total = series.reduce((a, d) => a + d.sent + d.failed, 0);
     const interval = Math.max(0, Math.ceil(series.length / 7) - 1);
     return (
         <div className="chart-card chart-card-wide">
-            <ChartTitle icon={icon} title={title} />
+            <ChartTitle icon={icon} title={title} action={action} />
             {total === 0 ? <p className="dashboard-empty">{t("dashboard.sendingNoData")}</p> : (
                 <ResponsiveContainer width="100%" height={height}>
                     {type === "line" ? (
@@ -422,6 +443,9 @@ const DEFAULT_LAYOUT = {
     // v3.0.5: bounded section density (compact/normal/roomy) — sections
     // are not widgets, so they never get the full S/M/L width treatment.
     sectionSizes: {...DEFAULT_SECTION_SIZES},
+    // v3.0.6: collapsed widgets (id -> true) — a folded widget shows
+    // only its header in place; expanded is the default (no key).
+    collapsed: {},
 };
 // v3.0.4: the layout is PER ADMIN (same pattern as the per-admin theme
 // in theme.js). The old browser-global key leaked one admin's layout
@@ -452,6 +476,12 @@ function normalizeLayout(saved) {
     for (const [id, sz] of Object.entries(saved.sectionSizes || {})) {
         if (SECTION_IDS.includes(id) && SECTION_SIZES.includes(sz)) sectionSizes[id] = sz;
     }
+    // v3.0.6: collapsed widgets — unknown ids are dropped, non-boolean
+    // values ignored, so layouts saved before v3.0.6 keep working.
+    const collapsed = {};
+    for (const [id, v] of Object.entries(saved.collapsed || {})) {
+        if (WIDGET_IDS.includes(id) && v === true) collapsed[id] = true;
+    }
     return {
         order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
         sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
@@ -459,6 +489,7 @@ function normalizeLayout(saved) {
         hidden: {...(saved.hidden || {})},
         types,
         sectionSizes,
+        collapsed,
     };
 }
 
@@ -901,6 +932,39 @@ function Dashboard() {
     const renderWidget = (id, index) => {
         const size = layout.sizes[id] || "M";
         const chartType = layout.types[id] || DEFAULT_TYPES[id];
+        // v3.0.6: collapsible widgets — each widget folds to its header
+        // in place. The state lives in the layout like size/order/type,
+        // so it persists per admin (localStorage + /users/me/preferences)
+        // and survives a reload. The size/reorder controls above stay
+        // reachable while collapsed; the chart-type/range controls live
+        // under the chart, so they are reachable once expanded again.
+        const collapsed = !!(layout.collapsed && layout.collapsed[id]);
+        const toggleCollapse = () => setLayout((prev) => ({...prev, collapsed: {...(prev.collapsed || {}), [id]: !prev.collapsed[id]}}));
+        const widgetTitle = (wid) => {
+            switch (wid) {
+                case "trend": return t("dashboard.trendTitle");
+                case "status": return t("dashboard.byStatus");
+                case "perMonth": return t("dashboard.createdPerMonth");
+                case "byProduct": return t("dashboard.byProduct");
+                case "activations": return t("dashboard.activationsTrend");
+                case "webhooks": return t("dashboard.webhookStats");
+                case "services": return t("dashboard.serviceStatusTitle");
+                case "sending": return t(`dashboard.sendingChannel.${sendingChannel}`);
+                default: return wid;
+            }
+        };
+        const collapseBtn = (
+            <button
+                type="button"
+                className={`widget-collapse-btn${collapsed ? " collapsed" : ""}`}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
+                title={collapsed ? t("dashboard.expand") : t("dashboard.collapse")}
+                onClick={toggleCollapse}
+            >
+                <ChevronDown size={16} />
+            </button>
+        );
         // Position among the widgets visible on the single page
         // (v3.0.3): the ↑/↓ buttons move the widget within the page
         // order, so the change is always visible. The old version
@@ -941,7 +1005,7 @@ function Dashboard() {
         return (
             <motion.div
                 key={id}
-                className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}`}
+                className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}${collapsed ? " widget-collapsed" : ""}`}
                 draggable={customizing}
                 onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); }}
                 onDragOver={(e) => { if (customizing) e.preventDefault(); }}
@@ -980,43 +1044,51 @@ function Dashboard() {
                         </span>
                     </div>
                 )}
+                {collapsed ? (
+                    <div className="widget-collapsed-head">
+                        <span className="chart-title-icon">{WIDGET_ICONS[id]}</span>
+                        <span className="widget-collapsed-title">{widgetTitle(id)}</span>
+                        {collapseBtn}
+                    </div>
+                ) : (
+                <>
                 {id === "trend" && (
                     <>
-                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" />
+                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" action={collapseBtn} />
                         {typeControl("trend")}
                         {rangeControl("trend", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "status" && (
                     <>
-                        <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} />
+                        <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} action={collapseBtn} />
                         {typeControl("status")}
                     </>
                 )}
                 {id === "perMonth" && (
                     <>
-                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} />
+                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} action={collapseBtn} />
                         {typeControl("perMonth")}
                         {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
                     </>
                 )}
                 {id === "byProduct" && (
                     <>
-                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} />
+                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} action={collapseBtn} />
                         {typeControl("byProduct")}
                         {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "activations" && (
                     <>
-                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" />
+                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" action={collapseBtn} />
                         {typeControl("activations")}
                         {rangeControl("activations", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "webhooks" && (
                     <>
-                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} type={chartType} icon={WIDGET_ICONS.webhooks} />
+                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} type={chartType} icon={WIDGET_ICONS.webhooks} action={collapseBtn} />
                         {typeControl("webhooks")}
                     </>
                 )}
@@ -1029,9 +1101,12 @@ function Dashboard() {
                     <div className="chart-card service-status-card">
                         <div className="service-status-header">
                             <h3><span className="chart-title-icon">{WIDGET_ICONS.services}</span>{t("dashboard.serviceStatusTitle")}</h3>
-                            <button type="button" className="btn-ghost btn-icon" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
-                                <RefreshCw size={16} />
-                            </button>
+                            <div className="service-status-actions">
+                                <button type="button" className="btn-ghost btn-icon" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
+                                    <RefreshCw size={16} />
+                                </button>
+                                {collapseBtn}
+                            </div>
                         </div>
                         {serviceLoading && serviceStatus === null ? (
                             <SkeletonCard lines={5} />
@@ -1118,6 +1193,7 @@ function Dashboard() {
                                     size={size}
                                     type={chartType}
                                     icon={WIDGET_ICONS.sending}
+                                    action={collapseBtn}
                                 />
                                 {typeControl("sending")}
                                 <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
@@ -1137,6 +1213,8 @@ function Dashboard() {
                             </>
                         )}
                     </div>
+                )}
+                </>
                 )}
             </motion.div>
         );
@@ -1257,7 +1335,7 @@ function Dashboard() {
                                         {item.date ? <span className="news-item-date">{formatDate(item.date, lang)}</span> : null}
                                     </div>
                                     {body ? <p className="news-item-body">{body}</p> : null}
-                                    {item.link ? <a className="news-item-link" href={item.link} target="_blank" rel="noreferrer">{t("news.readMore")} <ExternalLink size={14} /></a> : null}
+                                    {isSafeHttpUrl(item.link) ? <a className="news-item-link" href={item.link} target="_blank" rel="noreferrer">{t("news.readMore")} <ExternalLink size={14} /></a> : null}
                                 </li>
                             );
                         })}

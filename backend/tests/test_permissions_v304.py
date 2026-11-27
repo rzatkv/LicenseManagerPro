@@ -204,11 +204,32 @@ def test_blacklist_needs_new_permission(client, auth_headers):
 
 
 def test_dashboard_stats_need_dashboard_read(client, auth_headers):
+    """v3.0.6 (security, L14): dashboard:read used to exist in no role's
+    set, so every non-admin got 403 on the dashboard — the panel's home
+    page was admin-only. The dashboard is read-only data, so manager,
+    support and viewer can read it now. The permission is still
+    enforced: a custom role without it gets 403, anonymous gets 401."""
     manager_headers = _headers_for(client, auth_headers, "mgr@example.com", "manager")
-    assert client.get("/api/dashboard/summary", headers=manager_headers).status_code == 403
+    assert client.get("/api/dashboard/summary", headers=manager_headers).status_code == 200
     assert client.get("/api/dashboard/summary", headers=auth_headers).status_code == 200
-    assert client.get("/api/system/service-status", headers=manager_headers).status_code == 403
-    assert client.get("/api/system/sending-stats", headers=manager_headers).status_code == 403
+    assert client.get("/api/system/service-status", headers=manager_headers).status_code == 200
+    assert client.get("/api/system/sending-stats", headers=manager_headers).status_code == 200
+    assert client.get("/api/dashboard/summary").status_code == 401
+    # A custom role without dashboard:read is still refused.
+    role = client.post(
+        "/api/roles",
+        json={"name": "No Dashboard", "permissions": ["licenses:create"]},
+        headers=auth_headers,
+    )
+    assert role.status_code == 201, role.text
+    created = client.post(
+        "/api/users",
+        json={"email": "nodash@example.com", "password": "userpass123", "role_id": role.json()["id"]},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    limited = _login(client, "nodash@example.com")
+    assert client.get("/api/dashboard/summary", headers=limited).status_code == 403
 
 
 def test_system_update_admin_only_and_update_check_manager_ok(client, auth_headers, monkeypatch):

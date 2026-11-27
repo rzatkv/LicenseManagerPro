@@ -13,7 +13,7 @@ endpoints, which stay JWT-only.
 Audit rows record the JWT user's email, or ``module-key:<id>``.
 """
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -100,7 +100,8 @@ def create_license(
 
 @router.post("/validate", response_model=LicenseValidateResponse)
 def validate_license(
-    request: LicenseValidateRequest,
+    http_request: Request,
+    body: LicenseValidateRequest,
     db: Session = Depends(get_db),
     _rate_limited=Depends(rate_limit_validate),
 ):
@@ -111,13 +112,26 @@ def validate_license(
     holds; the response reveals only valid/detail/license/grace/warnings.
     Enforcement follows the effective license-security config (v2.3);
     lenient mode returns valid=true with grace=true and warnings instead
-    of denying."""
+    of denying.
+
+    v3.0.6 (security, H2): the IP used for the blacklist and the IP lock
+    is the OBSERVED connection IP (`request.client.host`), never the
+    `ip` field of the request body — the body value is caller-asserted
+    and used to defeat both checks (a locked license validated from
+    anywhere by sending the locked IP; a blacklisted IP validated by
+    sending any other IP). The body `ip` is ignored for enforcement
+    (kept in the schema so existing modules keep sending it); the
+    domain and install-path locks stay client-asserted, as they cannot
+    be verified remotely. Behind a proxy the observed IP is the proxy's
+    (see L5: run uvicorn with --proxy-headers in that case).
+    """
+    client_ip = http_request.client.host if http_request.client else None
     result = license_service.validate_license(
-        request.key,
+        body.key,
         db,
-        domain=request.domain,
-        ip=request.ip,
-        install_path=request.install_path,
+        domain=body.domain,
+        ip=client_ip,
+        install_path=body.install_path,
     )
     valid = result["valid"]
     detail = result["detail"]
@@ -132,7 +146,7 @@ def validate_license(
     return {
         "valid": valid,
         "detail": detail,
-        "license": license_service.serialize_license(license_) if license_ else None,
+        "license": license_service.serialize_license_public(license_) if license_ else None,
         "grace": result["grace"],
         "warnings": result["warnings"],
     }

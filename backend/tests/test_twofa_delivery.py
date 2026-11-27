@@ -174,3 +174,20 @@ def test_totp_channel_unchanged(client, auth_headers):
         json={"temp_token": resp.json()["temp_token"], "code": code},
     )
     assert resp.status_code == 200, resp.text
+
+
+def test_generate_code_uses_secrets_csprng(monkeypatch):
+    """v3.0.6 (security, L2): 2FA codes must come from a CSPRNG.
+    Before the fix _generate_code used random.randint (Mersenne
+    Twister — predictable from observed outputs). Pinning
+    secrets.randbelow proves the code path uses it."""
+    from services import twofa_delivery
+
+    monkeypatch.setattr(
+        twofa_delivery.secrets, "randbelow", lambda n: 42
+    )
+    assert twofa_delivery._generate_code() == "000042"
+    monkeypatch.setattr(
+        twofa_delivery.secrets, "randbelow", lambda n: 999999
+    )
+    assert twofa_delivery._generate_code() == "999999"

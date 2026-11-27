@@ -3,6 +3,7 @@ import {useNavigate} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import {get} from "../utils/api";
 import {useAnimatedOpen} from "../utils/useAnimatedOpen";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 import "./GlobalSearch.css";
 
 /** Global search in the header (v2.3): searches licenses (key/customer),
@@ -58,14 +59,9 @@ function GlobalSearch() {
     return () => clearTimeout(timerRef.current);
   }, [query, runSearch]);
 
-  // Close on outside click.
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  // Close on outside click / Escape (v3.0.6 shared hook; Escape used to
+  // work only from the input's own keydown).
+  useDismissOnOutsideOrEscape(rootRef, () => setOpen(false));
 
   const go = (item) => {
     setOpen(false);

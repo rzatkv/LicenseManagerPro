@@ -94,3 +94,32 @@ def test_webhook_stats_counts_deliveries(client, auth_headers, monkeypatch):
     assert body["success_rate"] == 0.0
     assert body["by_event"]["license.created"]["total"] == 1
     assert body["by_event"]["renewed"]["total"] == 1
+
+
+def _login_as(client, auth_headers, email, role):
+    created = client.post(
+        "/api/users",
+        json={"email": email, "password": "testpass123", "role": role},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    login = client.post(
+        "/api/auth/login", json={"email": email, "password": "testpass123"}
+    )
+    assert login.status_code == 200, login.text
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
+def test_dashboard_readable_by_manager_support_viewer(client, auth_headers):
+    """v3.0.6 (security, L14): dashboard:read existed in ALL_PERMISSIONS
+    but in NO role's set, so every non-admin got 403 on /api/dashboard/*
+    — the panel's home page was admin-only. The dashboard is read-only
+    data; manager, support and viewer can all read it now."""
+    for email, role in (
+        ("manager-dash@example.com", "manager"),
+        ("support-dash@example.com", "support"),
+        ("viewer-dash@example.com", "viewer"),
+    ):
+        headers = _login_as(client, auth_headers, email, role)
+        resp = client.get("/api/dashboard/summary", headers=headers)
+        assert resp.status_code == 200, f"{role}: {resp.text}"

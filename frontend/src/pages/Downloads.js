@@ -1,7 +1,8 @@
-import React, {useState, useEffect, useCallback, useRef} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import {get} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import EmptyState from "../components/EmptyState";
 import {SkeletonCard} from "../components/Skeleton";
 import {DEMO_MODE, API_BASE_URL} from "../config";
@@ -19,7 +20,7 @@ function Downloads() {
     const {toast} = useToast();
     const [modules, setModules] = useState([]);
     const [versions, setVersions] = useState(null);
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [downloading, setDownloading] = useState(null);
 
     // Responsive pagination (v3.0): pageSize = grid columns x 2 rows, so
@@ -44,24 +45,18 @@ function Downloads() {
     const safePage = Math.min(page, pages);
     const visibleModules = modules.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [list, vers] = await Promise.all([
-                get("/downloads"),
-                get("/downloads/versions").catch(() => null),
-            ]);
-            setModules(Array.isArray(list) ? list : []);
-            setVersions(vers);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setModules([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [toast, t]);
-
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchAll} = useListFetch(
+        async () => Promise.all([
+            get("/downloads"),
+            get("/downloads/versions").catch(() => null),
+        ]),
+        [],
+        {
+            onData: ([list, vers]) => { setModules(Array.isArray(list) ? list : []); setVersions(vers); },
+            onError: () => setModules([]),
+        },
+    );
 
     // Streaming fallback (only when there is no direct URL): fetch a ZIP
     // of the installed module files from the backend and save it.

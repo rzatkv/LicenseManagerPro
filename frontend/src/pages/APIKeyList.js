@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect} from "react";
 import {getList, post, put, del} from "../utils/api";
 import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
@@ -9,6 +9,7 @@ import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {useResponsivePageSize} from "../utils/responsive";
+import {useListFetch} from "../utils/useListFetch";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import ChipSelect from "../components/ChipSelect";
@@ -52,7 +53,7 @@ function APIKeyList() {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [sort, setSort] = useState("newest");
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [newKey, setNewKey] = useState("");
     const [newRights, setNewRights] = useState(["get_license_info"]);
     const [newExpiresInDays, setNewExpiresInDays] = useState("");
@@ -78,24 +79,15 @@ function APIKeyList() {
     const [wizardBusy, setWizardBusy] = useState(false);
     const [createdKey, setCreatedKey] = useState(null);
 
-    const fetchApiKeys = useCallback(async () => {
-        setLoading(true);
-        try {
-            const {items, total: t} = await getList("/api-keys", {skip: (page - 1) * pageSize, limit: pageSize});
-            setApiKeys(items);
-            setTotal(t);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setApiKeys([]);
-            setTotal(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [page, pageSize, toast, t]);
-
-    useEffect(() => {
-        fetchApiKeys();
-    }, [fetchApiKeys]);
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchApiKeys} = useListFetch(
+        async () => getList("/api-keys", {skip: (page - 1) * pageSize, limit: pageSize}),
+        [page, pageSize],
+        {
+            onData: ({items, total: t}) => { setApiKeys(items); setTotal(t); },
+            onError: () => { setApiKeys([]); setTotal(0); },
+        },
+    );
 
     const handleDelete = async (id) => {
         try {

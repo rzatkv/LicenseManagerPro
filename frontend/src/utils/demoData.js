@@ -14,18 +14,19 @@ import {APP_VERSION} from "../version";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v19";
+const STORAGE_KEY = "lmp-demo-db-v20";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
 const DEMO_2FA_SECRET = "DEMO2FASECRET";
 const DEMO_2FA_CODE = "123456";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
-// v3.0.5: panel news — seeded items mirror the repo-root news.json
+// v3.0.6: panel news — seeded items mirror the repo-root news.json
 // (same ids, titles, bodies and dates). GET /news in the mock returns
 // these; the Dashboard in demo mode tries the live file from
 // raw.githubusercontent.com first and falls back to these when offline.
 const NEWS_ITEMS = [
+    {id: "v306-release", title: {en: "LicenseManagerPro v3.0.6 is out", fa: "نسخه ۳٫۰٫۶ لایسنس منیجر پرو منتشر شد"}, body: {en: "Collapsible dashboard widgets, fixed dropdowns, API docs code boxes that grow to fit their content, a rational menu grouping, a duplicates cleanup and a full security audit with patches.", fa: "ویجت‌های داشبورد که جمع و باز می‌شوند، رفع مشکل دراپ‌داون‌ها، باکس‌های کد مستندات API که به اندازه محتوایشان بلند می‌شوند، طبقه‌بندی عقلانی منوها، پاک‌سازی موارد تکراری و ممیزی امنیتی کامل با پچ‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v305-release", title: {en: "LicenseManagerPro v3.0.5 is out", fa: "نسخه ۳٫۰٫۵ لایسنس منیجر پرو منتشر شد"}, body: {en: "Vazirmatn Persian font, grouped menus, a Telegram-style bottom nav, full glass design, a live News section, prettier gradient cards, 20 themes and bounded section sizes.", fa: "فونت فارسی وزیرمتن، منوهای طبقه‌بندی‌شده، منوی پایین به سبک تلگرام، طراحی کاملاً شیشه‌ای، بخش اخبار زنده، کارت‌های گرادیانی زیباتر، ۲۰ تم و اندازه‌های محدود برای بخش‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "news-howto", title: {en: "How news works in this panel", fa: "اخبار در این پنل چطور کار می‌کند؟"}, body: {en: "Edit this file (news.json) in the repository and the news appears on every panel dashboard automatically — no deploy needed for the demo, which reads the file straight from GitHub.", fa: "همین فایل (news.json) را در مخزن ویرایش کنید تا خبرها به‌صورت خودکار روی داشبورد همه پنل‌ها بیایند؛ نسخه دمو فایل را مستقیم از گیت‌هاب می‌خواند و نیازی به استقرار دوباره ندارد."}, date: "2026-11-27", link: null},
     {id: "welcome-admins", title: {en: "Welcome, admins", fa: "به ادمین‌ها خوش‌آمدید"}, body: {en: "Every dashboard block can be hidden from the gear menu, resized from Customize, and personalized separately for each admin.", fa: "هر بخش داشبورد را می‌توان از منوی چرخ‌دنده پنهان کرد، از بخش سفارشی‌سازی اندازه‌اش را عوض کرد و برای هر ادمین جداگانه شخصی‌سازی نمود."}, date: "2026-11-26", link: null},
@@ -36,14 +37,14 @@ const NEWS_ITEMS = [
 const MODULES = [
     {id: "whmcs", name: "WHMCS Module", version: APP_VERSION, description: "WHMCS server module: provisions, suspends, renews and terminates licenses from WHMCS."},
     {id: "woocommerce", name: "WooCommerce Plugin", version: APP_VERSION, description: "WordPress plugin: creates a license when a WooCommerce order completes and shows the key to the customer."},
-    {id: "wordpress", name: "WordPress Plugin", version: APP_VERSION, description: "WordPress plugin (no WooCommerce): license minting on demand and a My Licenses page."},
-    {id: "joomla", name: "Joomla Extension", version: APP_VERSION, description: "Joomla component: admin config, license actions and a user licenses view."},
-    {id: "prestashop", name: "PrestaShop Module", version: APP_VERSION, description: "PrestaShop module: mints licenses when an order is paid and shows them to the customer."},
-    {id: "magento", name: "Magento Module", version: APP_VERSION, description: "Magento 2 module: admin config, order-paid minting and customer account licenses."},
-    {id: "opencart", name: "OpenCart Extension", version: APP_VERSION, description: "OpenCart extension: mints licenses on completed orders and shows them in the customer account."},
-    {id: "shopware", name: "Shopware Plugin", version: APP_VERSION, description: "Shopware 6 plugin: order-placed minting and a storefront My Licenses page."},
-    {id: "drupal", name: "Drupal Module", version: APP_VERSION, description: "Drupal module: settings form, admin minting and a user licenses page."},
-    {id: "odoo", name: "Odoo Module", version: APP_VERSION, description: "Odoo module: mints licenses on sale order confirmation and lists them in the portal."},
+    {id: "wordpress", name: "WordPress Plugin", version: APP_VERSION, description: "WordPress plugin (no WooCommerce): license minting on demand, a shortcode and a My Licenses page."},
+    {id: "joomla", name: "Joomla Component", version: APP_VERSION, description: "Joomla component: admin configuration and license actions via the API."},
+    {id: "prestashop", name: "PrestaShop Module", version: APP_VERSION, description: "PrestaShop module: mints a license when an order reaches a paid status."},
+    {id: "magento", name: "Magento Module", version: APP_VERSION, description: "Magento 2 module: mints a license when an order is paid, with admin configuration."},
+    {id: "opencart", name: "OpenCart Extension", version: APP_VERSION, description: "OpenCart extension: admin settings and license minting on order completion."},
+    {id: "shopware", name: "Shopware Plugin", version: APP_VERSION, description: "Shopware 6 plugin: mints a license when an order is placed/paid."},
+    {id: "drupal", name: "Drupal Module", version: APP_VERSION, description: "Drupal module: settings form and a /user/licenses page for customers."},
+    {id: "odoo", name: "Odoo Module", version: APP_VERSION, description: "Odoo module: license model, portal page and minting on sale order confirmation."},
 ];
 const ACCESS_RIGHTS = [
     "create_license",
@@ -149,9 +150,9 @@ function seed() {
         // Built-in roles (v2.3): same permission sets as the backend seed.
         roles: [
             {id: 1, name: "Admin", slug: "admin", description: "Full access to everything.", permissions: ["*"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 2, name: "Manager", slug: "manager", description: "Everything except managing users and roles.", permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read", "downloads:read", "security:license-locking", "security:captcha", "sms:write", "email:write", "telegram:write", "system:update-check"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 3, name: "Support", slug: "support", description: "Read everything; create/renew licenses and API keys.", permissions: ["licenses:create", "licenses:renew", "api_keys:create", "downloads:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
-            {id: 4, name: "Viewer", slug: "viewer", description: "Read-only.", permissions: ["downloads:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 2, name: "Manager", slug: "manager", description: "Everything except managing users and roles.", permissions: ["products:write", "licenses:create", "licenses:renew", "licenses:write", "licenses:delete", "api_keys:create", "api_keys:write", "languages:write", "settings:write", "system:check-expiring", "audit:read", "downloads:read", "security:license-locking", "security:captcha", "sms:write", "email:write", "telegram:write", "system:update-check", "dashboard:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 3, name: "Support", slug: "support", description: "Read everything; create/renew licenses and API keys.", permissions: ["licenses:create", "licenses:renew", "api_keys:create", "downloads:read", "dashboard:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
+            {id: 4, name: "Viewer", slug: "viewer", description: "Read-only.", permissions: ["downloads:read", "dashboard:read"], is_builtin: true, created_at: isoDaysAgo(30), updated_at: isoDaysAgo(30)},
         ],
         // Per-user preferences (v2.3): theme + dashboard layout.
         preferences: {},
@@ -224,7 +225,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.5", message: "Dashboard: Vazirmatn Persian font, grouped menus, Telegram-style bottom nav, full glass, a live News section, prettier gradient cards, 20 themes and bounded section sizes — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.6", message: "Dashboard: collapsible widgets, fixed dropdowns, API docs code boxes that grow to fit, rational menu groups, duplicates cleanup and a security audit — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -359,6 +360,10 @@ function publicApiKey(k, plainKey) {
 
 // Role enforcement mirroring the backend: viewer is read-only, support
 // cannot delete or manage products/users/settings, manager cannot manage users.
+// v3.0.6: the two role sets used at ~37 call sites are named constants,
+// so the sets cannot drift apart site by site.
+const ADMIN_MANAGER = ["admin", "manager"];
+const ADMIN_MANAGER_SUPPORT = ["admin", "manager", "support"];
 function requireRole(allowed) {
     const role = currentUser().role;
     if (!allowed.includes(role)) {
@@ -627,6 +632,21 @@ function withEffectiveStatus(license) {
     return {...license, status: effectiveStatus(license)};
 }
 
+// v3.0.6 (security, M2): the PUBLIC validate endpoint returns only the
+// fields modules actually use — never the owner email, notes, lock
+// lists or install path. Mirrors serialize_license_public on the backend.
+function publicLicense(license) {
+    return {
+        product: license.product,
+        product_id: license.product_id,
+        billing_cycle: license.billing_cycle,
+        status: effectiveStatus(license),
+        expires_at: license.expires_at,
+        max_activations: license.max_activations,
+        activations: license.activations,
+    };
+}
+
 function recordDelivery(productId, event, url) {
     const delivery = {
         id: db.nextDeliveryId++,
@@ -720,8 +740,13 @@ export async function mockRequest(method, endpoint, body) {
     // v3.0.0 demo fix: callers use the real-API "/api/..." paths (e.g.
     // Settings.js config endpoints); the mock dispatches on the bare path,
     // so strip a leading "api" segment. No route legitimately starts with
-    // "api" as a resource name.
+    // "api" as a resource name. v3.0.6: `path` itself must be rebuilt from
+    // the stripped parts — every `barePath === "..."` route below (auth/login,
+    // captcha/config, system/maintenance, dashboard/*, ...) compares
+    // against the bare path, so an "/api/..." caller used to miss them all
+    // and log "Demo API has no route" on every login-page load.
     if (parts[0] === "api") parts.shift();
+    const barePath = "/" + parts.join("/");
 
     // v3.0: auto-strip 4-byte characters (mirrors the backend middleware):
     // when the strip_4byte setting is on, every JSON body is stripped of
@@ -731,7 +756,7 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- Auth -------------------------------------------------------------
-    if (method === "POST" && path === "/auth/login") {
+    if (method === "POST" && barePath === "/auth/login") {
         // v3.0 CAPTCHA: verified before the password is checked (when on).
         if (!verifyLoginCaptcha(body)) fail(400, "Captcha verification failed");
         const match = db.users.find((u) => u.email === (body && body.email));
@@ -753,15 +778,15 @@ export async function mockRequest(method, endpoint, body) {
         save();
         return {access_token: "demo-token", token_type: "bearer"};
     }
-    if (method === "GET" && path === "/users/me") {
+    if (method === "GET" && barePath === "/users/me") {
         return {...currentUser()};
     }
 
     // ---- CAPTCHA (v3.0, public) -------------------------------------------
-    if (method === "GET" && path === "/captcha/config") {
+    if (method === "GET" && barePath === "/captcha/config") {
         return publicCaptchaConfig();
     }
-    if (method === "POST" && path === "/captcha/challenge") {
+    if (method === "POST" && barePath === "/captcha/challenge") {
         return generateCaptchaChallenge(captchaConfig().model);
     }
 
@@ -769,15 +794,15 @@ export async function mockRequest(method, endpoint, body) {
     // When on, every API call except the login flow, captcha and the
     // public maintenance status is 503 for non-admins (admin bypass).
     if (db.settings.maintenance_mode === "on") {
-        const exempt = path.startsWith("/auth/") || path.startsWith("/captcha/")
-            || path === "/system/maintenance" || path === "/system/ready";
+        const exempt = barePath.startsWith("/auth/") || barePath.startsWith("/captcha/")
+            || barePath === "/system/maintenance" || barePath === "/system/ready";
         if (!exempt && currentUser().role !== "admin") {
             fail(503, db.settings.maintenance_message || "Maintenance");
         }
     }
 
     // ---- Dashboard ----------------------------------------------------------
-    if (method === "GET" && path === "/dashboard/summary") {
+    if (method === "GET" && barePath === "/dashboard/summary") {
         const active = db.licenses.filter((l) => effectiveStatus(l) === "active").length;
         return {
             apiKeysCount: db.apiKeys.length,
@@ -786,7 +811,7 @@ export async function mockRequest(method, endpoint, body) {
             inactiveLicenses: db.licenses.length - active,
         };
     }
-    if (method === "GET" && path === "/dashboard/license-trend") {
+    if (method === "GET" && barePath === "/dashboard/license-trend") {
         const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
         const points = [];
         const today = new Date();
@@ -802,7 +827,7 @@ export async function mockRequest(method, endpoint, body) {
         }
         return {points};
     }
-    if (method === "GET" && path === "/dashboard/activations-trend") {
+    if (method === "GET" && barePath === "/dashboard/activations-trend") {
         const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
         const points = [];
         const today = new Date();
@@ -818,7 +843,7 @@ export async function mockRequest(method, endpoint, body) {
         }
         return {points};
     }
-    if (method === "GET" && path === "/dashboard/webhook-stats") {
+    if (method === "GET" && barePath === "/dashboard/webhook-stats") {
         const deliveries = db.deliveries || [];
         const total = deliveries.length;
         const success = deliveries.filter((d) => d.success).length;
@@ -851,7 +876,7 @@ export async function mockRequest(method, endpoint, body) {
             return paginate(list, query);
         }
         if (method === "POST" && parts.length === 1) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             if (!body || !body.name) fail(400, "Product name is required");
             // v3.0: notes are rejected while the notes feature is disabled.
             if (body.notes && db.settings.product_notes_enabled === "off") {
@@ -883,7 +908,7 @@ export async function mockRequest(method, endpoint, body) {
             return {...created, license_count: 0};
         }
         if (parts.length === 3 && parts[2] === "test-webhook" && /^\d+$/.test(parts[1])) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const product = db.products.find((p) => p.id === Number(parts[1]));
             if (!product) fail(404, "Product not found");
             if (!product.webhook_url) fail(400, "Product has no webhook URL configured");
@@ -899,7 +924,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {...product, license_count: db.licenses.filter((l) => l.product_id === id).length};
             }
             if (method === "PUT") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (body && body.notes && db.settings.product_notes_enabled === "off") {
                     fail(400, "Product & license notes are disabled in Settings → General");
                 }
@@ -912,7 +937,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {...product, license_count: db.licenses.filter((l) => l.product_id === id).length};
             }
             if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (db.licenses.some((l) => l.product_id === id)) {
                     fail(400, "Cannot delete product: licenses still reference this product");
                 }
@@ -930,7 +955,7 @@ export async function mockRequest(method, endpoint, body) {
             return paginate([...db.product_groups].sort((a, b) => (a.sort_order - b.sort_order) || a.id - b.id), query);
         }
         if (method === "POST" && parts.length === 1) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             if (!body || !body.name) fail(400, "Group name is required");
             const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
             if (db.product_groups.some((g) => g.slug === slug)) fail(400, "Group slug already exists");
@@ -955,7 +980,7 @@ export async function mockRequest(method, endpoint, body) {
             if (!group) fail(404, "Product group not found");
             if (method === "GET") return {...group};
             if (method === "PUT") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (body && body.slug && body.slug !== group.slug && db.product_groups.some((g) => g.slug === body.slug)) {
                     fail(400, "Group slug already exists");
                 }
@@ -964,7 +989,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {...group};
             }
             if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (db.products.some((p) => p.group_id === id)) {
                     fail(400, "Cannot delete group: products still belong to this group");
                 }
@@ -1106,7 +1131,7 @@ export async function mockRequest(method, endpoint, body) {
             return paginate(list, query);
         }
         if (method === "POST" && parts.length === 1) {
-            requireRole(["admin", "manager", "support"]);
+            requireRole(ADMIN_MANAGER_SUPPORT);
             // v3.0: notes are rejected while the notes feature is disabled.
             if (body && body.notes && db.settings.product_notes_enabled === "off") {
                 fail(400, "Product & license notes are disabled in Settings → General");
@@ -1166,7 +1191,7 @@ export async function mockRequest(method, endpoint, body) {
             if (!license) fail(404, "License not found");
             if (method === "GET") return withEffectiveStatus(license);
             if (method === "PUT") {
-                requireRole(["admin", "manager", "support"]);
+                requireRole(ADMIN_MANAGER_SUPPORT);
                 if (body && body.notes && db.settings.product_notes_enabled === "off") {
                     fail(400, "Product & license notes are disabled in Settings → General");
                 }
@@ -1179,7 +1204,7 @@ export async function mockRequest(method, endpoint, body) {
                 return withEffectiveStatus(license);
             }
             if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 db.licenses = db.licenses.filter((l) => l.id !== id);
                 logAudit("license.delete", "license", id, {product: license.product});
                 save();
@@ -1187,7 +1212,7 @@ export async function mockRequest(method, endpoint, body) {
             }
         }
         if (method === "POST" && parts.length === 3 && parts[2] === "renew" && /^\d+$/.test(parts[1])) {
-            requireRole(["admin", "manager", "support"]);
+            requireRole(ADMIN_MANAGER_SUPPORT);
             const id = Number(parts[1]);
             const license = db.licenses.find((l) => l.id === id);
             if (!license) fail(404, "License not found");
@@ -1236,7 +1261,7 @@ export async function mockRequest(method, endpoint, body) {
             return withEffectiveStatus(license);
         }
         if (method === "POST" && parts.length === 3 && parts[2] === "reissue" && /^\d+$/.test(parts[1])) {
-            requireRole(["admin", "manager", "support"]);
+            requireRole(ADMIN_MANAGER_SUPPORT);
             const id = Number(parts[1]);
             const license = db.licenses.find((l) => l.id === id);
             if (!license) fail(404, "License not found");
@@ -1261,7 +1286,7 @@ export async function mockRequest(method, endpoint, body) {
                 return (db.activations || []).filter((a) => a.license_id === licenseId);
             }
             if (method === "POST") {
-                requireRole(["admin", "manager", "support"]);
+                requireRole(ADMIN_MANAGER_SUPPORT);
                 const fp = body && body.fingerprint;
                 if (!fp) fail(400, "fingerprint is required");
                 const existing = (db.activations || []).find((a) => a.license_id === licenseId && a.fingerprint === fp);
@@ -1282,7 +1307,7 @@ export async function mockRequest(method, endpoint, body) {
             }
         }
         if (method === "DELETE" && parts.length === 4 && parts[2] === "activations" && /^\d+$/.test(parts[1]) && /^\d+$/.test(parts[3])) {
-            requireRole(["admin", "manager", "support"]);
+            requireRole(ADMIN_MANAGER_SUPPORT);
             const licenseId = Number(parts[1]);
             const activationId = Number(parts[3]);
             const found = (db.activations || []).find((a) => a.id === activationId && a.license_id === licenseId);
@@ -1297,13 +1322,13 @@ export async function mockRequest(method, endpoint, body) {
             const found = db.licenses.find((l) => l.key === (body && body.key));
             if (!found) return {valid: false, detail: "License key not found", reason: "License key not found", license: null};
             if (isBlacklisted(body && body.ip, body && body.domain)) {
-                return {valid: false, detail: "blocked: blacklisted", reason: "blocked: blacklisted", license: withEffectiveStatus(found)};
+                return {valid: false, detail: "blocked: blacklisted", reason: "blocked: blacklisted", license: publicLicense(found)};
             }
             const failWith = (reason) => {
                 const product = found.product_id ? db.products.find((p) => p.id === found.product_id) : null;
                 if (product && product.webhook_url) recordDelivery(product.id, "license.validated_failed", product.webhook_url);
                 save();
-                return {valid: false, detail: reason, reason, license: withEffectiveStatus(found)};
+                return {valid: false, detail: reason, reason, license: publicLicense(found)};
             };
             const status = effectiveStatus(found);
             if (status !== "active") return failWith(`License is ${status}`);
@@ -1316,7 +1341,7 @@ export async function mockRequest(method, endpoint, body) {
             if (body && body.install_path && found.install_path && found.install_path !== body.install_path) {
                 return failWith(`Install path ${body.install_path} does not match this license`);
             }
-            return {valid: true, detail: "License is valid", reason: "License is valid", license: withEffectiveStatus(found)};
+            return {valid: true, detail: "License is valid", reason: "License is valid", license: publicLicense(found)};
         }
     }
 
@@ -1335,7 +1360,7 @@ export async function mockRequest(method, endpoint, body) {
             return {valid: true, access_rights: ["get_license_info"], message: "Demo key is valid"};
         }
         if (method === "POST" && parts.length === 1) {
-            requireRole(["admin", "manager", "support"]);
+            requireRole(ADMIN_MANAGER_SUPPORT);
             const rights = (body && body.access_rights) || [];
             for (const right of rights) {
                 if (!ACCESS_RIGHTS.includes(right)) fail(400, `Invalid access right: ${right}`);
@@ -1371,7 +1396,7 @@ export async function mockRequest(method, endpoint, body) {
             return publicApiKey(created, secret);
         }
         if (method === "POST" && parts.length === 3 && parts[2] === "rotate" && /^\d+$/.test(parts[1])) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const id = Number(parts[1]);
             const key = db.apiKeys.find((k) => k.id === id);
             if (!key) fail(404, "API Key not found");
@@ -1389,7 +1414,7 @@ export async function mockRequest(method, endpoint, body) {
             if (!key) fail(404, "API Key not found");
             if (method === "GET") return publicApiKey(key);
             if (method === "PUT") {
-                requireRole(["admin", "manager", "support"]);
+                requireRole(ADMIN_MANAGER_SUPPORT);
                 if (body && body.access_rights) {
                     for (const right of body.access_rights) {
                         if (!ACCESS_RIGHTS.includes(right)) fail(400, `Invalid access right: ${right}`);
@@ -1407,7 +1432,7 @@ export async function mockRequest(method, endpoint, body) {
                 return publicApiKey(key);
             }
             if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 db.apiKeys = db.apiKeys.filter((k) => k.id !== id);
                 logAudit("api_key.delete", "api_key", id, null);
                 save();
@@ -1535,7 +1560,7 @@ export async function mockRequest(method, endpoint, body) {
             return db.languages.map((l) => ({code: l.code, name: l.name}));
         }
         if (method === "POST" && parts.length === 1) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             if (!body || !body.code) fail(400, "Language code is required");
             if (db.languages.some((l) => l.code === body.code)) fail(400, "Language already exists");
             const created = {code: body.code, name: body.name || body.code, builtin: false, translations: (body.translations || {})};
@@ -1548,14 +1573,14 @@ export async function mockRequest(method, endpoint, body) {
             let lang = db.languages.find((l) => l.code === code);
             if (!lang && method === "PUT") {
                 // PUT upserts: the Languages page creates a language this way.
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 lang = {code, name: (body && body.name) || code, builtin: false, translations: {}};
                 db.languages.push(lang);
             }
             if (!lang) fail(404, "Language not found");
             if (method === "GET") return {code: lang.code, name: lang.name, translations: {...lang.translations}};
             if (method === "PUT") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (lang.builtin) fail(400, "Built-in languages cannot be edited");
                 if (body && body.name) lang.name = body.name;
                 if (body && body.translations) lang.translations = {...body.translations};
@@ -1563,7 +1588,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {code: lang.code, name: lang.name, translations: {...lang.translations}};
             }
             if (method === "DELETE") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 if (lang.builtin) fail(400, "Built-in languages cannot be deleted");
                 db.languages = db.languages.filter((l) => l.code !== code);
                 save();
@@ -1573,7 +1598,7 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- Global search (v2.3) ---------------------------------------------
-    if (method === "GET" && path === "/search") {
+    if (method === "GET" && barePath === "/search") {
         const q = (query.get("q") || "").trim().toLowerCase();
         if (!q) return {licenses: [], products: [], users: []};
         const matches = (s) => (s || "").toLowerCase().includes(q);
@@ -1663,6 +1688,11 @@ export async function mockRequest(method, endpoint, body) {
                 secret: DEMO_2FA_SECRET,
                 otpauth_url: `otpauth://totp/LicenseManagerPro:${me.email}?secret=${DEMO_2FA_SECRET}&issuer=LicenseManagerPro`,
                 qr_data_url: "",
+                // v3.0.6 (security, M7): the Profile page keys the demo
+                // note off these flags instead of comparing the literal
+                // secret, so the main bundle needs no demo literals.
+                demo_secret: true,
+                demo_code: DEMO_2FA_CODE,
             };
         }
         if (method === "POST" && parts[2] === "verify") {
@@ -1683,7 +1713,7 @@ export async function mockRequest(method, endpoint, body) {
             return {message: "Two-factor authentication disabled"};
         }
     }
-    if (method === "POST" && path === "/auth/verify-2fa") {
+    if (method === "POST" && barePath === "/auth/verify-2fa") {
         if (body && String(body.code).trim() === DEMO_2FA_CODE) {
             return {access_token: "demo-token", token_type: "bearer"};
         }
@@ -1696,7 +1726,7 @@ export async function mockRequest(method, endpoint, body) {
             return {...(db.licenseSecurity || {})};
         }
         if (method === "PUT" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const next = {...(db.licenseSecurity || {}), ...(body || {})};
             if (next.strictness && !["strict", "lenient"].includes(next.strictness)) {
                 fail(400, "strictness must be 'strict' or 'lenient'");
@@ -1716,11 +1746,11 @@ export async function mockRequest(method, endpoint, body) {
     // system-managed keys (400); there is no DELETE endpoint any more.
     if (parts[0] === "settings" && parts[1] === "captcha-config") {
         if (method === "GET" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             return publicCaptchaConfig();
         }
         if (method === "PUT" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const patch = body || {};
             if (patch.type != null && !CAPTCHA_TYPES.includes(patch.type)) fail(400, "captcha type must be off, custom, recaptcha-v2 or recaptcha-v3");
             if (patch.model != null && !CAPTCHA_MODELS.includes(patch.model)) fail(400, "captcha model must be math, text or reverse");
@@ -1757,7 +1787,7 @@ export async function mockRequest(method, endpoint, body) {
                 return {key, value: db.settings[key]};
             }
             if (method === "PUT") {
-                requireRole(["admin", "manager"]);
+                requireRole(ADMIN_MANAGER);
                 // v3.0.4: the 2FA MODEL is a global policy set ONLY by the
                 // main admin — a manager holds settings:write but gets 403.
                 if (key === "twofa_channel" && currentUser().role !== "admin") fail(403, "Only the main admin can change the 2FA model");
@@ -1777,11 +1807,11 @@ export async function mockRequest(method, endpoint, body) {
     // ---- SMS / Email / Telegram configs + notification channels (v3.0) ----
     if (parts[0] === "settings" && parts[1] === "sms-config") {
         if (method === "GET" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             return publicSmsConfig();
         }
         if (method === "PUT" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const patch = body || {};
             const cfg = smsConfig();
             if (patch.active_provider != null) {
@@ -1809,11 +1839,11 @@ export async function mockRequest(method, endpoint, body) {
     }
     if (parts[0] === "settings" && parts[1] === "email-config") {
         if (method === "GET" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             return publicEmailConfig();
         }
         if (method === "PUT" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const patch = body || {};
             const cfg = emailConfig();
             if (patch.reset_templates) {
@@ -1852,11 +1882,11 @@ export async function mockRequest(method, endpoint, body) {
     }
     if (parts[0] === "settings" && parts[1] === "telegram-config") {
         if (method === "GET" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             return publicTelegramConfig();
         }
         if (method === "PUT" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const patch = body || {};
             const cfg = telegramConfig();
             if (patch.bot_token != null) {
@@ -1875,7 +1905,7 @@ export async function mockRequest(method, endpoint, body) {
             return publicTelegramConfig();
         }
         if (method === "POST" && parts.length === 3 && parts[2] === "test") {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             const cfg = telegramConfig();
             // Demo: no real Telegram call — "sent" when a token + chats exist.
             const sent = Boolean(cfg.bot_token) && cfg.chat_ids.length > 0;
@@ -1886,7 +1916,7 @@ export async function mockRequest(method, endpoint, body) {
     }
     if (parts[0] === "settings" && parts[1] === "notification-channels") {
         if (method === "GET" && parts.length === 2) {
-            requireRole(["admin", "manager"]);
+            requireRole(ADMIN_MANAGER);
             return notificationChannels();
         }
         if (method === "PUT" && parts.length === 2) {
@@ -1907,7 +1937,7 @@ export async function mockRequest(method, endpoint, body) {
 
     // ---- Audit logs ---------------------------------------------------------
     if (parts[0] === "audit-logs" && method === "GET" && parts.length === 1) {
-        requireRole(["admin", "manager"]);
+        requireRole(ADMIN_MANAGER);
         const entity = query.get("entity");
         const actor = query.get("actor");
         const channel = query.get("channel");
@@ -1940,13 +1970,13 @@ export async function mockRequest(method, endpoint, body) {
     }
 
     // ---- System -------------------------------------------------------------
-    if (method === "GET" && path === "/system/maintenance") {
+    if (method === "GET" && barePath === "/system/maintenance") {
         return {enabled: db.settings.maintenance_mode === "on", message: db.settings.maintenance_message || ""};
     }
     // v3.0: service status (demo — simulated from configuration: a service
     // with credentials configured shows connected; the demo has no live
     // network, so nothing is really probed).
-    if (method === "GET" && path === "/system/service-status") {
+    if (method === "GET" && barePath === "/system/service-status") {
         requireRole(["admin"]);
         const emailCfg = emailConfig();
         const smsCfg = smsConfig();
@@ -1965,7 +1995,7 @@ export async function mockRequest(method, endpoint, body) {
     // ever sent from the demo). Both the bare path and the /api-prefixed
     // path are accepted: Dashboard calls /sms/balance, Settings calls
     // /api/sms/test.
-    if (method === "GET" && (path === "/sms/balance" || path === "/api/sms/balance")) {
+    if (method === "GET" && barePath === "/sms/balance") {
         requireRole(["admin"]);
         const cfg = smsConfig();
         const ip = cfg.providers.ippanel || {};
@@ -1973,7 +2003,7 @@ export async function mockRequest(method, endpoint, body) {
         if (!base.configured) return {...base, error: "not_configured"};
         return {...base, available: true, credit: 1250000, checked_at: new Date().toISOString()};
     }
-    if (method === "POST" && (path === "/sms/test" || path === "/api/sms/test")) {
+    if (method === "POST" && barePath === "/sms/test") {
         requireRole(["admin"]);
         const cfg = smsConfig();
         const sent = Boolean(cfg.active_provider);
@@ -1983,7 +2013,7 @@ export async function mockRequest(method, endpoint, body) {
     }
     // v3.0: sending stats — per-day, per-channel sent/failed counts
     // aggregated from the demo audit-log channel stream.
-    if (method === "GET" && path === "/system/sending-stats") {
+    if (method === "GET" && barePath === "/system/sending-stats") {
         requireRole(["admin"]);
         const days = Math.min(90, Math.max(1, Number(query.get("days")) || 14));
         const dates = [];
@@ -2010,14 +2040,14 @@ export async function mockRequest(method, endpoint, body) {
         }
         return {days, dates, series};
     }
-    if (method === "GET" && path === "/news") {
-        // v3.0.5: seeded items mirror the repo-root news.json (same ids,
+    if (method === "GET" && barePath === "/news") {
+        // v3.0.6: seeded items mirror the repo-root news.json (same ids,
         // titles, bodies and dates). The Dashboard in demo mode tries the
         // live file from raw.githubusercontent.com first and falls back
         // to these when offline.
         return {items: NEWS_ITEMS};
     }
-    if (method === "GET" && path === "/system/info") {
+    if (method === "GET" && barePath === "/system/info") {
         // v3.0: version comes from code (APP_VERSION), never from settings.
         // v3.0.2: full stack. DEMO values only — the real stack versions
         // this project targets (Python 3.12, FastAPI 0.165.0, SQLAlchemy
@@ -2027,10 +2057,10 @@ export async function mockRequest(method, endpoint, body) {
             python_version: "3.12", fastapi_version: "0.165.0", sqlalchemy_version: "2.0.36", pydantic_version: "2.14.4",
             database_engine: "mysql", database_version: "8.0.36", os: "Linux x86_64"};
     }
-    if (method === "GET" && path === "/system/check-updates") {
+    if (method === "GET" && barePath === "/system/check-updates") {
         return {updateAvailable: db.settings.latest_version !== APP_VERSION, currentVersion: APP_VERSION, latestVersion: db.settings.latest_version};
     }
-    if (method === "GET" && path === "/system/update-check") {
+    if (method === "GET" && barePath === "/system/update-check") {
         // The demo has no newer release: it is always up to date.
         return {
             current_version: APP_VERSION,
@@ -2042,8 +2072,8 @@ export async function mockRequest(method, endpoint, body) {
             error: null,
         };
     }
-    if (method === "POST" && path === "/system/update") {
-        requireRole(["admin", "manager"]);
+    if (method === "POST" && barePath === "/system/update") {
+        requireRole(ADMIN_MANAGER);
         // Demo staging: no tarball is really downloaded; report the staged
         // state so the About page flow can be exercised.
         db.settings.app_version = db.settings.latest_version;
@@ -2051,8 +2081,8 @@ export async function mockRequest(method, endpoint, body) {
         save();
         return {staged: true, version: db.settings.app_version, next_step: "bash scripts/update.sh"};
     }
-    if (method === "POST" && path === "/system/check-expiring") {
-        requireRole(["admin", "manager"]);
+    if (method === "POST" && barePath === "/system/check-expiring") {
+        requireRole(ADMIN_MANAGER);
         const days = Number(query.get("days")) || 7;
         const horizon = new Date();
         horizon.setDate(horizon.getDate() + days);

@@ -6,6 +6,7 @@ import {get, post} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useAnimatedOpen} from "../utils/useAnimatedOpen";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 import "./NotificationsBell.css";
 
 /**
@@ -83,19 +84,8 @@ function NotificationsBell() {
     // v3.0.0: Escape closes it too, like every Modal — without this, a
     // keyboard user (and the bell sweep, which closes with Escape) can
     // never dismiss the panel, and the next bell click toggles it shut
-    // instead of opening it.
-    useEffect(() => {
-        if (!open) return;
-        const onClick = (e) => {
-            if (panelRef.current && panelRef.current.contains(e.target)) return;
-            if (panelElRef.current && panelElRef.current.contains(e.target)) return;
-            setOpen(false);
-        };
-        const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-        document.addEventListener("mousedown", onClick);
-        document.addEventListener("keydown", onKey);
-        return () => { document.removeEventListener("mousedown", onClick); document.removeEventListener("keydown", onKey); };
-    }, [open]);
+    // instead of opening it. v3.0.6: shared dismiss hook.
+    useDismissOnOutsideOrEscape([panelRef, panelElRef], () => setOpen(false), {enabled: open});
 
     const markAllRead = async () => {
         try {

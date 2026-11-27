@@ -113,3 +113,30 @@ def test_activation_instances(client, auth_headers):
     assert client.delete(
         f"/api/licenses/{lic['id']}/activations/9999", headers=auth_headers
     ).status_code == 404
+
+
+def test_validate_still_valid_after_activation_at_limit(client, auth_headers):
+    """v3.0.6 (security, M1): the activation limit is enforced at
+    activation time only. Before the fix, validate() ALSO checked it —
+    and max_activations defaults to 1, so one legitimate activation
+    made every later validate fail ("Activation limit reached") and
+    the license could never be used after being activated."""
+    lic = _create_license(client, auth_headers, max_activations=1)
+    act = client.post(
+        f"/api/licenses/{lic['id']}/activations",
+        json={"fingerprint": "fp-machine-1"},
+        headers=auth_headers,
+    )
+    assert act.status_code == 201, act.text
+    # The legitimately activated machine still validates.
+    valid = client.post("/api/licenses/validate", json={"key": lic["key"]})
+    assert valid.status_code == 200
+    assert valid.json()["valid"] is True, valid.text
+    # ...while a SECOND machine is still refused at activation time.
+    second = client.post(
+        f"/api/licenses/{lic['id']}/activations",
+        json={"fingerprint": "fp-machine-2"},
+        headers=auth_headers,
+    )
+    assert second.status_code == 400, second.text
+    assert "Activation limit reached" in second.json()["detail"]

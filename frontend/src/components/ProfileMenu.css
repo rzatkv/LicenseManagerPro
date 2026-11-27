@@ -16,7 +16,7 @@
 .profile-menu-button:hover .profile-menu-avatar { transform: scale(1.06); box-shadow: var(--shadow); }
 .profile-menu-dropdown {
   position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
-  width: 264px; background: var(--glass);
+  width: 264px; background: var(--glass-menu);
   border: 1px solid var(--glass-border); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;
   animation: pm-pop 0.18s ease;

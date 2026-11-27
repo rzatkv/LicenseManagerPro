@@ -18,6 +18,7 @@ from models import User
 from services.settings import get_setting_default
 from services.strip4 import strip_4byte_deep
 from utils.auth import verify_access_token
+from utils.permissions import user_has_permission
 from routers import (
     api_keys,
     audit_logs,
@@ -47,14 +48,33 @@ logger = logging.getLogger(__name__)
 request_logger = logging.getLogger("lmp")
 
 # The SECRET_KEY shipped in config.py as the default; running with it in
-# production would let anyone forge JWTs.
+# production would let anyone forge JWTs (the default is in the public
+# repo). v3.0.6 (security, H3): the app REFUSES to boot with it, unless
+# local development explicitly opts in with LMP_ALLOW_DEFAULT_SECRET=1.
 DEFAULT_SECRET_KEY = "change-me-in-production"
+
+
+def _require_real_secret_key() -> None:
+    """Refuse to boot with the publicly known default JWT secret."""
+    import os
+
+    if SECRET_KEY == DEFAULT_SECRET_KEY and os.getenv("LMP_ALLOW_DEFAULT_SECRET") != "1":
+        raise RuntimeError(
+            "SECRET_KEY is still the shipped default (change-me-in-production). "
+            "Set a long random SECRET_KEY in .env before starting the server — "
+            "anyone who knows the default can forge JWTs. For local development "
+            "only, set LMP_ALLOW_DEFAULT_SECRET=1 to allow it."
+        )
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    # v3.0.6 (security, L1): browsers only honour HSTS over HTTPS, so
+    # sending it on plain HTTP is harmless; the nginx vhost in
+    # install.sh sets the same header for the TLS termination.
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 }
 # Conservative CSP for API responses only; never on /docs (Swagger UI
 # needs its own inline scripts/styles).
@@ -64,13 +84,7 @@ API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up the application...")
-    if SECRET_KEY == DEFAULT_SECRET_KEY:
-        logger.warning(
-            "SECRET_KEY is still the shipped default (%s). "
-            "Set a long random SECRET_KEY in .env before using this "
-            "in production — anyone who knows the default can forge JWTs.",
-            DEFAULT_SECRET_KEY,
-        )
+    _require_real_secret_key()
     create_tables()
     ensure_schema()
     db = SessionLocal()
@@ -158,11 +172,24 @@ def _is_admin_request(request: Request, db) -> bool:
         if not auth_header.startswith("Bearer "):
             return False
         payload = verify_access_token(auth_header[7:])
+        # v3.0.6 (security, H1): a 2FA temp token (purpose="2fa") is NOT
+        # an access token and must never count as admin here either —
+        # otherwise a temp token bypasses maintenance mode.
+        if payload.get("purpose") is not None:
+            return False
         user_id = payload.get("sub")
         if user_id is None:
             return False
         user = db.query(User).filter(User.id == int(user_id)).first()
-        return user is not None and user.role == "admin" and user.is_active
+        # v3.0.6 (security, L12): the bypass used to check the role
+        # STRING ("admin"), while every endpoint checks the permission
+        # ("*") — a custom role holding "*" was locked out of its own
+        # panel during maintenance. Same rule as everywhere else now.
+        return (
+            user is not None
+            and user.is_active
+            and user_has_permission(user, "*")
+        )
     except Exception:  # noqa: BLE001 - any token problem means "not admin"
         return False
 

@@ -1,7 +1,8 @@
-import React, {useState, useEffect, useRef} from "react";
+import React, {useState, useRef} from "react";
 import {Globe} from "lucide-react";
 import {useLanguage} from "../i18n";
 import {useAnimatedOpen} from "../utils/useAnimatedOpen";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 import "./LanguageMenu.css";
 
 /** Header language menu (v2.3.2): ONE component used in both places —
@@ -21,18 +22,9 @@ function LanguageMenu() {
   const {visible: menuVisible, closing: menuClosing} = useAnimatedOpen(open);
   const rootRef = useRef(null);
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
+  // Dismiss on outside tap / Escape (v3.0.6 shared hook; the old copy
+  // listened even while closed).
+  useDismissOnOutsideOrEscape(rootRef, () => setOpen(false), {enabled: open});
 
   return (
     <div className="language-menu" ref={rootRef}>

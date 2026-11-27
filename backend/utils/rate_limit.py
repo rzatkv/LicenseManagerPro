@@ -81,6 +81,13 @@ def rate_limit_validate(request: Request) -> None:
     _check(_key(request, "validate"), config.RATE_LIMIT_VALIDATE_PER_MINUTE)
 
 
+def rate_limit_captcha(request: Request) -> None:
+    """FastAPI dependency: limit unauthenticated challenge minting
+    (v3.0.6, security L3) — without it an attacker could grow the
+    in-memory challenge store without bound."""
+    _check(_key(request, "captcha"), config.RATE_LIMIT_CAPTCHA_PER_MINUTE)
+
+
 def rate_limit_2fa(request: Request) -> None:
     """FastAPI dependency: stricter limit for the 2FA code exchange
     (5/min per IP) — TOTP codes must not be brute-forceable."""

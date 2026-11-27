@@ -361,3 +361,26 @@ def test_service_status_ippanel_auth_failed(monkeypatch):
     cfg = {"active_provider": "ippanel", "providers": {"ippanel": {"api_key": "BAD"}}}
     result = service_status._check_sms(cfg)
     assert result["status"] == "auth_failed"
+
+
+def test_sms_test_requires_admin_not_manager(client, auth_headers):
+    """v3.0.6 (security, M3): POST /api/sms/test sends a REAL SMS to an
+    arbitrary number. Before the fix it needed only ``sms:write``,
+    which managers hold — a manager could text anyone at the owner's
+    expense. Now only admin (\"*\") may call it."""
+    created = client.post(
+        "/api/users",
+        json={"email": "manager@example.com", "password": "managerpass123", "role": "manager"},
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "manager@example.com", "password": "managerpass123"},
+    )
+    assert login.status_code == 200, login.text
+    manager = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    resp = client.post(
+        "/api/sms/test", json={"to": TO, "message": "ping"}, headers=manager
+    )
+    assert resp.status_code == 403, resp.text

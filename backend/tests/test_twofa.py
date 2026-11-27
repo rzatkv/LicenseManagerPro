@@ -181,3 +181,79 @@ def test_twofa_isolated_per_user(client, auth_headers):
     )
     assert login.status_code == 200
     assert login.json().get("requires_2fa") is not True
+
+
+def test_temp_token_cannot_register_admin(client, auth_headers):
+    """v3.0.6 (security, H1): a 2FA temp token must never authenticate
+    register() — before the fix it passed the admin check and created
+    an admin user with no 2FA, defeating the second factor entirely."""
+    _secret, _codes = _enable_2fa(client, auth_headers)
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "admin@example.com", "password": "adminpass123"},
+    )
+    assert login.status_code == 200
+    temp_token = login.json()["temp_token"]
+    assert temp_token
+    attempt = client.post(
+        "/api/auth/register",
+        json={"email": "attacker@example.com", "password": "attackerpass123", "role": "admin"},
+        headers={"Authorization": f"Bearer {temp_token}"},
+    )
+    assert attempt.status_code == 401, attempt.text
+    # And no user was created: the attacker cannot log in as one.
+    assert (
+        client.post(
+            "/api/auth/login",
+            json={"email": "attacker@example.com", "password": "attackerpass123"},
+        ).status_code
+        == 401
+    )
+
+
+def test_deactivated_admin_token_cannot_register(client, auth_headers):
+    """v3.0.6 (security, H1): a deactivated admin's token must not
+    authenticate register() either — _optional_user now checks
+    is_active, like get_current_user."""
+    me = client.get("/api/users/me", headers=auth_headers)
+    assert me.status_code == 200
+    admin_id = me.json()["id"]
+    off = client.put(
+        f"/api/users/{admin_id}", json={"is_active": False}, headers=auth_headers
+    )
+    assert off.status_code == 200, off.text
+    attempt = client.post(
+        "/api/auth/register",
+        json={"email": "attacker@example.com", "password": "attackerpass123", "role": "admin"},
+        headers=auth_headers,
+    )
+    assert attempt.status_code == 401, attempt.text
+
+
+def test_verify_2fa_locks_account_after_five_wrong_codes(client, auth_headers):
+    """v3.0.6 (security, M6): verify-2fa had no per-account attempt cap
+    — only the 5/min per-IP limit, so a distributed attacker could
+    guess unlimited TOTP codes against one account. Five wrong codes
+    now lock the account for 15 minutes (the same lockout as failed
+    logins); the 6th attempt gets 429 even from a fresh IP."""
+    from utils import rate_limit
+
+    _enable_2fa(client, auth_headers)
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "admin@example.com", "password": "adminpass123"},
+    )
+    assert login.status_code == 200, login.text
+    temp_token = login.json()["temp_token"]
+    for _ in range(5):
+        resp = client.post(
+            "/api/auth/verify-2fa", json={"temp_token": temp_token, "code": "000000"}
+        )
+        assert resp.status_code == 401, resp.text
+        # Clear only the per-IP bucket: the per-account lock must be
+        # what stops the 6th attempt, not the 5/min IP limit.
+        rate_limit._hits.clear()
+    locked = client.post(
+        "/api/auth/verify-2fa", json={"temp_token": temp_token, "code": "000000"}
+    )
+    assert locked.status_code == 429, locked.text

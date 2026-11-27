@@ -13,7 +13,7 @@ captcha challenge store).
   The user needs a phone number (User.phone, editable in Profile);
   without one the send fails with a clear error.
 """
-import random
+import secrets
 import threading
 import time
 
@@ -45,7 +45,10 @@ def _log_2fa_send(db: Session, channel: str, ok: bool, to: str) -> None:
 
 
 def _generate_code() -> str:
-    return f"{random.randint(0, 999999):06d}"
+    # v3.0.6 (security, L2): secrets, not random — random.Random is a
+    # Mersenne Twister whose state is recoverable from observed outputs;
+    # a 6-digit login code must be unpredictable.
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def send_code(db: Session, user: User, channel: str) -> tuple[bool, str | None]:

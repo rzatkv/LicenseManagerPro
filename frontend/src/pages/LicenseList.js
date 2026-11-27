@@ -4,6 +4,7 @@ import {get, getList, post, put, del} from "../utils/api";
 import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
@@ -54,7 +55,7 @@ function LicenseList() {
     const [groups, setGroups] = useState([]);
     const [filter, setFilter] = useState("all");
     const [search, setSearch] = useState("");
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [selected, setSelected] = useState(null);
     const [activations, setActivations] = useState([]);
     const [validateResult, setValidateResult] = useState(null);
@@ -93,43 +94,39 @@ function LicenseList() {
     const [wInstallPath, setWInstallPath] = useState("");
     const [wNotes, setWNotes] = useState("");
 
-    const fetchLicenses = useCallback(async () => {
-        setLoading(true);
-        try {
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchLicenses} = useListFetch(
+        async () => {
             const q = productFilter ? `?filter=${filter}&product=${productFilter}` : `?filter=${filter}`;
-            const {items, total: t} = await getList(`/licenses${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
-            setLicenses(items);
-            setTotal(t);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setLicenses([]);
-            setTotal(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [filter, productFilter, page, pageSize, toast, t]);
+            return getList(`/licenses${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
+        },
+        [filter, productFilter, page, pageSize],
+        {
+            onData: ({items, total: t}) => { setLicenses(items); setTotal(t); },
+            onError: () => { setLicenses([]); setTotal(0); },
+        },
+    );
 
-    const fetchProducts = useCallback(async () => {
-        try {
-            const data = await get("/products");
-            setProducts(Array.isArray(data) ? data : []);
-        } catch (err) {
-            setProducts([]);
-        }
-    }, []);
-
-    const fetchGroups = useCallback(async () => {
-        try {
-            const data = await get("/product-groups");
-            setGroups(Array.isArray(data) ? data : []);
-        } catch (err) {
-            setGroups([]);
-        }
-    }, []);
-
-    useEffect(() => { fetchLicenses(); }, [fetchLicenses]);
-    useEffect(() => { fetchProducts(); }, [fetchProducts]);
-    useEffect(() => { fetchGroups(); }, [fetchGroups]);
+    // v3.0.6: auxiliary picker data — silent on failure (a failed
+    // product/group picker must never spam the user), same policy as before.
+    const {reload: fetchProducts} = useListFetch(
+        async () => get("/products"),
+        [],
+        {
+            silent: true,
+            onData: (data) => setProducts(Array.isArray(data) ? data : []),
+            onError: () => setProducts([]),
+        },
+    );
+    const {reload: fetchGroups} = useListFetch(
+        async () => get("/product-groups"),
+        [],
+        {
+            silent: true,
+            onData: (data) => setGroups(Array.isArray(data) ? data : []),
+            onError: () => setGroups([]),
+        },
+    );
     useEffect(() => {
         // The notes toggle lives in Settings → General; list pages read
         // it once so the notes field can hide everywhere when it is off.

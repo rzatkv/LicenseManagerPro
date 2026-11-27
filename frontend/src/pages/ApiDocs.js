@@ -221,7 +221,7 @@ resp = requests.post(
     json={
         "key": "LIC-XXXX-XXXX-XXXX",
         "domain": "example.com",        # optional; checked against the license locks
-        "ip": "203.0.113.10",           # optional; checked against the license locks
+        "ip": "203.0.113.10",           # optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
         "install_path": "/var/www/html",  # optional; checked against the license locks
     },
     timeout=15,
@@ -241,7 +241,7 @@ const res = await fetch("${BASE}/api/licenses/validate", {
   body: JSON.stringify({
     key: "LIC-XXXX-XXXX-XXXX",
     domain: "example.com",  // optional; checked against the license locks
-    ip: "203.0.113.10",     // optional; checked against the license locks
+    ip: "203.0.113.10",     // optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
     install_path: "/var/www/html", // optional; checked against the license locks
   }),
 });
@@ -263,7 +263,7 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => json_encode([
         'key' => 'LIC-XXXX-XXXX-XXXX',
         'domain' => 'example.com', // optional; checked against the license locks
-        'ip' => '203.0.113.10',    // optional; checked against the license locks
+        'ip' => '203.0.113.10',    // optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
         'install_path' => '/var/www/html', // optional; checked against the license locks
     ]),
 ]);
@@ -288,7 +288,7 @@ func main() {
 	body, _ := json.Marshal(map[string]string{
 		"key":          "LIC-XXXX-XXXX-XXXX",
 		"domain":       "example.com", // optional; checked against the license locks
-		"ip":           "203.0.113.10", // optional; checked against the license locks
+		"ip":           "203.0.113.10", // optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
 		"install_path": "/var/www/html", // optional; checked against the license locks
 	})
 	// License checks are PUBLIC (v3.0) — no API key, no JWT.
@@ -315,7 +315,7 @@ uri = URI("${BASE}/api/licenses/validate")
 res = Net::HTTP.post(uri, JSON.generate({
   "key" => "LIC-XXXX-XXXX-XXXX",
   "domain" => "example.com",        # optional; checked against the license locks
-  "ip" => "203.0.113.10",           # optional; checked against the license locks
+  "ip" => "203.0.113.10",           # optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
   "install_path" => "/var/www/html",  # optional; checked against the license locks
 }), "Content-Type" => "application/json")
 data = JSON.parse(res.body)
@@ -358,7 +358,7 @@ var body = new StringContent(
     {
         key = "LIC-XXXX-XXXX-XXXX",
         domain = "example.com",        // optional; checked against the license locks
-        ip = "203.0.113.10",           // optional; checked against the license locks
+        ip = "203.0.113.10",           // optional; informational only — the IP lock uses your connection IP, not this field (v3.0.6)
         install_path = "/var/www/html",  // optional; checked against the license locks
     }),
     Encoding.UTF8, "application/json");

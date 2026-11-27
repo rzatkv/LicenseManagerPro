@@ -170,7 +170,13 @@ def test_ready_returns_503_when_db_down(client):
     def broken_db():
         class BrokenSession:
             def execute(self, *args, **kwargs):
-                raise Exception("database is down")
+                # A realistic driver error naming host + driver — it
+                # must NEVER reach the client (v3.0.6, security L4).
+                raise Exception(
+                    "pymysql.err.OperationalError: (2003, "
+                    "\"Can't connect to MySQL server on "
+                    "db.internal.example.com:3306\")"
+                )
 
         yield BrokenSession()
 
@@ -179,7 +185,9 @@ def test_ready_returns_503_when_db_down(client):
         response = client.get("/api/system/ready")
         assert response.status_code == 503
         assert response.json()["status"] == "not_ready"
-        assert "detail" in response.json()
+        assert response.json()["detail"] == "Database unreachable"
+        assert "db.internal.example.com" not in response.text
+        assert "pymysql" not in response.text
     finally:
         app.dependency_overrides.pop(get_db, None)
 

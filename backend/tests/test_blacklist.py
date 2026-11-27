@@ -64,17 +64,36 @@ def test_blacklist_crud_and_admin_only(client, auth_headers):
 
 
 def test_validate_blocked_ip_exact_and_cidr(client, auth_headers):
+    """The blacklist bites for a matching OBSERVED IP (v3.0.6, H2):
+    the route enforces it against request.client.host, never the
+    caller-supplied body `ip` — a blacklisted caller cannot validate
+    by sending a clean IP, and a clean caller is not blocked by
+    sending a blacklisted one. The TestClient always presents itself
+    as "testclient", so the matching-IP case is proven at the service
+    level and the spoofing case at the route level."""
     lic = _make_license(client, auth_headers)
     _add(client, auth_headers, "ip", "203.0.113.0/24")
-    body = {"key": lic["key"], "ip": "203.0.113.99"}
-    response = client.post("/api/licenses/validate", json=body, headers=auth_headers)
-    assert response.status_code == 200
-    assert response.json()["valid"] is False
-    assert response.json()["detail"] == "blocked: blacklisted"
+    # Service level: a blacklisted observed IP is blocked.
+    from database import SessionLocal
+    from services import licenses as license_service
 
-    # An IP outside the CIDR validates normally.
-    body = {"key": lic["key"], "ip": "198.51.100.7"}
-    response = client.post("/api/licenses/validate", json=body, headers=auth_headers)
+    db = SessionLocal()
+    try:
+        blocked = license_service.validate_license(lic["key"], db, ip="203.0.113.99")
+        outside = license_service.validate_license(lic["key"], db, ip="198.51.100.7")
+    finally:
+        db.close()
+    assert blocked["valid"] is False
+    assert blocked["detail"] == "blocked: blacklisted"
+    assert outside["valid"] is True
+    # Route level: spoofing a blacklisted IP in the body does NOT block
+    # a clean caller (observed IP "testclient" is outside the CIDR).
+    response = client.post(
+        "/api/licenses/validate",
+        json={"key": lic["key"], "ip": "203.0.113.99"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
     assert response.json()["valid"] is True
 
 

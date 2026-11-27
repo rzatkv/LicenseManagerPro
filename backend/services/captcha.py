@@ -146,8 +146,14 @@ def generate_challenge(model: str) -> dict:
         digits = "".join(str(secrets.randbelow(10)) for _ in range(4))
         display, answer = digits, digits[::-1]
         prompt = "Type these digits in reverse order"
+    now = time.time()
     with _challenges_lock:
-        _challenges[challenge_id] = (answer, time.time() + CHALLENGE_TTL_SECONDS)
+        # v3.0.6 (security, L3): the store only shrank when a challenge
+        # was verified, so expired entries accumulated forever. Prune
+        # them on every mint — the store now holds only live challenges.
+        for cid in [c for c, (_, exp) in _challenges.items() if exp <= now]:
+            del _challenges[cid]
+        _challenges[challenge_id] = (answer, now + CHALLENGE_TTL_SECONDS)
     return {"challenge_id": challenge_id, "model": model, "prompt": prompt, "display": display}
 
 

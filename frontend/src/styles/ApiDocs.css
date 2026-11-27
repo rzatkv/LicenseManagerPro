@@ -23,14 +23,14 @@
 }
 .docs-section > h2, .docs-section > h3, .docs-section > p, .docs-section > .docs-sample-head, .docs-section > .docs-pager { flex-shrink: 0; }
 .docs-section pre {
-  /* The sample fills the remaining section space and scrolls inside
-     its own block; it never pushes the page. min-height keeps it
-     usable (a few lines) even when the prose above it is long.
-     min-width:0 + overflow-x:auto: long code lines scroll inside the
-     block instead of widening the page (flex items default to
-     min-width:auto, which let a 800px code line stretch the layout). */
-  flex: 1 1 auto; min-height: 120px; min-width: 0; max-height: none;
-  overflow-y: auto; overflow-x: auto;
+  /* v3.0.6: the box sizes to its content — height auto, no inner
+     vertical scroll. The section (the page's scroll container) scrolls
+     instead. min-width:0 + overflow-x:auto: long code lines still
+     scroll sideways inside the block instead of widening the page
+     (flex items default to min-width:auto, which let a 800px code line
+     stretch the layout). */
+  flex: none; height: auto; min-height: 0; min-width: 0; max-height: none;
+  overflow-y: visible; overflow-x: auto;
 }
 
 .docs-section h2 { margin-bottom: 10px; color: var(--accent); }

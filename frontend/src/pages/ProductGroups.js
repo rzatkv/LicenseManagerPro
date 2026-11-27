@@ -1,8 +1,9 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState} from "react";
 import {Link} from "react-router-dom";
 import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
@@ -24,7 +25,7 @@ function ProductGroups() {
     const {toast} = useToast();
     const [groups, setGroups] = useState([]);
     const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [showGroupWizard, setShowGroupWizard] = useState(false);
     const [groupStep, setGroupStep] = useState(0);
     const [groupForm, setGroupForm] = useState(emptyGroupForm);
@@ -32,25 +33,21 @@ function ProductGroups() {
     const [editingGroupId, setEditingGroupId] = useState(null);
     const [pendingGroupDelete, setPendingGroupDelete] = useState(null);
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [groupData, productData] = await Promise.all([
-                get("/product-groups"),
-                getList("/products", {skip: 0, limit: 100}),
-            ]);
-            setGroups(Array.isArray(groupData) ? groupData : []);
-            setProducts(productData.items || []);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setGroups([]);
-            setProducts([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [toast, t]);
-
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchAll} = useListFetch(
+        async () => Promise.all([
+            get("/product-groups"),
+            getList("/products", {skip: 0, limit: 100}),
+        ]),
+        [],
+        {
+            onData: ([groupData, productData]) => {
+                setGroups(Array.isArray(groupData) ? groupData : []);
+                setProducts(productData.items || []);
+            },
+            onError: () => { setGroups([]); setProducts([]); },
+        },
+    );
 
     const handleGroupWizardCreate = async () => {
         if (!groupForm.name.trim()) { toast.error(t("wizard.nameRequired")); return; }

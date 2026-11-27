@@ -234,6 +234,25 @@
 .widget-move-btn { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .widget-move-btn:disabled { opacity: 0.4; cursor: default; }
 
+/* Collapsible widgets (v3.0.6): every widget folds to its header in
+   place. The chevron points up while expanded (click to fold) and down
+   while collapsed (click to unfold); the state persists per admin in
+   the layout. The collapsed head is a slim row — icon + title +
+   chevron — so a folded widget takes one row of height and the row
+   below packs up against it (no empty gap). */
+.widget-collapse-btn { padding: 4px; width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.widget-collapse-btn:hover { border-color: var(--accent); color: var(--accent); }
+.widget-collapse-btn svg { transition: transform 0.25s ease; transform: rotate(180deg); }
+.widget-collapse-btn.collapsed svg { transform: rotate(0); }
+.widget-collapsed-head { display: flex; align-items: center; gap: 8px; padding: 4px 2px; }
+.widget-collapsed-title { font-weight: 700; font-size: 15px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Chart header with an action (the collapse button): the same
+   1fr/auto/1fr grid the Services header uses, so the title stays
+   EXACTLY centered and the action sits at the end. */
+.chart-card h3.chart-title-with-action { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
+.chart-card h3.chart-title-with-action .chart-title-text { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.chart-card h3.chart-title-with-action .chart-title-action { grid-column: 3; justify-self: end; display: inline-flex; }
+
 /* Webhook stats widget. */
 .webhook-rate { display: flex; align-items: baseline; gap: 8px; justify-content: center; }
 .webhook-rate-value { font-size: 32px; font-weight: 800; color: var(--accent); }
@@ -314,7 +333,7 @@
    in depth for longer translations. */
 .service-status-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
 .service-status-header h3 { margin: 0; grid-column: 2; text-align: center; }
-.service-status-header .btn-ghost { grid-column: 3; justify-self: end; }
+.service-status-actions { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 6px; }
 .service-status-list { list-style: none; padding: 0; margin: 16px 0 0; }
 .service-status-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--border); }
 .service-status-row:last-child { border-bottom: none; }

@@ -45,14 +45,28 @@ def _optional_user(
     credentials: HTTPAuthorizationCredentials | None = Security(optional_security),
     db: Session = Depends(get_db),
 ) -> User | None:
-    """The authenticated user when a Bearer token is present, else None."""
+    """The authenticated user when a Bearer token is present, else None.
+
+    v3.0.6 (security, H1): a short-lived 2FA temp token (purpose="2fa")
+    is NOT an access token — it must never authenticate here, or the
+    second factor is defeated (a temp token from /login used to pass
+    register()'s admin check and create an admin user with no 2FA).
+    Same rule as get_current_user, plus the is_active check it has.
+    A temp/inactive token behaves like no token: register() answers
+    401 "Not authenticated".
+    """
     if credentials is None:
         return None
     payload = verify_access_token(credentials.credentials)
+    if payload.get("purpose") is not None:
+        return None
     user_id = payload.get("sub")
     if user_id is None:
         return None
-    return db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if user is None or not user.is_active:
+        return None
+    return user
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -191,6 +205,17 @@ def verify_2fa_login(
     when the channel is totp, or the delivered 6-digit code when the
     channel is email/sms (v3.0)."""
     user = twofa_service.user_from_temp_token(request.temp_token, db)
+    # v3.0.6 (security, M6): the TOTP path had no per-account attempt
+    # cap — only the 5/min per-IP rate limit. A distributed attacker
+    # could guess unlimited codes against one account (6 digits, 3
+    # live codes). Failed 2FA attempts now feed the same 5-in-15-min
+    # per-account lockout as failed logins, and a locked account gets
+    # 429 here too (a fresh login is required after the lockout).
+    if is_login_locked(user.email):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed attempts, please try again later",
+        )
     if not user.totp_enabled:
         raise HTTPException(status_code=400, detail="2FA is not enabled for this user")
     from services.settings import get_setting_default
@@ -203,6 +228,7 @@ def verify_2fa_login(
     else:
         code_ok = twofa_service.verify_code(user, request.code, db)
     if not code_ok:
+        record_failed_login(user.email)
         log_audit(db, user.email, "user.login_2fa_failed", "user", user.id)
         raise HTTPException(status_code=401, detail="Invalid verification code")
     user.last_login_at = utcnow()

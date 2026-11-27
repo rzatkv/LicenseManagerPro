@@ -1,9 +1,10 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {get, post} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
@@ -18,23 +19,18 @@ function Notifications() {
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
     const [unreadOnly, setUnreadOnly] = useState(false);
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [selected, setSelected] = useState(null);
 
-    const fetchNotifications = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await get("/notifications?limit=50");
-            setNotifications(Array.isArray(data) ? data : (data.notifications || data.items || []));
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setNotifications([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [toast, t]);
-
-    useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchNotifications} = useListFetch(
+        async () => get("/notifications?limit=50"),
+        [],
+        {
+            onData: (data) => setNotifications(Array.isArray(data) ? data : (data.notifications || data.items || [])),
+            onError: () => setNotifications([]),
+        },
+    );
 
     const markAllRead = async () => {
         try {

@@ -1,7 +1,8 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useCallback} from "react";
 import {get, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
@@ -46,7 +47,7 @@ function Roles() {
     const {toast} = useToast();
     const [roles, setRoles] = useState([]);
     const [allPermissions, setAllPermissions] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [forbidden, setForbidden] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState(null);
@@ -68,33 +69,34 @@ function Roles() {
         [t]
     );
 
-    const fetchRoles = useCallback(async () => {
-        setLoading(true);
-        setForbidden(false);
-        try {
-            const [list, perms] = await Promise.all([get("/roles"), get("/roles/permissions")]);
-            setRoles(Array.isArray(list) ? list : []);
-            // The backend returns a bare array; tolerate a wrapped
-            // {permissions: [...]} shape too, so a mock/contract drift can
-            // never again silently empty the checklist (v2.3.1 defect).
-            const permList = Array.isArray(perms) ? perms : (perms && perms.permissions) || [];
-            setAllPermissions(permList.filter((p) => p !== "*"));
-        } catch (err) {
-            if (err && err.status === 403) {
-                setForbidden(true);
-            } else {
-                toast.error(err.message || t("common.failedFetch"));
-            }
-            setRoles([]);
-            setAllPermissions([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [toast, t]);
-
-    useEffect(() => {
-        fetchRoles();
-    }, [fetchRoles]);
+    // v3.0.6: shared list fetch. The 403 case keeps its exact UX (a
+    // forbidden flag instead of a toast), so it runs silent with a
+    // reproducing onError; onStart clears the flag each attempt.
+    const {loading, reload: fetchRoles} = useListFetch(
+        async () => Promise.all([get("/roles"), get("/roles/permissions")]),
+        [toast, t],
+        {
+            silent: true,
+            onStart: () => setForbidden(false),
+            onData: ([list, perms]) => {
+                setRoles(Array.isArray(list) ? list : []);
+                // The backend returns a bare array; tolerate a wrapped
+                // {permissions: [...]} shape too, so a mock/contract drift can
+                // never again silently empty the checklist (v2.3.1 defect).
+                const permList = Array.isArray(perms) ? perms : (perms && perms.permissions) || [];
+                setAllPermissions(permList.filter((p) => p !== "*"));
+            },
+            onError: (err) => {
+                if (err && err.status === 403) {
+                    setForbidden(true);
+                } else {
+                    toast.error(err.message || t("common.failedFetch"));
+                }
+                setRoles([]);
+                setAllPermissions([]);
+            },
+        },
+    );
 
     const openCreate = () => {
         setEditing(null);

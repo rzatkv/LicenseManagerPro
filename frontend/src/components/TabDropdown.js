@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useRef} from "react";
 import {createPortal} from "react-dom";
 import {ChevronDown, Check} from "lucide-react";
+import {useDismissOnOutsideOrEscape} from "../utils/useDismiss";
 
 /** Dropdown replacement for a secondary tab strip (v3.0.4): shows the
  * current selection, opens to the full option list, switches content on
@@ -32,26 +33,14 @@ export default function TabDropdown({options, value, onChange, ariaLabel}) {
   };
 
   // Close on outside tap, Escape, scroll or resize (position is fixed).
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e) => {
-      const inBtn = btnRef.current && btnRef.current.contains(e.target);
-      const inList = listRef.current && listRef.current.contains(e.target);
-      if (!inBtn && !inList) setOpen(false);
-    };
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    const onMove = () => setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onMove, true);
-    window.addEventListener("resize", onMove);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onMove, true);
-      window.removeEventListener("resize", onMove);
-    };
-  }, [open]);
+  // v3.0.6: a scroll that starts INSIDE the option list must NOT close
+  // it — the list is scrollable by design (long lists: 33 language
+  // sections, 7 verify languages when the button sits low). Only a
+  // scroll outside the list (the page moving under the fixed panel)
+  // closes it. Shared dismiss hook (useDismiss.js).
+  useDismissOnOutsideOrEscape([btnRef, listRef], () => setOpen(false), {
+    enabled: open, closeOnScroll: true, scrollInsideRefs: [listRef],
+  });
 
   // Focus the selected option when the list opens.
   useEffect(() => {

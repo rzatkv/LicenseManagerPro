@@ -13,6 +13,8 @@ import platform
 import fastapi
 import pydantic
 import sqlalchemy
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -36,6 +38,8 @@ from services.settings import get_all_settings, get_setting_default, update_sett
 from utils.module_auth import require_actor
 from utils.permissions import require_permission
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -45,9 +49,13 @@ def readiness(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
     except Exception as exc:
+        # v3.0.6 (security, L4): the unauthenticated /ready endpoint
+        # used to echo the raw DB exception (driver + host details).
+        # Clients get a generic status; the detail stays in the log.
+        logger.warning("Readiness check failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"status": "not_ready", "detail": str(exc)},
+            content={"status": "not_ready", "detail": "Database unreachable"},
         )
     return {"status": "ready"}
 

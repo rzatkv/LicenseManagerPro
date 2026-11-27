@@ -170,3 +170,32 @@ def test_captcha_admin_config_validation(client, auth_headers):
     )
     assert resp.status_code == 200
     assert resp.json()["v3_threshold"] == 0.7
+
+
+def test_challenge_minting_prunes_expired_entries(monkeypatch):
+    """v3.0.6 (security, L3): expired challenges used to stay in the
+    in-memory store forever (only verified ones were removed). Minting
+    a new challenge now prunes the expired ones."""
+    from services import captcha as captcha_service
+
+    captcha_service._challenges.clear()
+    captcha_service._challenges["stale-id"] = ("1234", 1.0)  # long expired
+    captcha_service._challenges["live-id"] = ("5678", 9999999999.0)
+    captcha_service.generate_challenge("math")
+    assert "stale-id" not in captcha_service._challenges
+    assert "live-id" in captcha_service._challenges
+    captcha_service._challenges.clear()
+
+
+def test_challenge_endpoint_is_rate_limited(client):
+    """v3.0.6 (security, L3): minting challenges was unauthenticated
+    and unrate-limited — an attacker could grow the challenge store
+    without bound. 10/min per IP; the 11th mint is refused."""
+    from utils import rate_limit
+
+    rate_limit._hits.clear()
+    statuses = []
+    for _ in range(11):
+        statuses.append(client.post("/api/captcha/challenge").status_code)
+    assert statuses[:10] == [200] * 10, statuses
+    assert statuses[10] == 429, statuses

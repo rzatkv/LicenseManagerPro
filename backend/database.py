@@ -220,7 +220,11 @@ def seed_roles(db):
     import json
 
     from models import Role
-    from utils.permissions import ROLE_PERMISSIONS, ROLE_PERMISSION_ADDITIONS_V304
+    from utils.permissions import (
+        ROLE_PERMISSIONS,
+        ROLE_PERMISSION_ADDITIONS_V304,
+        ROLE_PERMISSION_ADDITIONS_V306,
+    )
 
     for slug, perms in ROLE_PERMISSIONS.items():
         if slug == "user":
@@ -237,7 +241,7 @@ def seed_roles(db):
                 )
             )
         else:
-            additions = ROLE_PERMISSION_ADDITIONS_V304.get(slug)
+            additions = ROLE_PERMISSION_ADDITIONS_V304.get(slug, set()) | ROLE_PERMISSION_ADDITIONS_V306.get(slug, set())
             if additions:
                 try:
                     stored = set(json.loads(existing.permissions or "[]"))

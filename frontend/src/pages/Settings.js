@@ -10,7 +10,6 @@ import {DEMO_MODE} from "../config";
 import {getCurrentRole} from "../utils/auth";
 import TabDropdown from "../components/TabDropdown";
 import {ShieldCheck, Gauge, Shield, Wrench, KeyRound, Filter, Image, Globe, Palette, MessageSquare, Mail, FileText, Send} from "lucide-react";
-import {resetDemoData} from "../utils/demoData";
 import {LanguagesPanel} from "./Languages";
 import "../styles/Settings.css";
 
@@ -46,7 +45,10 @@ const TEMPLATE_VARIABLES = {
     user_created: ["site_name", "user_email", "role"],
 };
 const TEMPLATE_SAMPLES = {
-    code: "123456",
+    // v3.0.6 (security, M7): the sample 2FA code must not equal the
+    // demo code — a reader grepping the bundle for it would otherwise
+    // mistake a template preview for a credential.
+    code: "482917",
     license_key: "LIC-DEMO-1234-5678",
     product_name: "CloudPanel Pro",
     expiry_date: "2026-12-31",
@@ -367,7 +369,11 @@ function Settings() {
         reader.readAsDataURL(file);
     };
 
-    const handleResetDemo = () => {
+    // v3.0.6 (security, M7): the demo reset loads demoData lazily —
+    // the module (and its demo secrets) must not be statically imported
+    // into the production bundle. This button only exists in demo mode.
+    const handleResetDemo = async () => {
+        const {resetDemoData} = await import("../utils/demoData");
         resetDemoData();
         window.location.reload();
     };

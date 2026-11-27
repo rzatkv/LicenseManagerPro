@@ -75,8 +75,14 @@ def fetch_latest_release(repo: str = GITHUB_REPO) -> dict:
             "tarball_url": data.get("tarball_url"),
         }
     except Exception as exc:
+        # v3.0.6 (security): the detail stays in the server log only.
+        # The old code returned str(exc) to the caller, so an internal
+        # failure (a NameError, an httpx error with host details, ...) was
+        # exposed verbatim in the update-check `error` field and, via
+        # stage_update, in the apply-update 400 detail. Callers get a
+        # generic message; nothing internal ever leaves the server.
         logger.warning("GitHub update check failed: %s", exc)
-        return {"error": str(exc)}
+        return {"error": "GitHub update check failed"}
 
 
 def check_update(db: Session | None = None, repo: str = GITHUB_REPO) -> dict:
@@ -143,6 +149,17 @@ def stage_update(repo: str = GITHUB_REPO) -> dict:
     tarball_url = release.get("tarball_url")
     if not tarball_url:
         raise ValueError("The latest GitHub release has no tarball to download")
+    # v3.0.6 (security, M4): the tarball URL comes from the GitHub API
+    # response, so only the hosts GitHub itself uses are allowed —
+    # a compromised/moved repo must not redirect the updater at an
+    # arbitrary server.
+    from urllib.parse import urlparse
+
+    tarball_host = urlparse(tarball_url).hostname
+    if tarball_host not in {"api.github.com", "github.com", "codeload.github.com"}:
+        raise ValueError(
+            f"Refusing to download a tarball from an unexpected host: {tarball_host!r}"
+        )
 
     UPDATES_DIR.mkdir(parents=True, exist_ok=True)
     target = UPDATES_DIR / f"license-manager-pro-{latest}.tar.gz"

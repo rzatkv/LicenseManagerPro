@@ -1,8 +1,9 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect} from "react";
 import {getList, del} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
@@ -50,35 +51,34 @@ function AuditLogs() {
   const [actionFilter, setActionFilter] = useState("");
   const [sort, setSort] = useState("newest");
   const [channel, setChannel] = useState("all");
-  const [loading, setLoading] = useState(true);
+  // `loading` comes from useListFetch below (it owns the fetch state).
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
+  // v3.0.6: shared list fetch. The 403 case keeps its exact UX
+  // (errors.forbidden instead of the raw message), so it runs silent
+  // with a reproducing onError.
+  const {loading, reload: fetchLogs} = useListFetch(
+    async () => {
       const params = new URLSearchParams();
       if (entity) params.set("entity", entity);
       if (channel && channel !== "all") params.set("channel", channel);
       const qs = params.toString() ? `?${params.toString()}` : "";
-      const {items, total: t} = await getList(`/audit-logs${qs}`, {
-        skip: (page - 1) * pageSize,
-        limit: pageSize,
-      });
-      setLogs(items);
-      setTotal(t);
-    } catch (err) {
-      if (err.status === 403) toast.error(t("errors.forbidden"));
-      else toast.error(err.message || t("common.failedFetch"));
-      setLogs([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, entity, channel, toast, t]);
-
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+      return getList(`/audit-logs${qs}`, {skip: (page - 1) * pageSize, limit: pageSize});
+    },
+    [page, pageSize, entity, channel, toast, t],
+    {
+      silent: true,
+      onData: ({items, total: t}) => { setLogs(items); setTotal(t); },
+      onError: (err) => {
+        if (err.status === 403) toast.error(t("errors.forbidden"));
+        else toast.error(err.message || t("common.failedFetch"));
+        setLogs([]);
+        setTotal(0);
+      },
+    },
+  );
 
   const handleDelete = async (id) => {
     try {

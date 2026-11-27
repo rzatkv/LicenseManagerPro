@@ -340,8 +340,8 @@ function Profile() {
                                     <code>{setup.secret}</code>
                                     <CopyButton text={setup.secret} />
                                 </p>
-                                {setup.secret === "DEMO2FASECRET" && (
-                                    <p className="hint-box">{t("profile.demo2faNote")}</p>
+                                {setup.demo_secret && (
+                                    <p className="hint-box">{t("profile.demo2faNote").replace("{code}", setup.demo_code || "")}</p>
                                 )}
                                 <p>{t("profile.enterCode")}</p>
                                 <input

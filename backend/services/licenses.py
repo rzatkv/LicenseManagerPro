@@ -110,6 +110,20 @@ def serialize_license(license_: License) -> dict:
     }
 
 
+def serialize_license_public(license_: License) -> dict:
+    """Minimal license view for the PUBLIC validate endpoint (v3.0.6,
+    security M2). See LicenseValidateInfo for the rationale."""
+    return {
+        "product": license_.product,
+        "product_id": license_.product_id,
+        "billing_cycle": license_.billing_cycle,
+        "status": license_.effective_status,
+        "expires_at": license_.expires_at,
+        "max_activations": license_.max_activations,
+        "activations": license_.activations,
+    }
+
+
 def create_license(request: LicenseCreateRequest, db: Session) -> License:
     from services import products as product_service
     from services import webhooks as webhook_service
@@ -523,6 +537,12 @@ def validate_license(
     and (when set) domain/IP/install-path locks. A blacklisted IP or
     domain (v2.2) is rejected before anything else is looked at.
 
+    `ip` is the OBSERVED client IP (v3.0.6, H2) — the route passes
+    `request.client.host`, never the caller-supplied body value, so
+    the IP lock and the IP blacklist cannot be spoofed. The domain
+    and install-path values stay caller-asserted (unverifiable
+    remotely).
+
     Enforcement follows the effective license-security config (v2.3):
     global `license_security` setting merged with the linked product's
     overrides. Returns a dict: valid / detail / license / grace /
@@ -570,8 +590,15 @@ def validate_license(
             return False
         return False
 
-    if cfg["enforce_activation_limit"] and license_.activations >= license_.max_activations:
-        return fail("Activation limit reached", license_)
+    # v3.0.6 (security, M1): the activation limit is NOT checked here.
+    # It is enforced at activation time only (activate_license: a new
+    # fingerprint past the limit gets 400, an existing fingerprint
+    # re-activates without using a slot). Checking it here broke the
+    # normal case: max_activations defaults to 1, so one legitimate
+    # activation made every later validate fail with "Activation limit
+    # reached" — the license could never be used after being activated.
+    # Validate is a status check; the gate lives where installs are
+    # created. (The demo mock never had this check either.)
 
     allowed_domains = _split_csv(license_.allowed_domains)
     if check_lock(

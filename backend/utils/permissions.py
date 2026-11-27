@@ -40,6 +40,12 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "email:write",
         "telegram:write",
         "system:update-check",
+        # v3.0.6 (security, L14): dashboard:read existed in
+        # ALL_PERMISSIONS but in NO role's set, so every non-admin got
+        # 403 on /api/dashboard/* — the panel's home page was admin-only.
+        # The dashboard is read-only data; every role that can log in
+        # can read it.
+        "dashboard:read",
     },
     "support": {
         "licenses:create",
@@ -48,6 +54,8 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         # v3.0.4: module downloads are a read; every builtin role keeps
         # the access it had when downloads were open to all logins.
         "downloads:read",
+        # v3.0.6 (security, L14): see the manager note above.
+        "dashboard:read",
     },
     "viewer": {
         # v3.0.4: read-only, but module downloads stay available (they
@@ -55,6 +63,8 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         # existed). The viewer's OWN dashboard personalization needs no
         # permission — it is per-user data, scoped by current_user.
         "downloads:read",
+        # v3.0.6 (security, L14): see the manager note above.
+        "dashboard:read",
     },
     # Legacy pre-v2.0 role, kept working as "support".
     "user": {
@@ -81,6 +91,15 @@ ROLE_PERMISSION_ADDITIONS_V304: dict[str, set[str]] = {
     },
     "support": {"downloads:read"},
     "viewer": {"downloads:read"},
+}
+
+# v3.0.6 (security, L14): the same migration record for this version —
+# existing installs merge dashboard:read into their stored builtin
+# rows via seed_roles, so upgraded panels get the fix too.
+ROLE_PERMISSION_ADDITIONS_V306: dict[str, set[str]] = {
+    "manager": {"dashboard:read"},
+    "support": {"dashboard:read"},
+    "viewer": {"dashboard:read"},
 }
 
 # Every permission key the app knows (v2.3, shown as a checklist in the

@@ -4,6 +4,7 @@ import {get, getList, post, put, del} from "../utils/api";
 import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
@@ -47,7 +48,7 @@ function Products() {
     // pageSize dep below).
     useEffect(() => { setPage(1); }, [pageSize]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  // `loading` comes from useListFetch below (it owns the fetch state).
   const [groups, setGroups] = useState([]);
   const [groupFilter, setGroupFilter] = useState("");
   const [form, setForm] = useState(emptyForm);
@@ -65,33 +66,30 @@ function Products() {
   // rejects notes with 400 while it is off.
   const [notesEnabled, setNotesEnabled] = useState(true);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
+  // v3.0.6: shared list fetch (loading + toast + empty fallback).
+  const {loading, reload: fetchProducts} = useListFetch(
+    async () => {
       const base = groupFilter ? `/products?group_id=${groupFilter}` : "/products";
-      const {items, total: t} = await getList(base, {skip: (page - 1) * pageSize, limit: pageSize});
-      setProducts(items);
-      setTotal(t);
-    } catch (err) {
-      toast.error(err.message || t("common.failedFetch"));
-      setProducts([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, groupFilter, toast, t]);
+      return getList(base, {skip: (page - 1) * pageSize, limit: pageSize});
+    },
+    [page, pageSize, groupFilter],
+    {
+      onData: ({items, total: t}) => { setProducts(items); setTotal(t); },
+      onError: () => { setProducts([]); setTotal(0); },
+    },
+  );
 
-  const fetchGroups = useCallback(async () => {
-    try {
-      const data = await get("/product-groups");
-      setGroups(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setGroups([]);
-    }
-  }, []);
-
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
-  useEffect(() => { fetchGroups(); }, [fetchGroups]);
+  // v3.0.6: auxiliary picker data — silent on failure (a failed group
+  // picker must never spam the user), same policy as before.
+  const {reload: fetchGroups} = useListFetch(
+    async () => get("/product-groups"),
+    [],
+    {
+      silent: true,
+      onData: (data) => setGroups(Array.isArray(data) ? data : []),
+      onError: () => setGroups([]),
+    },
+  );
   useEffect(() => {
     (async () => {
       try {

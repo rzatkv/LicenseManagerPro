@@ -51,11 +51,20 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v3.0 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 3.0.5
+  // 1. Seed versions bumped to 3.0.6
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 3.0.5", settings.app_version === "3.0.5", JSON.stringify(settings.app_version));
-  check("seed latest_version is 3.0.5", settings.latest_version === "3.0.5", JSON.stringify(settings.latest_version));
+  check("seed app_version is 3.0.6", settings.app_version === "3.0.6", JSON.stringify(settings.app_version));
+  check("seed latest_version is 3.0.6", settings.latest_version === "3.0.6", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
+
+  // 1b. v3.0.6: "/api/..." callers must hit the bare-path routes — the
+  // router used to compare the raw path, so GET /api/captcha/config
+  // 404'd on every login-page load ("Demo API has no route"). The public
+  // config must return type/model and never the secret key.
+  const pubCaptcha = await mockRequest("GET", "/api/captcha/config");
+  check("GET /api/captcha/config routes (bare-path fix) + no secret", pubCaptcha && typeof pubCaptcha.type === "string" && typeof pubCaptcha.model === "string" && !("secret_key" in pubCaptcha), JSON.stringify(pubCaptcha));
+  const pubCaptchaBare = await mockRequest("GET", "/captcha/config");
+  check("GET /captcha/config (bare) agrees", pubCaptchaBare && pubCaptchaBare.type === pubCaptcha.type && pubCaptchaBare.model === pubCaptcha.model, JSON.stringify(pubCaptchaBare));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
   const productsAll = await mockRequest("GET", "/products");
@@ -201,13 +210,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v3.0.5", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.5/licensemanagerpro-whmcs-3.0.5.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v3.0.6", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.6/licensemanagerpro-whmcs-3.0.6.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 3.0.5", versions.whmcs && versions.whmcs.local === "3.0.5" && versions.odoo && versions.odoo.latest === "3.0.5", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 3.0.6", versions.whmcs && versions.whmcs.local === "3.0.6" && versions.odoo && versions.odoo.latest === "3.0.6", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.5", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.6", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
@@ -320,10 +329,10 @@ function check(name, cond, extra) {
   // more, so assert the running total and the 100% success rate.
   check("webhook stats track all deliveries with 100% success", whStats.total >= 2 && whStats.success === whStats.total && whStats.success_rate === 100 && whStats.by_event["license.created"].total >= 1, JSON.stringify(whStats));
 
-  // 33. v3.0.5: panel news — the mock mirrors the repo-root news.json.
+  // 33. v3.0.6: panel news — the mock mirrors the repo-root news.json.
   const news = await mockRequest("GET", "/news");
-  check("news returns the 3 seeded items", Array.isArray(news.items) && news.items.length === 3, JSON.stringify(news.items && news.items.length));
-  check("news first item is the v3.0.5 release note, both languages", news.items[0].id === "v305-release" && news.items[0].title.en.includes("3.0.5") && news.items[0].title.fa.length > 0 && news.items[0].body.en.length > 0 && news.items[0].body.fa.length > 0, JSON.stringify(news.items[0] && news.items[0].id));
+  check("news returns the 4 seeded items", Array.isArray(news.items) && news.items.length === 4, JSON.stringify(news.items && news.items.length));
+  check("news first item is the v3.0.6 release note, both languages", news.items[0].id === "v306-release" && news.items[0].title.en.includes("3.0.6") && news.items[0].title.fa.length > 0 && news.items[0].body.en.length > 0 && news.items[0].body.fa.length > 0, JSON.stringify(news.items[0] && news.items[0].id));
 
   console.log(`\n${passed} passed, ${failed} failed.`);
   process.exit(failed ? 1 : 0);

@@ -1,7 +1,8 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect} from "react";
 import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useListFetch} from "../utils/useListFetch";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
@@ -35,7 +36,7 @@ function UserManagement() {
     const [roleFilter, setRoleFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [customRoles, setCustomRoles] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // `loading` comes from useListFetch below (it owns the fetch state).
     const [newUserEmail, setNewUserEmail] = useState("");
     const [newUserPassword, setNewUserPassword] = useState("");
     const [newUserRole, setNewUserRole] = useState("manager");
@@ -49,24 +50,15 @@ function UserManagement() {
     // user edits them.
     const [selectedUser, setSelectedUser] = useState(null);
 
-    const fetchUsers = useCallback(async () => {
-        setLoading(true);
-        try {
-            const {items, total: t} = await getList("/users", {skip: (page - 1) * pageSize, limit: pageSize});
-            setUsers(items);
-            setTotal(t);
-        } catch (err) {
-            toast.error(err.message || t("common.failedFetch"));
-            setUsers([]);
-            setTotal(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [page, pageSize, toast, t]);
-
-    useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
+    // v3.0.6: shared list fetch (loading + toast + empty fallback).
+    const {loading, reload: fetchUsers} = useListFetch(
+        async () => getList("/users", {skip: (page - 1) * pageSize, limit: pageSize}),
+        [page, pageSize],
+        {
+            onData: ({items, total: t}) => { setUsers(items); setTotal(t); },
+            onError: () => { setUsers([]); setTotal(0); },
+        },
+    );
 
     useEffect(() => {
         // Custom roles for the role filter (GET /api/roles, admin only).

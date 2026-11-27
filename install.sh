@@ -156,11 +156,12 @@ Options:
   --db-port PORT         MySQL port (default: 3306).
   --db-name NAME         MySQL database name (default: license_manager).
   --db-user USER         MySQL user (default: lmp).
-  --db-password PASS     MySQL password (asked interactively if omitted;
-                         empty at the prompt generates a random one).
+                         (v3.0.6, security L11: passwords are NEVER taken
+                         from the command line — they would be visible in
+                         ps output and shell history. Set LMP_DB_PASSWORD
+                         / LMP_ADMIN_PASSWORD in the environment, or let
+                         the wizard ask for them with hidden input.)
   --admin-email EMAIL    First admin account email.
-  --admin-password PASS  First admin password (min 8 chars; asked twice
-                         interactively if omitted, never echoed).
   --https / --no-https   Enable (or skip) Let's Encrypt HTTPS via certbot.
                          Only asked/offered when at least one domain is
                          given; without domains, plain HTTP is used.
@@ -205,9 +206,10 @@ while [ $# -gt 0 ]; do
         --db-port) DB_PORT="$2"; shift 2 ;;
         --db-name) DB_NAME="$2"; shift 2 ;;
         --db-user) DB_USER="$2"; shift 2 ;;
-        --db-password) DB_PASSWORD="$2"; shift 2 ;;
+        --db-password|--admin-password)
+            die "Option '$1' was removed in v3.0.6 (security, L11): a password on the command line is visible in 'ps' output and shell history. Set LMP_DB_PASSWORD / LMP_ADMIN_PASSWORD in the environment instead, or let the wizard ask for it with hidden input."
+            ;;
         --admin-email) ADMIN_EMAIL="$2"; shift 2 ;;
-        --admin-password) ADMIN_PASSWORD="$2"; shift 2 ;;
         --install-dir) INSTALL_DIR="$2"; shift 2 ;;
         --branch) BRANCH="$2"; shift 2 ;;
         --repo) REPO_URL="$2"; shift 2 ;;
@@ -817,6 +819,10 @@ server {
     listen $2;
     server_name $1;
 
+    # v3.0.6 (security, L1): browsers only honour HSTS over HTTPS, so
+    # this is a no-op on plain HTTP and active once TLS is terminated.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
     client_max_body_size 10m;
 
     location / {
@@ -843,6 +849,9 @@ render_nginx_frontend() { # $1 = server_name, $2 = listen, $3 = api_proxy yes|no
 server {
     listen $2;
     server_name $1;
+
+    # v3.0.6 (security, L1): see the backend vhost above.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     root $INSTALL_DIR/frontend/build;
     index index.html;
@@ -883,7 +892,13 @@ User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR/backend
 EnvironmentFile=$INSTALL_DIR/backend/.env
-ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+# v3.0.6 (security, L5): nginx (same host) sets X-Forwarded-For, and
+# uvicorn must honour it — otherwise every client looks like 127.0.0.1
+# to the app, so the per-IP rate limits are shared by all users
+# (self-DoS / lockout crosstalk) and module-key IP allowlists see the
+# proxy IP instead of the caller. Only 127.0.0.1 is trusted: uvicorn
+# listens on loopback only, so no outside client can spoof the header.
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
