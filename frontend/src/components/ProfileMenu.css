@@ -16,10 +16,12 @@
 .profile-menu-button:hover .profile-menu-avatar { transform: scale(1.06); box-shadow: var(--shadow); }
 .profile-menu-dropdown {
   position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
-  width: 264px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 18px;
+  width: 264px; background: var(--glass);
+  border: 1px solid var(--glass-border); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;
   animation: pm-pop 0.18s ease;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 @keyframes pm-pop {
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }

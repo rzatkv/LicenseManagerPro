@@ -14,7 +14,10 @@ import {
     KeyRound, Users, UserPlus, ShieldCheck, ShieldOff, CalendarClock,
     FileText, Plus, Sparkles, Zap, MessageSquare, Settings as SettingsIcon, SlidersHorizontal,
     GripVertical, ChevronUp, ChevronDown, RefreshCw, Check, X, BookOpen,
+    Newspaper, ExternalLink,
 } from "lucide-react";
+import {DEMO_MODE} from "../config";
+import {APP_VERSION} from "../version";
 import {get, post, put} from "../utils/api";
 import {getCurrentUser} from "../utils/auth";
 import {formatDate, formatDateTime, formatDayShort, formatMonthShort} from "../utils/format";
@@ -30,6 +33,10 @@ const daysLeft = (expiresAt) => {
 };
 
 const STATUS_COLORS = {active: "var(--success)", inactive: "var(--muted-2)", expired: "var(--danger)", revoked: "var(--warning)"};
+// v3.0.5: pie-slice palette for the byProduct pie/donut types (BarChart
+// renders those types now — before, pie/donut silently fell through to
+// bars because BarChart only handled line/area/bar).
+const PIE_COLORS = ["#6D5DF6", "#10B981", "#F59E0B", "#EC4899", "#06B6D4", "#F43F5E", "#84CC16", "#F97316"];
 
 // v3.0.3: chart height per widget size — S/M/L must render visibly
 // different chart sizes, not just different frame widths. Recharts
@@ -137,10 +144,37 @@ function DonutChart({data, title, t, size = "M", type = "donut", icon}) {
 /** Bar / line / area chart of values per label (Recharts, v3.0.4). */
 function BarChart({data, title, color, size = "M", type = "bar", icon}) {
     const height = BAR_HEIGHT[size] || 190;
+    const donutPx = DONUT_SIZE[size] || 180;
     return (
         <div className="chart-card">
             <ChartTitle icon={icon} title={title} />
-            {data.length === 0 ? <p className="dashboard-empty">—</p> : (
+            {data.length === 0 ? <p className="dashboard-empty">—</p> : type === "pie" || type === "donut" ? (
+                <div className="chart-body">
+                    <div className="donut-wrap" style={{width: donutPx, height: donutPx}}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RPieChart>
+                                <Pie data={data} dataKey="value" nameKey="label"
+                                    innerRadius={type === "pie" ? 0 : "62%"} outerRadius="85%"
+                                    paddingAngle={2} stroke="var(--surface)" strokeWidth={2}>
+                                    {data.map((d, i) => (
+                                        <Cell key={d.label} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            </RPieChart>
+                        </ResponsiveContainer>
+                        {type === "donut" && <span className="donut-center">{data.reduce((a, d) => a + d.value, 0)}</span>}
+                    </div>
+                    <ul className="chart-legend">
+                        {data.map((d, i) => (
+                            <li key={d.label}>
+                                <span className="legend-dot" style={{background: PIE_COLORS[i % PIE_COLORS.length]}} />
+                                {d.label}: {d.value}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : (
                 <ResponsiveContainer width="100%" height={height}>
                     {type === "line" ? (
                         <RLineChart data={data} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
@@ -270,18 +304,19 @@ function WebhookStatsWidget({stats, title, t, type = "bar", icon}) {
                     </RLineChart>
                 </ResponsiveContainer>
             ) : (
-                <ul className="chart-legend webhook-events">
-                    {events.map(([event, e]) => {
-                        const pct = e.total ? Math.round((100 * e.success) / e.total) : 100;
-                        return (
-                            <li key={event}>
-                                <span className="webhook-event-name">{event}</span>
-                                <span className="webhook-event-bar"><span style={{width: `${pct}%`}} /></span>
-                                <span className="webhook-event-pct">{pct}%</span>
-                            </li>
-                        );
-                    })}
-                </ul>
+                <ResponsiveContainer width="100%" height={150}>
+                    <RBarChart data={lineData} layout="vertical" margin={{top: 4, right: 12, bottom: 4, left: 4}}>
+                        <XAxis type="number" domain={[0, 100]} hide />
+                        <YAxis type="category" dataKey="event" width={110} tickLine={false} axisLine={false}
+                            tick={{fontSize: 10, fill: "var(--text)"}} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, t("dashboard.webhookSuccessRate")]} />
+                        <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
+                            {lineData.map((d) => (
+                                <Cell key={d.event} fill={d.pct >= 90 ? "var(--success)" : d.pct >= 70 ? "var(--accent)" : "var(--danger)"} />
+                            ))}
+                        </Bar>
+                    </RBarChart>
+                </ResponsiveContainer>
             )}
         </div>
     );
@@ -360,7 +395,12 @@ const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "
 // and the 4 sections are blocks too. They get a visibility toggle ONLY:
 // no size buttons, no ↑/↓ reorder (the quick-action buttons are not
 // widgets, and neither are the other sections).
-const SECTION_IDS = ["summary", "actions", "highlights", "expiring", "recentLicenses", "recentApiKeys", "recentUsers"];
+// v3.0.5: the News section joins them (8 sections). Sections get a
+// BOUNDED size control (compact/normal/roomy density) — never the full
+// widget S/M/L width, because sections are not widgets.
+const SECTION_IDS = ["summary", "actions", "highlights", "news", "expiring", "recentLicenses", "recentApiKeys", "recentUsers"];
+const SECTION_SIZES = ["compact", "normal", "roomy"];
+const DEFAULT_SECTION_SIZES = {summary: "normal", actions: "normal", highlights: "normal", news: "normal", expiring: "normal", recentLicenses: "normal", recentApiKeys: "normal", recentUsers: "normal"};
 // v3.0.4: Grafana-style chart types per widget (Recharts supports them
 // all). Services is status cards, not a chart — no type switcher there.
 const CHART_TYPES = {
@@ -379,6 +419,9 @@ const DEFAULT_LAYOUT = {
     ranges: {trend: 14, activations: 14, perMonth: 6, byProduct: 90, sending: 14},
     hidden: {},
     types: {...DEFAULT_TYPES},
+    // v3.0.5: bounded section density (compact/normal/roomy) — sections
+    // are not widgets, so they never get the full S/M/L width treatment.
+    sectionSizes: {...DEFAULT_SECTION_SIZES},
 };
 // v3.0.4: the layout is PER ADMIN (same pattern as the per-admin theme
 // in theme.js). The old browser-global key leaked one admin's layout
@@ -403,12 +446,19 @@ function normalizeLayout(saved) {
     for (const [id, ty] of Object.entries(saved.types || {})) {
         if (CHART_TYPES[id] && CHART_TYPES[id].includes(ty)) types[id] = ty;
     }
+    // v3.0.5: bounded section density — unknown ids/values fall back to
+    // normal, so layouts saved before v3.0.5 keep working unchanged.
+    const sectionSizes = {...DEFAULT_SECTION_SIZES};
+    for (const [id, sz] of Object.entries(saved.sectionSizes || {})) {
+        if (SECTION_IDS.includes(id) && SECTION_SIZES.includes(sz)) sectionSizes[id] = sz;
+    }
     return {
         order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
         sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
         ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
         hidden: {...(saved.hidden || {})},
         types,
+        sectionSizes,
     };
 }
 
@@ -445,6 +495,7 @@ const SECTION_ICONS = {
     recentLicenses: <FileText size={16} />,
     recentApiKeys: <KeyRound size={16} />,
     recentUsers: <Users size={16} />,
+    news: <Newspaper size={16} />,
 };
 
 function Dashboard() {
@@ -462,6 +513,9 @@ function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
+    // Panel news (v3.0.5): items from GET /api/news (the repo-root
+    // news.json). Never breaks the dashboard when the call fails.
+    const [newsItems, setNewsItems] = useState([]);
     // Customizable widgets (v2.3): order, size (S/M/L), chart range,
     // chart type and visibility persist per user (localStorage first,
     // backend too).
@@ -629,7 +683,11 @@ function Dashboard() {
     }, [layout.ranges.sending]);
 
     const slides = useMemo(() => [
-        {title: t("dashboard.slide1Title"), text: t("dashboard.slide1Text")},
+        // v3.0.5: slide 1 renders the CURRENT version from the shared
+        // constant (frontend/src/version.js) — the old hard-coded
+        // "New in v2.3" text in the translation string could never go
+        // stale again; the {version} placeholder is filled here.
+        {title: t("dashboard.slide1Title").replace("{version}", APP_VERSION), text: t("dashboard.slide1Text").replace("{version}", APP_VERSION)},
         {title: t("dashboard.slide2Title"), text: t("dashboard.slide2Text")},
         {title: t("dashboard.slide3Title"), text: t("dashboard.slide3Text")},
     ], [t]);
@@ -666,6 +724,35 @@ function Dashboard() {
     }, [navigate, t, toast]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
+
+    // Panel news (v3.0.5): in demo mode the live news.json is read
+    // straight from GitHub, so editing the file publishes news to demo
+    // users too; any failure falls back to the mock (seeded items that
+    // mirror the file). The real backend reads the same file from the
+    // repo root. News must never break the dashboard.
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            if (DEMO_MODE) {
+                try {
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 4000);
+                    const res = await fetch("https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/news.json", {signal: ctrl.signal});
+                    clearTimeout(timer);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (!cancelled && data && Array.isArray(data.items)) { setNewsItems(data.items); return; }
+                    }
+                } catch (e) { /* fall through to the mock */ }
+            }
+            try {
+                const data = await get("/news");
+                if (!cancelled && data && Array.isArray(data.items)) setNewsItems(data.items);
+            } catch (e) { /* news must never break the dashboard */ }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const handleRenew = async (id) => {
         try {
@@ -778,6 +865,31 @@ function Dashboard() {
                         onClick={() => setLayout((prev) => ({...prev, types: {...prev.types, [id]: ty}}))}
                     >
                         {t(`dashboard.chartType.${ty}`)}
+                    </button>
+                ))}
+            </div>
+        );
+    };
+
+    // v3.0.5: bounded section size (density) — shown on each section while
+    // customizing. Density only changes padding/row height, never the
+    // section width: sections are not widgets, so they never get S/M/L.
+    const sectionDensityClass = (id) => `section-density-${(layout.sectionSizes && layout.sectionSizes[id]) || "normal"}`;
+    const sectionDensityControl = (id) => {
+        if (!customizing) return null;
+        const current = (layout.sectionSizes && layout.sectionSizes[id]) || "normal";
+        return (
+            <div className="section-density-control" role="group" aria-label={t("dashboard.sectionSize")}>
+                <span className="widget-control-label">{t("dashboard.sectionSize")}</span>
+                {SECTION_SIZES.map((sz) => (
+                    <button
+                        key={sz}
+                        type="button"
+                        className={current === sz ? "widget-size-btn active" : "widget-size-btn"}
+                        aria-pressed={current === sz}
+                        onClick={() => setLayout((prev) => ({...prev, sectionSizes: {...(prev.sectionSizes || {}), [id]: sz}}))}
+                    >
+                        {t(`dashboard.sectionSize${sz === "compact" ? "Compact" : sz === "roomy" ? "Roomy" : "Normal"}`)}
                     </button>
                 ))}
             </div>
@@ -1077,23 +1189,28 @@ function Dashboard() {
             {/* No financial card: this is not a financial system (v2.3) —
                 the Estimated MRR card was removed entirely. */}
             {isVisible("summary") && (
-            <div className="dashboard-summary">
+            <>
+            {sectionDensityControl("summary")}
+            <div className={`dashboard-summary ${sectionDensityClass("summary")}`}>
                 {[
-                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount},
-                    {label: t("dashboard.users"), value: summary.usersCount},
-                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses},
-                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses},
+                    {label: t("dashboard.apiKeys"), value: summary.apiKeysCount, variant: "violet"},
+                    {label: t("dashboard.users"), value: summary.usersCount, variant: "blue"},
+                    {label: t("dashboard.activeLicenses"), value: summary.activeLicenses, variant: "green"},
+                    {label: t("dashboard.inactiveLicenses"), value: summary.inactiveLicenses, variant: "rose"},
                 ].map((box, i) => (
-                    <motion.div key={box.label} className="summary-box glass-card" {...cardMotion(i * 0.07)}>
+                    <motion.div key={box.label} className={`summary-box glass-card summary-box--${box.variant}`} {...cardMotion(i * 0.07)}>
                         <span className="summary-icon">{SUMMARY_ICONS[i]}</span>
-                        <h2>{box.label}</h2>
-                        <p>{box.value}</p>
+                        <span className="summary-text"><h2>{box.label}</h2><p>{box.value}</p></span>
+                        <span className="summary-deco" aria-hidden="true">{SUMMARY_ICONS[i]}</span>
                     </motion.div>
                 ))}
             </div>
+            </>
             )}
             {isVisible("actions") && (
-            <div className="dashboard-actions">
+            <>
+            {sectionDensityControl("actions")}
+            <div className={`dashboard-actions ${sectionDensityClass("actions")}`}>
                 <h2><Zap size={16} />{t("dashboard.quickActions")}</h2>
                 <div className="action-buttons">
                     <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
@@ -1104,9 +1221,12 @@ function Dashboard() {
                     <Link className="action-btn" to="/settings"><SettingsIcon size={16} />{t("dashboard.settings")}</Link>
                 </div>
             </div>
+            </>
             )}
             {isVisible("highlights") && (
-            <div className="highlights-slider glass-card" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+            <>
+            {sectionDensityControl("highlights")}
+            <div className={`highlights-slider glass-card ${sectionDensityClass("highlights")}`} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
                 <div className="slide slide-fade" key={slide}>
                     <h3><Sparkles size={16} />{slides[slide].title}</h3>
                     <p>{slides[slide].text}</p>
@@ -1117,6 +1237,33 @@ function Dashboard() {
                     ))}
                 </div>
             </div>
+            </>
+            )}
+            {isVisible("news") && (
+            <motion.div className={`dashboard-section news-section ${sectionDensityClass("news")}`} {...cardMotion(0)}>
+                {sectionDensityControl("news")}
+                <h2>{SECTION_ICONS.news}{t("news.title")}</h2>
+                {newsItems.length === 0 ? (
+                    <p className="dashboard-empty">{t("news.empty")}</p>
+                ) : (
+                    <ul className="news-list">
+                        {newsItems.map((item) => {
+                            const title = (lang === "fa" ? item.title?.fa : item.title?.en) || item.title?.en || item.title?.fa || "";
+                            const body = (lang === "fa" ? item.body?.fa : item.body?.en) || item.body?.en || item.body?.fa || "";
+                            return (
+                                <li key={item.id} className="news-item">
+                                    <div className="news-item-head">
+                                        <span className="news-item-title">{title}</span>
+                                        {item.date ? <span className="news-item-date">{formatDate(item.date, lang)}</span> : null}
+                                    </div>
+                                    {body ? <p className="news-item-body">{body}</p> : null}
+                                    {item.link ? <a className="news-item-link" href={item.link} target="_blank" rel="noreferrer">{t("news.readMore")} <ExternalLink size={14} /></a> : null}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </motion.div>
             )}
             {visibleWidgets.length > 0 && (
             <div className="charts-row">
@@ -1125,7 +1272,8 @@ function Dashboard() {
             )}
 
             {isVisible("expiring") && (
-            <motion.div className="dashboard-section" {...cardMotion(0)}>
+            <motion.div className={`dashboard-section ${sectionDensityClass("expiring")}`} {...cardMotion(0)}>
+                {sectionDensityControl("expiring")}
                 <h2>{SECTION_ICONS.expiring}{t("dashboard.expiringSoon")}</h2>
                 {expiringSoon.length === 0 ? (
                     <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
@@ -1149,7 +1297,8 @@ function Dashboard() {
             </motion.div>
             )}
             {isVisible("recentLicenses") && (
-            <motion.div className="dashboard-section" {...cardMotion(0.05)}>
+            <motion.div className={`dashboard-section ${sectionDensityClass("recentLicenses")}`} {...cardMotion(0.05)}>
+                {sectionDensityControl("recentLicenses")}
                 <h2>{SECTION_ICONS.recentLicenses}{t("dashboard.recentLicenses")}</h2>
                 {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
                     <div className="table-wrap">
@@ -1163,7 +1312,8 @@ function Dashboard() {
             </motion.div>
             )}
             {isVisible("recentApiKeys") && (
-            <motion.div className="dashboard-section" {...cardMotion(0.1)}>
+            <motion.div className={`dashboard-section ${sectionDensityClass("recentApiKeys")}`} {...cardMotion(0.1)}>
+                {sectionDensityControl("recentApiKeys")}
                 <h2>{SECTION_ICONS.recentApiKeys}{t("dashboard.recentApiKeys")}</h2>
                 {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
                     <div className="table-wrap">
@@ -1177,7 +1327,8 @@ function Dashboard() {
             </motion.div>
             )}
             {isVisible("recentUsers") && (
-            <motion.div className="dashboard-section" {...cardMotion(0.15)}>
+            <motion.div className={`dashboard-section ${sectionDensityClass("recentUsers")}`} {...cardMotion(0.15)}>
+                {sectionDensityControl("recentUsers")}
                 <h2>{SECTION_ICONS.recentUsers}{t("dashboard.recentUsers")}</h2>
                 {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
                     <div className="table-wrap">

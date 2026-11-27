@@ -1,8 +1,20 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.4) lives in the [README](README.md#whats-new-in-v304) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.5) lives in the [README](README.md#whats-new-in-v305) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.4 — 2026-11-27
+
+Dashboard-visibility, icons, charts, animation, per-admin and permissions round for the things the user reported from his own phone plus the follow-ups he added the same night:
+
+- **Every dashboard block can be hidden now:** the gear visibility popup listed only the 8 chart widgets, so the 4 summary boxes, the 6 quick-action buttons, the highlights slider and the 4 sections stayed visible with no way to turn them off. The popup now lists all 15 blocks (8 widgets + 7 sections); each switch hides/shows its block and persists across reload; turning all 15 off leaves only the dashboard header. The quick-action buttons are not widgets — sections get visibility only, no size buttons and no reorder.
+- **Icons everywhere on the dashboard:** lucide-react is the single icon source — the 4 summary boxes, each widget card, the 4 sections, the highlights slider, the 6 quick-action buttons and the header gear/customize controls all carry a matching stroke icon (no emoji), RTL-safe and measured clean at 360px.
+- **Recharts + Grafana-style chart types:** the hand-rolled SVG charts (trend, status, monthly, by-product, activations, webhooks, sending) are Recharts charts with smooth curves, gradient area fills, readable tooltips and clean legends in the existing magenta→violet language. Each chart widget has a tappable type switcher (trend line/area/bar, perMonth bar/line/area, byProduct bar/pie/donut, status donut/pie/bar, activations line/area/bar, webhooks bar/line, sending bar/line/area; services is status cards, no switcher) and the choice persists per widget across reload. S/M/L chart heights are unchanged and re-measured at 360/768/1024/1280px.
+- **Animated theme changes:** switching light/dark/auto and theme presets used to snap instantly — the transition class was added after the variables changed in the same frame. The class is now added (with a forced reflow) before the values change, so the whole UI cross-fades; the theme toggle spins once per change (framer-motion) and dashboard cards fade/slide in with a small stagger. Everything respects prefers-reduced-motion.
+- **Per-admin dashboard + per-admin 2FA:** the dashboard layout (visibility, sizes, order, ranges, chart types) is stored separately per admin — the old browser-global localStorage key leaked one admin's layout into the next admin on the same browser; the key is now per user id and the backend is re-consulted on every auth change. 2FA secrets and backup codes were already per-user and stay that way. The 2FA MODEL (TOTP/email/SMS) is a global policy set only by the main admin: non-main admins see it disabled with a note in Settings → Security → Two-Factor Auth, and the backend rejects their PUT with 403.
+- **Permissions refresh:** 12 new permission entries — security:twofa-model (main admin only), security:license-locking, security:captcha, sms:write, sms:read, email:write, telegram:write, notifications:write, blacklist:write, dashboard:read, system:update, system:update-check — plus the previously unenforced roles:write, users:write and system:check-expiring are now actually checked. The Roles page matrix shows them all and roles CRUD can grant/revoke each one. Defaults preserve the access each endpoint had before (manager keeps SMS/email/Telegram/captcha/license-locking writes and update-check; viewer/support keep module downloads), except the 2FA model, which is main-admin-only.
+- **Version bump:** 3.0.4 everywhere, demo storage key `lmp-demo-db-v18`, `smoke_test_304.py`, mock next-release v3.0.5, all 10 module ZIPs rebuilt at 3.0.4 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## v3.0.3 — 2026-11-26
 

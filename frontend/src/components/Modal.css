@@ -1,7 +1,7 @@
-/* Details popup: wider than the confirm dialog, fully opaque (solid
-   surface, no glass translucency — page content must never bleed
-   through), body scrolls internally so the card never exceeds the
-   viewport. Entrance: the shared modalIn scale/fade.
+/* Details popup: wider than the confirm dialog, full glass (v3.0.5 —
+   translucent surface + 24px blur; the dimmed backdrop behind it keeps
+   the text readable), body scrolls internally so the card never exceeds
+   the viewport. Entrance: the shared modalIn scale/fade.
    v3.0.1: 90dvh cap (was 85dvh) — the header is a non-scrolling flex
    sibling, so the × stays visible while the body scrolls; the card
    itself can never be taller than the viewport. */
@@ -11,10 +11,10 @@
     display: flex;
     flex-direction: column;
     padding: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
 }
 .modal-details-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-shrink: 0; }
 .modal-card-details .modal-details-head h2 { margin: 0; min-width: 0; overflow-wrap: break-word; }

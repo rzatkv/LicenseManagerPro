@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef, useLayoutEffect} from "react";
 import {NavLink, Outlet, useLocation} from "react-router-dom";
 import {useLanguage} from "../i18n";
 import {getCurrentUser} from "../utils/auth";
@@ -46,7 +46,7 @@ const BOTTOM_NAV = [
 ];
 
 function Layout() {
-  const {t, fetchLanguages} = useLanguage();
+  const {t, lang, fetchLanguages} = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [siteName, setSiteName] = useState("License Manager Pro");
   const [logoUrl, setLogoUrl] = useState("./logo.svg");
@@ -96,45 +96,48 @@ function Layout() {
   const canManageUsers = role === "admin";
   const canManage = role === "admin" || role === "manager";
 
-  /* Hierarchical menu (v3.0.4): flat top-level links plus accordion
-     groups. A group parent only toggles its sub-menu (it does not
-     navigate); its first child links to the group's main page. Activity
-     History and API Docs live inside the Settings group, not top-level. */
+  /* Hierarchical menu (v3.0.4, extended v3.0.5): EVERY sidebar item
+     lives in an accordion group — no flat top-level links. A group
+     parent only toggles its sub-menu (it does not navigate). Activity
+     History and API Docs live inside the Settings group. */
   const [openGroups, setOpenGroups] = useState({});
-  const settingsRoutes = ["/settings", "/audit-logs", "/docs"];
-  const managementRoutes = ["/users", "/roles", "/blacklist"];
-  const isSettingsActive = settingsRoutes.includes(location.pathname);
-  const isManagementActive = managementRoutes.includes(location.pathname);
+  const GROUPS = [
+    {id: "overview", label: t("nav.groupOverview"), icon: ICONS.dashboard, routes: ["/dashboard", "/about"], items: [
+      {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
+      {to: "/about", label: t("nav.about"), icon: ICONS.about, show: true},
+    ]},
+    {id: "licenses", label: t("nav.groupLicenses"), icon: ICONS.licenses, routes: ["/licenses", "/products", "/product-groups"], items: [
+      {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
+      {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
+      {to: "/product-groups", label: t("nav.productGroups"), icon: ICONS.groups, show: true},
+    ]},
+    {id: "access", label: t("nav.groupAccess"), icon: ICONS.apikeys, routes: ["/api-keys", "/users", "/roles", "/blacklist"], items: [
+      {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
+      {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
+      {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
+      {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
+    ]},
+    {id: "management", label: t("nav.management"), icon: ICONS.downloads, routes: ["/downloads", "/notifications"], items: [
+      {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
+      {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
+    ]},
+    {id: "settings", label: t("nav.settings"), icon: ICONS.settings, routes: ["/settings", "/audit-logs", "/docs"], items: [
+      {to: "/settings", label: t("settings.tabs.general"), icon: ICONS.settings, show: true},
+      {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
+      {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
+    ]},
+  ];
+  const groupActive = (group) => group.routes.includes(location.pathname);
   const isGroupOpen = (id, active) => (openGroups[id] !== undefined ? openGroups[id] : active);
   // The active page's group stays open when navigating to it (e.g. via
   // a deep link, the bottom nav or global search).
   useEffect(() => {
-    if (isSettingsActive) setOpenGroups((g) => (g.settings ? g : {...g, settings: true}));
-    if (isManagementActive) setOpenGroups((g) => (g.management ? g : {...g, management: true}));
+    const active = GROUPS.find((g) => groupActive(g));
+    if (active) setOpenGroups((g) => (g[active.id] ? g : {...g, [active.id]: true}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
   const toggleGroup = (id, active) =>
     setOpenGroups((g) => ({...g, [id]: !(g[id] !== undefined ? g[id] : active)}));
-
-  const flatItems = [
-    {to: "/dashboard", label: t("nav.dashboard"), icon: ICONS.dashboard, show: true},
-    {to: "/products", label: t("nav.products"), icon: ICONS.products, show: true},
-    {to: "/product-groups", label: t("nav.productGroups"), icon: ICONS.groups, show: true},
-    {to: "/licenses", label: t("nav.licenses"), icon: ICONS.licenses, show: true},
-    {to: "/api-keys", label: t("nav.apiKeys"), icon: ICONS.apikeys, show: true},
-    {to: "/notifications", label: t("nav.notifications"), icon: ICONS.notifications, show: true},
-    {to: "/downloads", label: t("nav.downloads"), icon: ICONS.downloads, show: true},
-  ];
-  const managementItems = [
-    {to: "/users", label: t("nav.users"), icon: ICONS.users, show: canManageUsers},
-    {to: "/roles", label: t("nav.roles"), icon: ICONS.roles, show: canManageUsers},
-    {to: "/blacklist", label: t("nav.blacklist"), icon: ICONS.blacklist, show: canManageUsers},
-  ];
-  const settingsItems = [
-    {to: "/settings", label: t("settings.tabs.general"), icon: ICONS.settings, show: true},
-    {to: "/audit-logs", label: t("nav.auditLogs"), icon: ICONS.audit, show: canManage},
-    {to: "/docs", label: t("nav.apiDocs"), icon: ICONS.docs, show: true},
-  ];
   const renderGroup = (id, label, icon, items, active) => {
     const visible = items.filter((i) => i.show);
     if (visible.length === 0) return null;
@@ -165,6 +168,28 @@ function Layout() {
     );
   };
 
+  // Telegram-style bottom nav (v3.0.5): a sliding pill highlights the
+  // active item. Measured with getBoundingClientRect (direction-safe in
+  // RTL — offsetLeft is not), re-measured on navigation, language
+  // change and resize; the pill animates with a CSS transition.
+  const bottomNavRef = useRef(null);
+  const [navPill, setNavPill] = useState({left: 0, width: 0, visible: false});
+  useLayoutEffect(() => {
+    const measure = () => {
+      const nav = bottomNavRef.current;
+      if (!nav) return;
+      const active = nav.querySelector(".layout-bottomnav-link.active");
+      if (!active) { setNavPill((v) => (v.visible ? {...v, visible: false} : v)); return; }
+      const navRect = nav.getBoundingClientRect();
+      const rect = active.getBoundingClientRect();
+      setNavPill({left: rect.left - navRect.left + 6, width: Math.max(0, rect.width - 12), visible: true});
+    };
+    measure();
+    const timer = setTimeout(measure, 300); // after fonts settle
+    window.addEventListener("resize", measure);
+    return () => { clearTimeout(timer); window.removeEventListener("resize", measure); };
+  }, [location.pathname, lang]);
+
   return (
     <div className="layout">
       <aside className={`layout-sidebar ${sidebarOpen ? "open" : ""}`}>
@@ -176,22 +201,7 @@ function Layout() {
           <span>{siteName}</span>
         </div>
         <nav>
-          <div className="layout-nav-section">
-            {flatItems.filter((i) => i.show).map((item) => (
-              <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
-                <span className="layout-nav-icon">{item.icon}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </div>
-          {renderGroup("management", t("nav.management"), ICONS.roles, managementItems, isManagementActive)}
-          {renderGroup("settings", t("nav.settings"), ICONS.settings, settingsItems, isSettingsActive)}
-          <div className="layout-nav-section">
-            <NavLink to="/about" className={({isActive}) => `layout-nav-link${isActive ? " active" : ""}`} onClick={() => setSidebarOpen(false)}>
-              <span className="layout-nav-icon">{ICONS.about}</span>
-              <span>{t("nav.about")}</span>
-            </NavLink>
-          </div>
+          {GROUPS.map((group) => renderGroup(group.id, group.label, group.icon, group.items, groupActive(group)))}
         </nav>
       </aside>
       <div
@@ -224,7 +234,10 @@ function Layout() {
           </div>
         </main>
       </div>
-      <nav className="layout-bottomnav" aria-label={t("nav.menu")}>
+      <nav className="layout-bottomnav" aria-label={t("nav.menu")} ref={bottomNavRef}>
+        {navPill.visible && (
+          <span className="layout-bottomnav-indicator" aria-hidden="true" style={{transform: `translateX(${navPill.left}px)`, width: navPill.width}} />
+        )}
         {BOTTOM_NAV.map((item) => (
           <NavLink key={item.to} to={item.to} className={({isActive}) => `layout-bottomnav-link${isActive ? " active" : ""}`}>
             <span className="layout-bottomnav-icon">{item.icon}</span>

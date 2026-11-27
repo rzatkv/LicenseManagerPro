@@ -12,7 +12,17 @@
    200px boxes centred in a wide row (which left large side margins and
    ~60%-wide cards on narrow screens). */
 /* v3.0.4: one lucide icon per summary box, accent-coloured, above the label. */
-.summary-icon { display: inline-flex; color: var(--accent); margin-bottom: 6px; }
+/* v3.0.5: gradient summary cards — vibrant translucent gradients in the
+   app palette, a gradient icon chip, a big number, and a large
+   decorative icon at the side (inspired by the user's sample card, not
+   copied: the glass language, palette and layout stay this app's own). */
+.summary-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 16px; background: var(--accent-gradient); color: #fff; box-shadow: 0 6px 16px rgba(109, 93, 246, 0.35); margin-bottom: 0; }
+.summary-icon svg { width: 22px; height: 22px; }
+.summary-text { min-width: 0; flex: 1; }
+.summary-text h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin: 0 0 2px; }
+.summary-text p { font-size: 28px; font-weight: 800; line-height: 1.1; margin: 0; color: var(--text); }
+.summary-deco { position: absolute; inset-inline-end: -4px; top: 50%; transform: translateY(-50%); opacity: 0.14; pointer-events: none; color: var(--text); }
+.summary-deco svg { width: 72px; height: 72px; }
 .dashboard-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -22,30 +32,31 @@
 }
 
 .summary-box {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: start;
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    border-radius: 20px;
+    border-radius: 24px;
     padding: 20px;
     box-shadow: var(--shadow);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    text-align: center;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+/* v3.0.5: doubled specificity (.summary-box.summary-box--*) — the
+   plain .summary-box--violet rules lost to .glass-card (same
+   specificity, index.css loads after Dashboard.css in the bundle),
+   so the gradient never rendered and the cards fell back to plain
+   glass. */
+.summary-box.summary-box--violet { background: linear-gradient(135deg, color-mix(in srgb, #6D5DF6 30%, var(--glass)), color-mix(in srgb, #C1165E 22%, var(--glass))); }
+.summary-box.summary-box--blue { background: linear-gradient(135deg, color-mix(in srgb, #0284C7 30%, var(--glass)), color-mix(in srgb, #2563EB 22%, var(--glass))); }
+.summary-box.summary-box--green { background: linear-gradient(135deg, color-mix(in srgb, #16A34A 30%, var(--glass)), color-mix(in srgb, #0D9488 22%, var(--glass))); }
+.summary-box.summary-box--rose { background: linear-gradient(135deg, color-mix(in srgb, #F43F5E 30%, var(--glass)), color-mix(in srgb, #DB2777 22%, var(--glass))); }
 .summary-box:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-
-.summary-box h2 {
-    margin-bottom: 10px;
-    font-size: 18px;
-    color: var(--accent);
-}
-
-.summary-box p {
-    font-size: 24px;
-    font-weight: bold;
-    margin: 0;
-    color: var(--text);
-}
 
 .dashboard-error {
     color: var(--danger);
@@ -77,7 +88,33 @@
     color: var(--text);
     margin-bottom: 15px;
 }
-.dashboard-actions h2 svg, .dashboard-section h2 svg { color: var(--accent); flex: 0 0 auto; }
+.dashboard-actions h2 svg, .dashboard-section h2 svg { flex: 0 0 auto; width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: 10px; background: var(--accent-gradient); color: #fff; }
+/* v3.0.5: bounded section density — padding/row height only, never
+   width. The control bar shows while customizing (same pill buttons as
+   the widget size control). */
+.section-density-control { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 8px 4px; font-size: 13px; color: var(--muted); }
+.dashboard-summary.section-density-compact { gap: 8px; }
+.dashboard-summary.section-density-compact .summary-box { padding: 12px 14px; }
+.dashboard-summary.section-density-roomy { gap: 20px; }
+.dashboard-summary.section-density-roomy .summary-box { padding: 26px 22px; }
+.dashboard-actions.section-density-compact .action-btn { padding: 8px 14px; font-size: 14px; }
+.dashboard-actions.section-density-roomy .action-btn { padding: 14px 24px; font-size: 16px; }
+.highlights-slider.section-density-compact { padding: 12px; }
+.highlights-slider.section-density-roomy { padding: 28px; }
+.dashboard-section.section-density-compact table th, .dashboard-section.section-density-compact table td { padding: 5px 6px; font-size: 13px; }
+.dashboard-section.section-density-roomy table th, .dashboard-section.section-density-roomy table td { padding: 12px 10px; font-size: 15px; }
+.news-section.section-density-compact .news-item { padding: 10px 12px; }
+.news-section.section-density-roomy .news-item { padding: 20px; }
+
+/* Panel news (v3.0.5): glass items, title + date on one row, body
+   below, optional link. */
+.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.news-item { padding: 14px 16px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.news-item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.news-item-title { font-weight: 700; color: var(--text); }
+.news-item-date { font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.news-item-body { color: var(--muted); margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
+.news-item-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 13px; font-weight: 600; }
 
 .action-buttons {
     display: flex;
@@ -149,7 +186,8 @@
   flex: 1; min-width: 260px; max-width: 340px;
 }
 .chart-card h3 { display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center; font-size: 15px; margin-bottom: 12px; color: var(--text); }
-.chart-title-icon { display: inline-flex; color: var(--accent); flex: 0 0 auto; }
+.chart-title-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 10px; background: var(--accent-gradient); color: #fff; flex: 0 0 auto; }
+.chart-title-icon svg { width: 16px; height: 16px; }
 /* The 14-day trend chart spans the full row. */
 .chart-card-wide { flex: 1 1 100%; max-width: 1000px; }
 
@@ -347,9 +385,15 @@
    past the viewport at 360px wide. */
 @media (max-width: 640px) {
     .dashboard-summary { grid-template-columns: 1fr 1fr; max-width: 1000px; gap: 8px; }
-    .summary-box { display: block; padding: 14px 10px; text-align: center; }
-    .summary-box h2 { margin: 0 0 4px; font-size: 14px; }
-    .summary-box p { font-size: 20px; }
+    /* v3.0.5: the summary card keeps its flex row on phones — only the
+       paddings and the deco icon shrink (the old display:block centered
+       layout is gone with the gradient-card redesign). */
+    .summary-box { padding: 12px; gap: 8px; }
+    .summary-icon { width: 36px; height: 36px; border-radius: 12px; }
+    .summary-icon svg { width: 18px; height: 18px; }
+    .summary-text h2 { font-size: 12px; }
+    .summary-text p { font-size: 20px; }
+    .summary-deco svg { width: 48px; height: 48px; }
     .dashboard-section table th, .dashboard-section table td { padding: 6px 4px; font-size: 14px; }
     /* v3.0.4: the header actions (gear + Customize) overflowed 11px at
        360px in en — the Customize text button is icon-only here (the

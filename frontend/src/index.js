@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css"; // فایل استایل عمومی
+import "./fonts/vazirmatn.css"; // Vazirmatn Persian font (v3.0.5, embedded base64 — no network)
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(

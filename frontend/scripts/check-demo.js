@@ -22,6 +22,12 @@ global.localStorage = {
 // ---- load demoData.js as a plain script ----
 let src = fs.readFileSync(path.join(__dirname, "..", "src", "utils", "demoData.js"), "utf8");
 src = src.replace(/^import \{DEMO_MODE\} from "\.\.\/config";.*$/m, "const DEMO_MODE = true;");
+// v3.0.5: demoData imports the shared version constant — resolve it from
+// version.js (single source of truth) instead of hard-coding it here.
+const versionSrc = fs.readFileSync(path.join(__dirname, "..", "src", "version.js"), "utf8");
+const versionMatch = versionSrc.match(/APP_VERSION = "([^"]+)"/);
+const APP_VERSION_VALUE = versionMatch ? versionMatch[1] : "unknown";
+src = src.replace(/^import \{APP_VERSION\} from "\.\.\/version";.*$/m, `const APP_VERSION = ${JSON.stringify(APP_VERSION_VALUE)};`);
 src = src.replace(/^export \{DEMO_MODE\};.*$/m, "");
 src = src.replace(/^export const /gm, "const ");
 src = src.replace(/^export async function /gm, "async function ");
@@ -45,10 +51,10 @@ function check(name, cond, extra) {
   console.log("Demo mock checks (v3.0 flows):");
   resetDemoData();
 
-  // 1. Seed versions bumped to 3.0.4
+  // 1. Seed versions bumped to 3.0.5
   const settings = await mockRequest("GET", "/settings");
-  check("seed app_version is 3.0.4", settings.app_version === "3.0.4", JSON.stringify(settings.app_version));
-  check("seed latest_version is 3.0.4", settings.latest_version === "3.0.4", JSON.stringify(settings.latest_version));
+  check("seed app_version is 3.0.5", settings.app_version === "3.0.5", JSON.stringify(settings.app_version));
+  check("seed latest_version is 3.0.5", settings.latest_version === "3.0.5", JSON.stringify(settings.latest_version));
   check("seed branding settings present", settings.site_name === "License Manager Pro" && settings.logo_url === "./logo.svg", JSON.stringify(settings.site_name));
 
   // 2. Seed counts kept: 3 products / 8 licenses / 4 role users
@@ -195,13 +201,13 @@ function check(name, cond, extra) {
   const downloads = await mockRequest("GET", "/downloads");
   check("downloads lists all 10 modules", Array.isArray(downloads) && downloads.length === 10 && downloads.some((d) => d.id === "whmcs") && downloads.some((d) => d.id === "odoo"), JSON.stringify(downloads && downloads.length));
   const whmcsDl = downloads.find((d) => d.id === "whmcs");
-  check("download URL is the direct GitHub release asset for v3.0.4", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.4/licensemanagerpro-whmcs-3.0.4.zip", whmcsDl.download_url);
+  check("download URL is the direct GitHub release asset for v3.0.5", whmcsDl.download_url === "https://github.com/rzatkv/LicenseManagerPro/releases/download/v3.0.5/licensemanagerpro-whmcs-3.0.5.zip", whmcsDl.download_url);
   const versions = await mockRequest("GET", "/downloads/versions");
-  check("downloads versions returns all 10 modules at 3.0.4", versions.whmcs && versions.whmcs.local === "3.0.4" && versions.odoo && versions.odoo.latest === "3.0.4", JSON.stringify(versions.whmcs));
+  check("downloads versions returns all 10 modules at 3.0.5", versions.whmcs && versions.whmcs.local === "3.0.5" && versions.odoo && versions.odoo.latest === "3.0.5", JSON.stringify(versions.whmcs));
 
   // 24. v2.3: update-check (demo is up to date) + staged update shape
   const upd = await mockRequest("GET", "/system/update-check");
-  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.4", JSON.stringify(upd));
+  check("update-check reports up to date in demo", upd.update_available === false && upd.current_version === "3.0.5", JSON.stringify(upd));
   const staged = await mockRequest("POST", "/system/update", {});
   check("update returns staged shape", staged.staged === true && staged.next_step === "bash scripts/update.sh", JSON.stringify(staged));
 
@@ -313,6 +319,11 @@ function check(name, cond, extra) {
   // Seeded with 2 deliveries; license creates in earlier checks append
   // more, so assert the running total and the 100% success rate.
   check("webhook stats track all deliveries with 100% success", whStats.total >= 2 && whStats.success === whStats.total && whStats.success_rate === 100 && whStats.by_event["license.created"].total >= 1, JSON.stringify(whStats));
+
+  // 33. v3.0.5: panel news — the mock mirrors the repo-root news.json.
+  const news = await mockRequest("GET", "/news");
+  check("news returns the 3 seeded items", Array.isArray(news.items) && news.items.length === 3, JSON.stringify(news.items && news.items.length));
+  check("news first item is the v3.0.5 release note, both languages", news.items[0].id === "v305-release" && news.items[0].title.en.includes("3.0.5") && news.items[0].title.fa.length > 0 && news.items[0].body.en.length > 0 && news.items[0].body.fa.length > 0, JSON.stringify(news.items[0] && news.items[0].id));
 
   console.log(`\n${passed} passed, ${failed} failed.`);
   process.exit(failed ? 1 : 0);

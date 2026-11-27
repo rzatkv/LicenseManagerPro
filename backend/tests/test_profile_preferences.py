@@ -143,6 +143,33 @@ def test_preferences_theme_validation(client, auth_headers):
     )
 
 
+def test_preferences_theme_v305_presets_accepted(client, auth_headers):
+    """v3.0.5: the 30 new theme presets (40 total) are accepted by the
+    backend validation — the same ids the frontend THEME_PRESETS,
+    the demo mock and THEME_PRESET_IDS carry. (Before this fix the
+    backend list had only the first 10 + custom, so a new preset
+    saved from Settings would 400 and never persist.)"""
+    base = "/api/users/me/preferences"
+    for preset in (
+        "midnight", "coral", "mint", "sky", "plum",
+        "gold", "crimson", "azure", "lavender", "slate",
+        "citrine", "cyan", "pink", "fuchsia", "iris",
+        "tangerine", "olive", "berry", "navy", "wine",
+        "jade", "aqua", "magenta", "brick", "bronze",
+        "steel", "blush", "moss", "apricot", "cobalt",
+    ):
+        assert (
+            client.put(
+                base,
+                json={"key": "theme", "value": {"preset": preset}},
+                headers=auth_headers,
+            ).status_code
+            == 200
+        )
+    prefs = client.get(base, headers=auth_headers).json()["preferences"]
+    assert prefs["theme"]["preset"] == "cobalt"
+
+
 def test_preferences_dashboard_layout_isolated_per_user(client, auth_headers):
     """v3.0.4 per-admin dashboard personalization: admin A hiding the
     trend widget and picking size S must not change admin B's layout —

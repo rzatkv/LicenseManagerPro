@@ -196,6 +196,21 @@
     -webkit-backdrop-filter: blur(20px);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
+  /* Telegram-style bottom nav (v3.0.5): the active item sits on a
+     sliding pill (a span positioned by JS from getBoundingClientRect,
+     so it is direction-safe in RTL). The pill animates with a CSS
+     transition; the links sit above it. */
+  .layout-bottomnav-indicator {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 0;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    transition: transform 0.25s ease, width 0.25s ease;
+    z-index: 0;
+    pointer-events: none;
+  }
   .layout-bottomnav-link {
     flex: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -206,7 +221,10 @@
     text-decoration: none;
     font-size: 11px;
     line-height: 1.2;
-    border-radius: 0;
+    border-radius: 999px;
+    position: relative;
+    z-index: 1;
+    transition: color 0.2s ease;
   }
   .layout-bottomnav-icon { display: inline-flex; }
   .layout-bottomnav-icon svg { width: 20px; height: 20px; }

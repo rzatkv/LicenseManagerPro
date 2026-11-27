@@ -17,17 +17,26 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.4
+## What's new in v3.0.5
 
-Dashboard-visibility, icons, charts, animation, per-admin and permissions round for the things the user reported from his own phone plus the follow-ups he added the same night:
+Polish round for the things the user reported from his own phone (the highlights slider still said v2.3, sections could not be resized, the Persian font fell back to system-ui) plus the follow-ups he added the same night:
 
-- **Every dashboard block can be hidden now:** the gear visibility popup listed only the 8 chart widgets, so the 4 summary boxes, the 6 quick-action buttons, the highlights slider and the 4 sections stayed visible with no way to turn them off. The popup now lists all 15 blocks (8 widgets + 7 sections); each switch hides/shows its block and persists across reload; turning all 15 off leaves only the dashboard header. The quick-action buttons are not widgets — sections get visibility only, no size buttons and no reorder.
-- **Icons everywhere on the dashboard:** lucide-react is the single icon source — the 4 summary boxes, each widget card, the 4 sections, the highlights slider, the 6 quick-action buttons and the header gear/customize controls all carry a matching stroke icon (no emoji), RTL-safe and measured clean at 360px.
-- **Recharts + Grafana-style chart types:** the hand-rolled SVG charts (trend, status, monthly, by-product, activations, webhooks, sending) are Recharts charts with smooth curves, gradient area fills, readable tooltips and clean legends in the existing magenta→violet language. Each chart widget has a tappable type switcher (trend line/area/bar, perMonth bar/line/area, byProduct bar/pie/donut, status donut/pie/bar, activations line/area/bar, webhooks bar/line, sending bar/line/area; services is status cards, no switcher) and the choice persists per widget across reload. S/M/L chart heights are unchanged and re-measured at 360/768/1024/1280px.
-- **Animated theme changes:** switching light/dark/auto and theme presets used to snap instantly — the transition class was added after the variables changed in the same frame. The class is now added (with a forced reflow) before the values change, so the whole UI cross-fades; the theme toggle spins once per change (framer-motion) and dashboard cards fade/slide in with a small stagger. Everything respects prefers-reduced-motion.
-- **Per-admin dashboard + per-admin 2FA:** the dashboard layout (visibility, sizes, order, ranges, chart types) is stored separately per admin — the old browser-global localStorage key leaked one admin's layout into the next admin on the same browser; the key is now per user id and the backend is re-consulted on every auth change. 2FA secrets and backup codes were already per-user and stay that way. The 2FA MODEL (TOTP/email/SMS) is a global policy set only by the main admin: non-main admins see it disabled with a note in Settings → Security → Two-Factor Auth, and the backend rejects their PUT with 403.
-- **Permissions refresh:** 12 new permission entries — security:twofa-model (main admin only), security:license-locking, security:captcha, sms:write, sms:read, email:write, telegram:write, notifications:write, blacklist:write, dashboard:read, system:update, system:update-check — plus the previously unenforced roles:write, users:write and system:check-expiring are now actually checked. The Roles page matrix shows them all and roles CRUD can grant/revoke each one. Defaults preserve the access each endpoint had before (manager keeps SMS/email/Telegram/captcha/license-locking writes and update-check; viewer/support keep module downloads), except the 2FA model, which is main-admin-only.
-- **Version bump:** 3.0.4 everywhere, demo storage key `lmp-demo-db-v18`, `smoke_test_304.py`, mock next-release v3.0.5, all 10 module ZIPs rebuilt at 3.0.4 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **The highlights slider never goes stale again:** slide 1 was hard-coded "New in v2.3" in the translation strings while the app was already on v3.0.4. The slide now renders the current version from the single shared frontend constant (`frontend/src/version.js`), so it always says the running version — no more hard-coded version in any user-facing string.
+- **Bounded section sizes:** in Customize mode every dashboard section (summary, quick actions, highlights, news, expiring soon, recent licenses, recent API keys, recent users) gets a size control too — compact / normal / roomy density, persisted per admin like the widget sizes. Sections are not widgets, so density only changes padding and row height, never the width. Audit result: no chart widget lacked a control — all 8 have S/M/L, reorder and chart-type (where applicable); trend, perMonth, byProduct, activations and sending also have range controls, while status, webhooks and services have no range by design (snapshot totals / live status, no time dimension).
+- **Vazirmatn Persian font:** Persian text now renders in Vazirmatn (Regular/Medium/Bold woff2 embedded as base64 data-URIs in `frontend/src/fonts/vazirmatn.css`, SIL OFL 1.1) — fully self-contained, no network request, CSP-safe. It applies when the document language is fa; English keeps the Poppins/system stack. The old body font named Poppins but bundled no font file anywhere, so Persian fell back to system-ui.
+- **Grouped menus:** every sidebar item now lives in an accordion group — Overview (Dashboard, About), Licenses (Licenses, Products, Product Groups), Access (API Keys, Users, Roles, Blacklist), Management (Downloads, Notifications), Settings (Settings, Activity History, API Docs). Same pattern as the old Management group: chevron rotates, the active page's group stays open, works on phones.
+- **Telegram-style bottom nav:** the mobile bottom nav now has a sliding pill behind the active item (measured with getBoundingClientRect, so it is correct in RTL too) with a smooth animated transition, same 5 items and routes.
+- **Full glass:** every card, panel, modal, dropdown and dialog now uses the same glass treatment (translucent surface, glass border, 20–24px backdrop blur) in light and dark, while text stays readable — the dimmed modal backdrop and the 0.72-alpha glass keep floating panels legible.
+- **Live News section:** a `news.json` file at the repo root (3 seeded items) feeds a News section on the dashboard. The backend serves it at `GET /api/news` (cached by mtime; a missing or invalid file returns an empty list, never an error). The demo reads the live file straight from `raw.githubusercontent.com`, so editing `news.json` in GitHub publishes news to demo users too, with the seeded items as fallback. See "Publishing news" below.
+- **Prettier summary cards:** the four summary boxes are now vibrant gradient cards in the app palette (violet, blue, green, rose) with a gradient icon chip, a big number and a large decorative side icon — inspired by the sample card the user shared, not copied; the glass language stays. Section and widget titles carry the same gradient icon chip.
+- **Chart types fixed (user report 02:31):** every one of the 20 chart-type selections was switched in the real demo build and measured — 4 were broken. (1) Licenses by Product pie/donut silently rendered bars: `BarChart` only handled line/area/bar, so pie/donut fell through to the bar branch — it now renders a real pie/donut with a slice legend. (2) Webhook Deliveries "Bars" rendered an HTML list, not a chart — it is now a real Recharts vertical bar chart of per-event success %. (3) Status pie was confirmed working (the first probe flagged it only because its centre test used elementFromPoint on a below-the-fold widget). All 20 types now render a distinct visible chart, and `verify-v305.cjs` covers all of them (marker shapes + pie/donut centre geometry), not just one switch per widget.
+- **40 themes:** 30 new presets — Midnight, Coral, Mint, Sky, Plum, Gold, Crimson, Azure, Lavender, Slate, Citrine, Cyan, Pink, Fuchsia, Iris, Tangerine, Olive, Berry, Navy, Wine, Jade, Aqua, Magenta, Brick, Bronze, Steel, Blush, Moss, Apricot, Cobalt — each with light and dark variants and English/Persian names (all 40 light accents and all 40 dark accents are distinct). Per-admin theme storage is unchanged. Verification caught that 5 of the old presets (rose, teal, amber, lime, ruby) never actually changed the accent — their colours lived only in `theme.js` while the app read `[data-preset]` CSS rules that existed for just 4 presets — so presets are now applied inline from the single `THEME_PRESETS` list (the derived id list, the backend validation and the demo mock all carry the same 40 ids); the dead CSS rules were removed.
+- **Version bump:** 3.0.5 everywhere, demo storage key `lmp-demo-db-v19`, `smoke_test_305.py`, mock next-release v3.0.6, all 10 module ZIPs rebuilt at 3.0.5 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+
+## Publishing news
+
+The dashboard News section is fed by one file: [`news.json`](news.json) at the repo root. To publish news, edit that file in GitHub (web UI or a commit) — each item has an `id`, a `title` and `body` in English and Persian, a `date` (`YYYY-MM-DD`) and an optional `link`. The real backend reads the file on every request (cached by modification time), so the news appears on every panel dashboard with no deploy and no restart. The GitHub Pages demo reads the same file live from `raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/news.json`, so demo users see the new items too, with the seeded items as fallback when offline.
+
 ## Key Features
 - **API Key Management:** Create, list, update and delete API keys with access rights, expiry, IP/domain/directory restrictions, single-use keys, and a daily request limit. Module-scoped keys (time-limited, optional HMAC signing + IP allowlist) are the only way modules connect.
 - **License Management:** Create and filter licenses (all/active/inactive, created today/this week/this month), view details, edit in a popup, renew, reissue, validate (public endpoint), and track activations. Notes on products and licenses (toggleable).
@@ -41,7 +50,7 @@ Dashboard-visibility, icons, charts, animation, per-admin and permissions round 
 - **Notifications:** Bell + Notifications page; per-channel (email/SMS/Telegram) delivery and per-channel log streams.
 - **Update Check:** Compare the running version against a configured latest version and record an applied update.
 - **High Security:** JWT authentication (Bearer tokens), bcrypt password hashing, TOTP 2FA (+ email/SMS codes), and protected API routes. Security is the top priority: every release is checked against an adversarial test suite that must fail closed.
-- **Modern UI:** Responsive, zero-scroll, tabbed and popup-split interface with a graphical dashboard; ten built-in theme presets plus a custom theme builder, stored separately per admin; full English/Persian UI with RTL.
+- **Modern UI:** Responsive, zero-scroll, tabbed and popup-split interface with a graphical dashboard; forty built-in theme presets plus a custom theme builder, stored separately per admin; full English/Persian UI with RTL.
 
 ---
 ## Project Layout
@@ -92,7 +101,7 @@ LicenseManagerPro/
 │   └── build-module-zips.sh # Builds dist/licensemanagerpro-<platform>-<version>.zip + manifest.json (verify version parity)
 ├── modules.json             # Module versions manifest (repo root; direct GitHub release-asset URLs)
 ├── docker-compose.yml       # Backend (+ optional MySQL via --profile mysql)
-├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.3; v3.0.4 lives above)
+├── CHANGELOG.md             # Release history (v2.0.0 – v3.0.4; v3.0.5 lives above)
 └── README.md
 ```
 
@@ -302,7 +311,7 @@ Ten platform modules live in `modules/`, one per platform, each with `version.js
 
 ## Testing
 
-Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **284 passed** (v3.0.3).
+Backend tests use pytest against a temporary SQLite database (no MySQL needed). **Run only one pytest process at a time** — the suite shares one `tests/test.db` file and concurrent runs collide on it. Full suite: **306 passed** (v3.0.5).
 
 ```bash
 cd backend

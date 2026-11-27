@@ -49,9 +49,10 @@
    absolute positioning against the bell overflowed off-screen whenever
    the topbar wrapped and the bell sat near a viewport edge. The inline
    style sets left/top/width; this width is the fallback before it lands.
-   Fully OPAQUE (solid surface, no blur): the glass-card translucency
-   let page content bleed through the panel and washed out the header
-   text (white-on-white in the v2.2.1 check). */
+   v3.0.5: full glass again (translucent surface + 24px blur). The
+   v2.2.1 white-on-white header came from a much lighter translucency
+   with no blur; --glass is 0.72 alpha with a strong blur, so the
+   header stays readable in light and dark (verified in Playwright). */
 .notif-panel {
   position: fixed;
   width: min(360px, calc(100vw - 24px));
@@ -61,12 +62,12 @@
   padding: 12px;
   z-index: 300;
   animation: fadeIn 0.2s ease;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
   box-shadow: var(--shadow-lg);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   color: var(--text);
 }
 .notif-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }

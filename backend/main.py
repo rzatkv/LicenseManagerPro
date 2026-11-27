@@ -28,6 +28,7 @@ from routers import (
     downloads,
     languages,
     licenses,
+    news,
     notifications,
     product_groups,
     products,
@@ -243,6 +244,7 @@ app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(product_groups.router, prefix="/api/product-groups", tags=["Product Groups"])
 app.include_router(blacklist.router, prefix="/api/blacklist", tags=["Blacklist"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(news.router, prefix="/api/news", tags=["News"])
 app.include_router(downloads.router, prefix="/api/downloads", tags=["Downloads"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(languages.router, prefix="/api/languages", tags=["Languages"])

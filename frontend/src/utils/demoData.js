@@ -1,4 +1,7 @@
 import {DEMO_MODE} from "../config";
+// v3.0.5: single version constant (frontend/src/version.js) — the demo
+// and the real app can never disagree about the version again.
+import {APP_VERSION} from "../version";
 
 /**
  * Demo backend: an in-browser mock of the real FastAPI API (v2.3).
@@ -11,14 +14,22 @@ import {DEMO_MODE} from "../config";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v18";
-const APP_VERSION = "3.0.4";
+const STORAGE_KEY = "lmp-demo-db-v19";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
 const DEMO_2FA_SECRET = "DEMO2FASECRET";
 const DEMO_2FA_CODE = "123456";
 const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/releases/download";
+// v3.0.5: panel news — seeded items mirror the repo-root news.json
+// (same ids, titles, bodies and dates). GET /news in the mock returns
+// these; the Dashboard in demo mode tries the live file from
+// raw.githubusercontent.com first and falls back to these when offline.
+const NEWS_ITEMS = [
+    {id: "v305-release", title: {en: "LicenseManagerPro v3.0.5 is out", fa: "نسخه ۳٫۰٫۵ لایسنس منیجر پرو منتشر شد"}, body: {en: "Vazirmatn Persian font, grouped menus, a Telegram-style bottom nav, full glass design, a live News section, prettier gradient cards, 20 themes and bounded section sizes.", fa: "فونت فارسی وزیرمتن، منوهای طبقه‌بندی‌شده، منوی پایین به سبک تلگرام، طراحی کاملاً شیشه‌ای، بخش اخبار زنده، کارت‌های گرادیانی زیباتر، ۲۰ تم و اندازه‌های محدود برای بخش‌ها."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
+    {id: "news-howto", title: {en: "How news works in this panel", fa: "اخبار در این پنل چطور کار می‌کند؟"}, body: {en: "Edit this file (news.json) in the repository and the news appears on every panel dashboard automatically — no deploy needed for the demo, which reads the file straight from GitHub.", fa: "همین فایل (news.json) را در مخزن ویرایش کنید تا خبرها به‌صورت خودکار روی داشبورد همه پنل‌ها بیایند؛ نسخه دمو فایل را مستقیم از گیت‌هاب می‌خواند و نیازی به استقرار دوباره ندارد."}, date: "2026-11-27", link: null},
+    {id: "welcome-admins", title: {en: "Welcome, admins", fa: "به ادمین‌ها خوش‌آمدید"}, body: {en: "Every dashboard block can be hidden from the gear menu, resized from Customize, and personalized separately for each admin.", fa: "هر بخش داشبورد را می‌توان از منوی چرخ‌دنده پنهان کرد، از بخش سفارشی‌سازی اندازه‌اش را عوض کرد و برای هر ادمین جداگانه شخصی‌سازی نمود."}, date: "2026-11-26", link: null},
+];
 // One module per platform (v2.3): the Downloads page links DIRECTLY to
 // the GitHub release asset, so the module version always matches the
 // installed app version (version parity).
@@ -213,7 +224,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.4", message: "Dashboard: every block can be hidden, lucide icons, Recharts with Grafana-style chart types, animated themes, per-admin layouts and a full permissions refresh — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.5", message: "Dashboard: Vazirmatn Persian font, grouped menus, Telegram-style bottom nav, full glass, a live News section, prettier gradient cards, 20 themes and bounded section sizes — see the Dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -1437,7 +1448,7 @@ export async function mockRequest(method, endpoint, body) {
                 // unknown preset/mode or a non-hex custom colour is a 400.
                 if (body.key === "theme") {
                     const v = body.value || {};
-                    const presets = ["default", "ocean", "forest", "sunset", "graphite", "rose", "teal", "amber", "lime", "ruby", "custom"];
+                    const presets = ["default", "ocean", "forest", "sunset", "graphite", "rose", "teal", "amber", "lime", "ruby", "midnight", "coral", "mint", "sky", "plum", "gold", "crimson", "azure", "lavender", "slate", "citrine", "cyan", "pink", "fuchsia", "iris", "tangerine", "olive", "berry", "navy", "wine", "jade", "aqua", "magenta", "brick", "bronze", "steel", "blush", "moss", "apricot", "cobalt", "custom"];
                     if (v.preset !== undefined && !presets.includes(v.preset)) fail(400, `unknown theme preset: ${v.preset}`);
                     if (v.mode !== undefined && !["light", "dark", "auto"].includes(v.mode)) fail(400, `unknown theme mode: ${v.mode}`);
                     if (v.custom !== undefined) {
@@ -1998,6 +2009,13 @@ export async function mockRequest(method, endpoint, body) {
             series.total[index[day]][outcome] += 1;
         }
         return {days, dates, series};
+    }
+    if (method === "GET" && path === "/news") {
+        // v3.0.5: seeded items mirror the repo-root news.json (same ids,
+        // titles, bodies and dates). The Dashboard in demo mode tries the
+        // live file from raw.githubusercontent.com first and falls back
+        // to these when offline.
+        return {items: NEWS_ITEMS};
     }
     if (method === "GET" && path === "/system/info") {
         // v3.0: version comes from code (APP_VERSION), never from settings.

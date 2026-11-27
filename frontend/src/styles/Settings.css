@@ -73,7 +73,7 @@ table td button {
 
 /* Language picker: one row per language, check on the active one. */
 .language-picker { display: flex; flex-direction: column; gap: 10px; }
-.language-option { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; text-align: start; }
+.language-option { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--glass-border); background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: var(--text); font-size: 15px; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; text-align: start; }
 .language-option:hover { border-color: var(--accent); }
 .language-option.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .language-option-check { color: var(--accent); font-weight: 700; }
@@ -85,7 +85,7 @@ table td button {
 .segmented-btn { padding: 9px 18px; border: none; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .segmented-btn.active { background: var(--accent-gradient); color: #fff; }
 .theme-preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-.theme-preset { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease; text-align: start; }
+.theme-preset { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease; text-align: start; }
 .theme-preset:hover { transform: translateY(-2px); }
 .theme-preset.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .theme-preset-swatch { height: 56px; border-radius: 12px; }
@@ -115,7 +115,7 @@ table td button {
 .settings-save-row button { min-width: 160px; padding: 12px 28px; font-size: 15px; }
 
 /* v3.0 SMS providers: one card per provider; only the active one expands. */
-.sms-provider-card { border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+.sms-provider-card { border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .sms-provider-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .sms-provider-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sms-provider-head strong { font-size: 15px; color: var(--text); }
@@ -127,7 +127,7 @@ table td button {
 .notify-toggle-row:last-child { border-bottom: none; }
 
 /* v3.0 email templates: one card per template + rendered preview. */
-.email-template-card { border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+.email-template-card { border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .email-template-card h4 { margin: 0; }
 .email-template-preview { border-top: 1px solid var(--border); padding-top: 10px; }
 .email-template-preview summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent); }

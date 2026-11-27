@@ -8,13 +8,13 @@ import httpx
 import services.updates as update_service
 
 # The mocked "latest" release is always NEWER than the running app
-# (3.0.4) — otherwise the update path refuses with "Already up to date".
-RELEASE_305 = {
-    "tag_name": "v3.0.5",
-    "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.5",
+# (3.0.5) — otherwise the update path refuses with "Already up to date".
+RELEASE_306 = {
+    "tag_name": "v3.0.6",
+    "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.6",
     "body": "## Highlights\n- something new",
     "published_at": "2026-11-25T00:00:00Z",
-    "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.5",
+    "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.6",
 }
 
 ALL_MODULES = (
@@ -50,7 +50,7 @@ def _mock_client(monkeypatch, release=None, tarball_bytes=None, api_status=200):
         if url.endswith("/releases/latest"):
             if api_status != 200:
                 return httpx.Response(api_status, json={"message": "not found"})
-            return httpx.Response(200, json=release if release is not None else RELEASE_305)
+            return httpx.Response(200, json=release if release is not None else RELEASE_306)
         if "tarball" in url:
             return httpx.Response(200, content=tarball_bytes if tarball_bytes is not None else _gzip_bytes())
         if url.endswith("/modules.json"):
@@ -58,8 +58,8 @@ def _mock_client(monkeypatch, release=None, tarball_bytes=None, api_status=200):
             return httpx.Response(
                 200,
                 json={
-                    **{m: {"version": "3.0.4"} for m in ALL_MODULES},
-                    "whmcs": {"version": "3.0.5"},
+                    **{m: {"version": "3.0.5"} for m in ALL_MODULES},
+                    "whmcs": {"version": "3.0.6"},
                 },
             )
         return httpx.Response(404, json={"message": "not found"})
@@ -77,19 +77,19 @@ def test_update_check_newer_available(client, auth_headers, monkeypatch):
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["current_version"] == "3.0.4"
-    assert data["latest_version"] == "3.0.5"
+    assert data["current_version"] == "3.0.5"
+    assert data["latest_version"] == "3.0.6"
     assert data["update_available"] is True
-    assert "3.0.5" in data["release_url"]
+    assert "3.0.6" in data["release_url"]
     assert "something new" in (data["release_notes"] or "")
 
 
 def test_update_check_already_latest(client, auth_headers, monkeypatch):
-    _mock_client(monkeypatch, release={**RELEASE_305, "tag_name": "v3.0.4"})
+    _mock_client(monkeypatch, release={**RELEASE_306, "tag_name": "v3.0.5"})
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["update_available"] is False
-    assert response.json()["latest_version"] == "3.0.4"
+    assert response.json()["latest_version"] == "3.0.5"
 
 
 def test_update_check_github_failure(client, auth_headers, monkeypatch):
@@ -103,7 +103,7 @@ def test_update_check_github_failure(client, auth_headers, monkeypatch):
 
 def test_stage_update_downloads_and_verifies(client, auth_headers, monkeypatch, tmp_path):
     _mock_client(monkeypatch)
-    staged = update_service.UPDATES_DIR / "license-manager-pro-3.0.5.tar.gz"
+    staged = update_service.UPDATES_DIR / "license-manager-pro-3.0.6.tar.gz"
     if staged.exists():
         staged.unlink()
     try:
@@ -111,7 +111,7 @@ def test_stage_update_downloads_and_verifies(client, auth_headers, monkeypatch, 
         assert response.status_code == 200, response.text
         data = response.json()
         assert data["staged"] is True
-        assert data["version"] == "3.0.5"
+        assert data["version"] == "3.0.6"
         assert data["auto_applied"] is False
         assert "update.sh" in data["next_step"]
         assert staged.exists()
@@ -141,10 +141,10 @@ def test_downloads_list_and_zip(client, auth_headers):
     # release-asset link (version parity).
     assert set(items) == set(ALL_MODULES)
     for module_id, item in items.items():
-        assert item["version"] == "3.0.4", module_id
+        assert item["version"] == "3.0.5", module_id
         assert item["download_url"] == (
             "https://github.com/rzatkv/LicenseManagerPro/releases/download/"
-            f"v3.0.4/licensemanagerpro-{module_id}-3.0.4.zip"
+            f"v3.0.5/licensemanagerpro-{module_id}-3.0.5.zip"
         ), module_id
         assert item["zip_url"] == f"/api/downloads/{module_id}"
 
@@ -171,9 +171,9 @@ def test_module_versions_against_manifest(client, auth_headers, monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert set(data) == set(ALL_MODULES)
-    assert data["whmcs"]["local"] == "3.0.4"
-    assert data["whmcs"]["latest"] == "3.0.5"
+    assert data["whmcs"]["local"] == "3.0.5"
+    assert data["whmcs"]["latest"] == "3.0.6"
     assert data["whmcs"]["update_available"] is True
-    assert data["woocommerce"]["local"] == "3.0.4"
-    assert data["woocommerce"]["latest"] == "3.0.4"
+    assert data["woocommerce"]["local"] == "3.0.5"
+    assert data["woocommerce"]["latest"] == "3.0.5"
     assert data["woocommerce"]["update_available"] is False

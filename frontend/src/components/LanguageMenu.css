@@ -18,10 +18,12 @@
   /* A long custom-language list must not run off the viewport (or
      down over the login hero): cap the height and scroll inside. */
   max-height: min(60vh, 320px); overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border); border-radius: 18px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 8px; z-index: 300;
   animation: lm-pop 0.18s ease;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 @keyframes lm-pop {
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }

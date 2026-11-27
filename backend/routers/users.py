@@ -30,7 +30,15 @@ router = APIRouter()
 # smuggle a non-colour CSS value into the style properties theme.js sets).
 THEME_PRESETS = {
     "default", "ocean", "forest", "sunset", "graphite",
-    "rose", "teal", "amber", "lime", "ruby", "custom",
+    "rose", "teal", "amber", "lime", "ruby",
+    # v3.0.5: 30 new presets, 40 total (same ids as frontend THEME_PRESETS).
+    "midnight", "coral", "mint", "sky", "plum",
+    "gold", "crimson", "azure", "lavender", "slate",
+    "citrine", "cyan", "pink", "fuchsia", "iris",
+    "tangerine", "olive", "berry", "navy", "wine",
+    "jade", "aqua", "magenta", "brick", "bronze",
+    "steel", "blush", "moss", "apricot", "cobalt",
+    "custom",
 }
 THEME_MODES = {"light", "dark", "auto"}
 THEME_CUSTOM_FIELDS = {"accent", "accent2", "bg", "surface"}
