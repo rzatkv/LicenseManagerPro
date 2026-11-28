@@ -25,6 +25,16 @@ Login page fix, as the user asked from his phone — the login page needed scrol
 - **Language menu no longer pushes the page:** on short screens the open language menu hides the hero lines instead of shifting them down 110px, so opening it never pushes the form below the fold.
 - **Version bump:** 3.0.13 everywhere, demo storage key `lmp-demo-db-v27`, `smoke_test_313.py`, all 10 module ZIPs rebuilt at 3.0.13 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
+## Dedicated Server Portal installer
+
+The one-command installer for the Dedicated Server Portal (MySQL 9, Nginx 443) lives in this repo at `installation/install.sh`. Run it from the extracted project directory:
+
+```bash
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/installation/install.sh)"
+```
+
+نصب‌کننده یک‌دستوری پرتال سرورهای اختصاصی (MySQL 9 ،Nginx 443) در همین ریپو است: `installation/install.sh` — دستور بالا را از داخل پوشه پروژه اجرا کنید.
+
 ## Publishing news
 
 The dashboard News section is fed by one file: [`news.json`](news.json) at the repo root. To publish news, edit that file in GitHub (web UI or a commit) — each item has an `id`, a `title` and `body` in English and Persian, a `date` (`YYYY-MM-DD`) and an optional `link`. The real backend reads the file on every request (cached by modification time), so the news appears on every panel dashboard with no deploy and no restart. The GitHub Pages demo reads the same file live from `raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/news.json`, so demo users see the new items too, with the seeded items as fallback when offline.
