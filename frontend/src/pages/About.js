@@ -5,7 +5,6 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {API_BASE_URL, DEMO_MODE} from "../config";
-import TabDropdown from "../components/TabDropdown";
 import {Sparkles, Info, RefreshCw, Globe, Heart} from "lucide-react";
 import "../styles/About.css";
 
@@ -43,6 +42,24 @@ const ABOUT_TAB_ICONS = {
     links: <Globe size={16} />,
     credits: <Heart size={16} />,
 };
+
+// v3.0.11: the credit line is HARDCODED here — deliberately NOT an i18n
+// key, so it can never be edited/translated via the Languages admin page,
+// not even by admins. Persian for fa, English for every other language.
+// The name links to the author's GitHub profile (new tab).
+function AboutCredit() {
+    const {lang} = useLanguage();
+    const nameLink = (
+        <a href="https://github.com/rzatkv" target="_blank" rel="noopener noreferrer">
+            Reza Karimi
+        </a>
+    );
+    return lang === "fa" ? (
+        <>ساخته شده با ❤️ توسط {nameLink}</>
+    ) : (
+        <>Built with ❤️ by {nameLink}</>
+    );
+}
 
 function About() {
     const {t, lang} = useLanguage();
@@ -91,16 +108,28 @@ function About() {
                         {t("about.version")} {version || "-"}
                         {DEMO_MODE && <span className="badge badge-accent">{t("common.demo")}</span>}
                     </p>
-                    <p className="about-tagline">{t("about.builtWith")}</p>
+                    <p className="about-tagline"><AboutCredit /></p>
                 </div>
             </section>
 
-            <TabDropdown
-              ariaLabel={t("nav.about")}
-              value={tab}
-              onChange={setTab}
-              options={TABS.map((id) => ({value: id, label: t(TAB_TITLES[id]), icon: ABOUT_TAB_ICONS[id]}))}
-            />
+            {/* v3.0.11: real tab strip (same pill/glass family as the Settings
+                tabs) — replaced the TabDropdown. Wraps on narrow screens. */}
+            <div className="about-tabs" role="tablist" aria-label={t("nav.about")}>
+                {TABS.map((id) => (
+                    <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === id}
+                        data-about-tab={id}
+                        className={tab === id ? "about-tab active" : "about-tab"}
+                        onClick={() => setTab(id)}
+                    >
+                        {ABOUT_TAB_ICONS[id]}
+                        <span>{t(TAB_TITLES[id])}</span>
+                    </button>
+                ))}
+            </div>
 
             <div className="about-tab-panel" key={tab}>
                 {tab === "whatsNew" && (
@@ -212,7 +241,7 @@ function About() {
                 {tab === "credits" && (
                     <section className="about-card glass-card">
                         <h2>{t("about.credits")}</h2>
-                        <p>{t("about.builtWith")}</p>
+                        <p><AboutCredit /></p>
                         <p>{t("about.versionNotes")}</p>
                     </section>
                 )}

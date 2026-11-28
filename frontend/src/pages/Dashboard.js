@@ -13,7 +13,7 @@ import {
     TrendingUp, ChartPie, ChartColumn, Boxes, Activity, Webhook, Server, Send,
     KeyRound, Users, UserPlus, ShieldCheck, ShieldOff, CalendarClock,
     FileText, Plus, Sparkles, Zap, MessageSquare, Settings as SettingsIcon, SlidersHorizontal,
-    GripVertical, ChevronUp, ChevronDown, RefreshCw, Check, X, BookOpen,
+    GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Check, X, BookOpen,
     Newspaper, ExternalLink, LayoutDashboard,
 } from "lucide-react";
 import {DEMO_MODE} from "../config";
@@ -23,8 +23,11 @@ import {getCurrentUser} from "../utils/auth";
 import {formatDate, formatDateTime, formatDayShort, formatMonthShort} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import {SkeletonCard} from "../components/Skeleton";
 import Modal from "../components/Modal";
+import CopyButton from "../components/CopyButton";
 import "../styles/Dashboard.css";
 
 // v3.0.6 (security, L10): news items come from news.json, which is
@@ -413,20 +416,30 @@ function SendingChart({series, title, t, size = "M", type = "bar", icon, action}
 
 // --- Customizable dashboard widgets (v2.3, extended v3.0) -----------------
 // v3.0.3: the dashboard is ONE single page — the tab strip is gone
-// (user decision, 2026-11-26). Every widget renders on the page in
-// layout.order; the Activity / API Keys / Users sections follow below.
+// (user decision, 2026-11-26). Every block renders on the page in
+// layout.order, in one unified grid (the summary renders above it,
+// pinned, full-width, always open).
 const WIDGET_IDS = ["trend", "status", "perMonth", "byProduct", "activations", "webhooks", "services", "sending"];
-// v3.0.4: every dashboard block can be hidden, not just the 8 chart
-// widgets — the summary boxes, quick-action buttons, highlights slider
-// and the 4 sections are blocks too. They get a visibility toggle ONLY:
-// no size buttons, no ↑/↓ reorder (the quick-action buttons are not
-// widgets, and neither are the other sections).
-// v3.0.5: the News section joins them (8 sections). Sections get a
-// BOUNDED size control (compact/normal/roomy density) — never the full
-// widget S/M/L width, because sections are not widgets.
+// v3.0.11: EVERY dashboard block except the summary is a real widget
+// now — the 8 sections join the same unified layout.order, the same
+// S/M/L grid, the same ↑/↓/←/→ reorder and the same per-widget refresh
+// as the chart widgets. The v3.0.4/v3.0.5 claim that sections "never
+// get the full widget S/M/L width" is REVERSED by the user (2026-11-28):
+// the 4 table sections were dry empty tables, stuck mid-page, never
+// resizable and not movable — so they become widgets in the current
+// glass style (not a copy of the WHMCS screenshot he sent). The
+// summary stays pinned at the top, full-width, always open, with NO
+// size / reorder / refresh / collapse controls (v3.0.10 rule stands;
+// its density control stays as-is).
 const SECTION_IDS = ["summary", "actions", "highlights", "news", "expiring", "recentLicenses", "recentApiKeys", "recentUsers"];
+const ALL_BLOCK_IDS = ["summary", "actions", "highlights", "news", "trend", "status", "perMonth", "byProduct", "activations", "webhooks", "services", "sending", "expiring", "recentLicenses", "recentApiKeys", "recentUsers"];
 const SECTION_SIZES = ["compact", "normal", "roomy"];
 const DEFAULT_SECTION_SIZES = {summary: "normal", actions: "normal", highlights: "normal", news: "normal", expiring: "normal", recentLicenses: "normal", recentApiKeys: "normal", recentUsers: "normal"};
+// v3.0.11: default S/M/L per block — tables need width (expiring and
+// recentLicenses default L = full row; recentApiKeys/recentUsers M),
+// the highlights slider and quick actions read best full-width (L),
+// news M. The user can change any of them in Customize.
+const DEFAULT_BLOCK_SIZES = {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M", services: "L", sending: "L", actions: "L", highlights: "L", news: "M", expiring: "L", recentLicenses: "L", recentApiKeys: "M", recentUsers: "M"};
 // v3.0.4: Grafana-style chart types per widget (Recharts supports them
 // all). Services is status cards, not a chart — no type switcher there.
 const CHART_TYPES = {
@@ -440,13 +453,15 @@ const CHART_TYPES = {
 };
 const DEFAULT_TYPES = {trend: "line", status: "donut", perMonth: "bar", byProduct: "bar", activations: "line", webhooks: "bar", sending: "bar"};
 const DEFAULT_LAYOUT = {
-    order: [...WIDGET_IDS],
-    sizes: {trend: "L", status: "M", perMonth: "M", byProduct: "M", activations: "L", webhooks: "M", services: "L", sending: "L"},
+    order: [...ALL_BLOCK_IDS],
+    sizes: {...DEFAULT_BLOCK_SIZES},
     ranges: {trend: 14, activations: 14, perMonth: 6, byProduct: 90, sending: 14},
     hidden: {},
     types: {...DEFAULT_TYPES},
-    // v3.0.5: bounded section density (compact/normal/roomy) — sections
-    // are not widgets, so they never get the full S/M/L width treatment.
+    // v3.0.5: bounded section density (compact/normal/roomy) — the
+    // inner-spacing control that STAYS alongside S/M/L in v3.0.11
+    // (density changes padding/row height, S/M/L changes the grid
+    // footprint; both persist per admin).
     sectionSizes: {...DEFAULT_SECTION_SIZES},
     // v3.0.6: collapsed widgets (id -> true) — a folded widget shows
     // only its header in place; expanded is the default (no key).
@@ -492,9 +507,23 @@ function normalizeLayout(saved) {
         if (id === "summary") continue;
         if ((WIDGET_IDS.includes(id) || SECTION_IDS.includes(id)) && v === true) collapsed[id] = true;
     }
+    // v3.0.11: the order holds ALL 16 blocks now. Layouts saved before
+    // v3.0.11 hold only the 8 chart widgets — the sections are appended
+    // in their current fixed order (summary first, pinned at the top
+    // of the page), so an old layout loads as the full order with no
+    // crash and no visible change. Unknown ids are dropped.
+    const order = [...new Set(saved.order)].filter((id) => ALL_BLOCK_IDS.includes(id));
+    for (const id of ALL_BLOCK_IDS) if (!order.includes(id)) order.push(id);
+    const pinnedOrder = ["summary", ...order.filter((id) => id !== "summary")];
+    // v3.0.11: S/M/L covers every block now (sections join the same
+    // map); unknown ids/values fall back to the per-block defaults.
+    const sizes = {...DEFAULT_BLOCK_SIZES};
+    for (const [id, sz] of Object.entries(saved.sizes || {})) {
+        if (ALL_BLOCK_IDS.includes(id) && ["S", "M", "L"].includes(sz)) sizes[id] = sz;
+    }
     return {
-        order: [...new Set([...saved.order, ...WIDGET_IDS])].filter((id) => WIDGET_IDS.includes(id)),
-        sizes: {...DEFAULT_LAYOUT.sizes, ...(saved.sizes || {})},
+        order: pinnedOrder,
+        sizes,
         ranges: {...DEFAULT_LAYOUT.ranges, ...(saved.ranges || {})},
         hidden: {...(saved.hidden || {})},
         types,
@@ -552,6 +581,8 @@ function Dashboard() {
     const [webhookStats, setWebhookStats] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
+    // Live auto-refresh (v3.0.11): time of the last successful fetchAll.
+    const [lastUpdated, setLastUpdated] = useState(null);
     const [slide, setSlide] = useState(0);
     const [paused, setPaused] = useState(false);
     // Panel news (v3.0.5): items from GET /api/news (the repo-root
@@ -568,6 +599,13 @@ function Dashboard() {
     const layoutServerReadyRef = useRef(false);
     const [customizing, setCustomizing] = useState(false);
     const [gearOpen, setGearOpen] = useState(false);
+    // v3.0.11: per-widget refresh — refreshing[id] spins ONLY that
+    // block's refresh icon; refreshError[id] shows a brief error state
+    // on that block (cleared after 4s), never a page crash. The ref
+    // guards double-clicks without re-creating the refresh callback.
+    const [refreshing, setRefreshing] = useState({});
+    const [refreshError, setRefreshError] = useState({});
+    const refreshingRef = useRef({});
     // Narrow viewports (<640px) show fewer rows in the dashboard's recent
     // lists (responsive page size, same pattern as the list pages): the
     // 5-row recent-licenses table is 466px tall at 360px in fa and pushes
@@ -599,8 +637,10 @@ function Dashboard() {
     const navigate = useNavigate();
 
     const isVisible = (id) => !layout.hidden[id];
-    // Widgets visible on the single page, in layout.order (v3.0.3).
-    const visibleWidgets = useMemo(() => layout.order.filter((id) => !layout.hidden[id]), [layout]);
+    // v3.0.11: the unified grid list — every visible non-summary
+    // block in layout.order (chart widgets AND sections). The summary
+    // is pinned above the grid and never appears here.
+    const gridBlocks = useMemo(() => layout.order.filter((id) => id !== "summary" && !layout.hidden[id]), [layout]);
 
     // Load the logged-in admin's layout on mount and whenever the auth
     // state changes (login as another admin, logout): the local
@@ -661,16 +701,21 @@ function Dashboard() {
     }, [layout.ranges.activations]);
 
     // Service status: fetch on demand (tab opens or manual re-check).
-    const fetchServiceStatus = useCallback(async () => {
+    // v3.0.11: returns false on failure and, in quiet mode, skips the
+    // global toast — the per-widget refresh shows the error on the
+    // block instead.
+    const fetchServiceStatus = useCallback(async ({quiet = false} = {}) => {
         setServiceLoading(true);
         try {
             const data = await get("/system/service-status");
             setServiceStatus(Array.isArray(data.services) ? data.services : []);
             setServiceCheckedAt(data.checked_at || new Date().toISOString());
             setServiceCountdown(SERVICE_REFRESH_SECONDS);
+            return true;
         } catch (err) {
             setServiceStatus([]);
-            toast.error(err.message || t("common.error"));
+            if (!quiet) toast.error(err.message || t("common.error"));
+            return false;
         } finally {
             setServiceLoading(false);
         }
@@ -714,14 +759,24 @@ function Dashboard() {
     }, [fetchServiceStatus, fetchSmsBalance]);
 
     // Sending stats: fetch on mount and whenever the range changes (the
-    // channel switch is client-side only).
-    useEffect(() => {
+    // channel switch is client-side only). v3.0.11: extracted to a
+    // callback so the per-widget refresh button can re-fetch it;
+    // returns false on failure so refreshBlock can show the block
+    // error state.
+    const fetchSendingStats = useCallback(async () => {
         setSendingLoading(true);
-        get(`/system/sending-stats?days=${layout.ranges.sending}`)
-            .then((d) => setSendingStats(d && d.series ? d.series : null))
-            .catch(() => setSendingStats(null))
-            .finally(() => setSendingLoading(false));
+        try {
+            const d = await get(`/system/sending-stats?days=${layout.ranges.sending}`);
+            setSendingStats(d && d.series ? d.series : null);
+            return true;
+        } catch (e) {
+            setSendingStats(null);
+            return false;
+        } finally {
+            setSendingLoading(false);
+        }
     }, [layout.ranges.sending]);
+    useEffect(() => { fetchSendingStats(); }, [fetchSendingStats]);
 
     const slides = useMemo(() => [
         // v3.0.5: slide 1 renders the CURRENT version from the shared
@@ -739,8 +794,12 @@ function Dashboard() {
         return () => clearInterval(id);
     }, [paused, slides.length]);
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true);
+    // v3.0.11: quiet mode is the per-widget refresh path — it reloads
+    // the same data without the page-level skeleton and without the
+    // global error toast; the caller shows the error on the block
+    // instead (refreshBlock rethrows). A 401 still navigates away.
+    const fetchAll = useCallback(async ({quiet = false} = {}) => {
+        if (!quiet) setLoading(true);
         try {
             const [summaryData, licensesData, keysData, usersData, webhookData] = await Promise.all([
                 get("/dashboard/summary"),
@@ -755,45 +814,104 @@ function Dashboard() {
             setUsers(usersData);
             setWebhookStats(webhookData);
             setError("");
+            setLastUpdated(new Date());
         } catch (err) {
             if (err.status === 401) { navigate("/"); return; }
+            if (quiet) throw err;
             setError(err.message || t("common.failedFetch"));
             toast.error(err.message || t("common.failedFetch"));
         } finally {
-            setLoading(false);
+            if (!quiet) setLoading(false);
         }
     }, [navigate, t, toast]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
+
+    // Live auto-refresh (v3.0.11): re-run fetchAll quietly every 60s
+    // while the dashboard is mounted; pauses while the tab is hidden.
+    // fetchAll({quiet: true}) never shows a skeleton, never toasts on a
+    // failed tick, and never touches modals, filters or layout state.
+    useLiveRefresh(() => fetchAll({quiet: true}));
 
     // Panel news (v3.0.5): in demo mode the live news.json is read
     // straight from GitHub, so editing the file publishes news to demo
     // users too; any failure falls back to the mock (seeded items that
     // mirror the file). The real backend reads the same file from the
     // repo root. News must never break the dashboard.
-    useEffect(() => {
-        let cancelled = false;
-        const load = async () => {
-            if (DEMO_MODE) {
-                try {
-                    const ctrl = new AbortController();
-                    const timer = setTimeout(() => ctrl.abort(), 4000);
-                    const res = await fetch("https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/news.json", {signal: ctrl.signal});
-                    clearTimeout(timer);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (!cancelled && data && Array.isArray(data.items)) { setNewsItems(data.items); return; }
-                    }
-                } catch (e) { /* fall through to the mock */ }
-            }
+    // v3.0.11: extracted to a callback so the per-widget refresh
+    // button can re-fetch it.
+    const fetchNews = useCallback(async () => {
+        if (DEMO_MODE) {
             try {
-                const data = await get("/news");
-                if (!cancelled && data && Array.isArray(data.items)) setNewsItems(data.items);
-            } catch (e) { /* news must never break the dashboard */ }
-        };
-        load();
-        return () => { cancelled = true; };
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 4000);
+                const res = await fetch("https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/news.json", {signal: ctrl.signal});
+                clearTimeout(timer);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.items)) { setNewsItems(data.items); return; }
+                }
+            } catch (e) { /* fall through to the mock */ }
+        }
+        try {
+            const data = await get("/news");
+            if (data && Array.isArray(data.items)) setNewsItems(data.items);
+        } catch (e) { /* news must never break the dashboard */ }
     }, []);
+    useEffect(() => { fetchNews(); }, [fetchNews]);
+
+    // v3.0.11: per-widget refresh — one block's icon spins while its
+    // data reloads; only that block's icon, never the page skeleton.
+    // In demo mode the mock returns the same static data, so refresh
+    // spins and re-renders with unchanged data (honest: the mock has
+    // no live data to change). Highlights/actions have no data source —
+    // the button spins briefly and settles. Errors show on the block
+    // only, never as a page crash or a global toast.
+    const refreshBlock = useCallback(async (id) => {
+        if (refreshingRef.current[id]) return;
+        refreshingRef.current[id] = true;
+        setRefreshing((p) => ({...p, [id]: true}));
+        setRefreshError((p) => ({...p, [id]: ""}));
+        try {
+            if (id === "services") {
+                const ok = await fetchServiceStatus({quiet: true});
+                await fetchSmsBalance(true);
+                if (!ok) throw new Error(t("common.failedFetch"));
+            } else if (id === "sending") {
+                const ok = await fetchSendingStats();
+                if (!ok) throw new Error(t("common.failedFetch"));
+            } else if (id === "news") {
+                await fetchNews();
+            } else if (id === "highlights" || id === "actions") {
+                await new Promise((r) => setTimeout(r, 600));
+            } else {
+                await fetchAll({quiet: true});
+            }
+        } catch (e) {
+            setRefreshError((p) => ({...p, [id]: e.message || t("common.failedFetch")}));
+            setTimeout(() => setRefreshError((p) => ({...p, [id]: ""})), 4000);
+        } finally {
+            refreshingRef.current[id] = false;
+            setRefreshing((p) => ({...p, [id]: false}));
+        }
+    }, [fetchServiceStatus, fetchSmsBalance, fetchSendingStats, fetchNews, fetchAll, t]);
+
+    // The refresh button itself: visible always (not only in customize
+    // mode), next to the collapse chevron in every non-summary block
+    // header. data-refresh-block is the verify script's hook.
+    const refreshBtnFor = (id) => (
+        <button
+            type="button"
+            className={`widget-refresh-btn${refreshing[id] ? " spinning" : ""}`}
+            aria-label={t("dashboard.refresh")}
+            title={t("dashboard.refresh")}
+            data-refresh-block={id}
+            disabled={!!refreshing[id]}
+            onClick={() => refreshBlock(id)}
+        >
+            <RefreshCw size={16} />
+        </button>
+    );
 
     const handleRenew = async (id) => {
         try {
@@ -957,11 +1075,160 @@ function Dashboard() {
                         type="button"
                         className={current === sz ? "widget-size-btn active" : "widget-size-btn"}
                         aria-pressed={current === sz}
+                        data-size-value={sz}
                         onClick={() => setLayout((prev) => ({...prev, sectionSizes: {...(prev.sectionSizes || {}), [id]: sz}}))}
                     >
                         {t(`dashboard.sectionSize${sz === "compact" ? "Compact" : sz === "roomy" ? "Roomy" : "Normal"}`)}
                     </button>
                 ))}
+            </div>
+        );
+    };
+
+    // v3.0.11: shared block helpers — one title, one move and one drag
+    // implementation for chart widgets AND sections (they are all
+    // widgets now). The summary is never passed here: it is pinned,
+    // has no size/reorder/refresh/collapse controls.
+    const blockTitle = (id) => {
+        switch (id) {
+            case "trend": return t("dashboard.trendTitle");
+            case "status": return t("dashboard.byStatus");
+            case "perMonth": return t("dashboard.createdPerMonth");
+            case "byProduct": return t("dashboard.byProduct");
+            case "activations": return t("dashboard.activationsTrend");
+            case "webhooks": return t("dashboard.webhookStats");
+            case "services": return t("dashboard.serviceStatusTitle");
+            case "sending": return t(`dashboard.sendingChannel.${sendingChannel}`);
+            case "actions": return t("dashboard.quickActions");
+            case "highlights": return t("dashboard.sections.highlights");
+            case "news": return t("news.title");
+            case "expiring": return t("dashboard.expiringSoon");
+            case "recentLicenses": return t("dashboard.recentLicenses");
+            case "recentApiKeys": return t("dashboard.recentApiKeys");
+            case "recentUsers": return t("dashboard.recentUsers");
+            default: return id;
+        }
+    };
+    // Visible non-summary blocks in grid order — the list every move
+    // operates on (the summary is pinned above the grid, hidden blocks
+    // are not on screen).
+    const gridBlockIds = () => layout.order.filter((x) => x !== "summary" && !layout.hidden[x]);
+    // Grid columns at click time (same breakpoints as Dashboard.css):
+    // 1 column below 1024px, 2 at >=1024px, 3 at >=1440px.
+    const gridColumns = () => (typeof window === "undefined" ? 1 : window.innerWidth >= 1440 ? 3 : window.innerWidth >= 1024 ? 2 : 1);
+    // Four-directional move (v3.0.11, user 2026-11-28 09:03): ←/→ swap
+    // with the adjacent block in the row, ↑/↓ with the block one row
+    // above/below (offset = column count). Edge moves are no-ops; the
+    // buttons disable themselves there (see moveEnabled).
+    const moveBlock = (id, dir) => {
+        const ids = gridBlockIds();
+        const pos = ids.indexOf(id);
+        if (pos < 0) return;
+        const cols = gridColumns();
+        let target = -1;
+        if (dir === "left" && pos % cols !== 0) target = pos - 1;
+        if (dir === "right" && (pos + 1) % cols !== 0 && pos + 1 < ids.length) target = pos + 1;
+        if (dir === "up" && pos >= cols) target = pos - cols;
+        if (dir === "down" && pos + cols < ids.length) target = pos + cols;
+        if (target < 0) return;
+        setLayout((prev) => {
+            const order = [...prev.order];
+            const a = order.indexOf(ids[pos]);
+            const b = order.indexOf(ids[target]);
+            if (a < 0 || b < 0) return prev;
+            [order[a], order[b]] = [order[b], order[a]];
+            return {...prev, order};
+        });
+    };
+    const moveEnabled = (id, dir) => {
+        const ids = gridBlockIds();
+        const pos = ids.indexOf(id);
+        if (pos < 0) return false;
+        const cols = gridColumns();
+        if (dir === "left") return pos % cols !== 0;
+        if (dir === "right") return (pos + 1) % cols !== 0 && pos + 1 < ids.length;
+        if (dir === "up") return pos >= cols;
+        if (dir === "down") return pos + cols < ids.length;
+        return false;
+    };
+    // v3.0.11 scope addition #2 (user 2026-11-28 09:07): mouse
+    // drag-and-drop — ONLY the grip handle is a drag source (the
+    // wrapper is a drop target only). Dragging from anywhere else —
+    // text, buttons, charts — never starts a drag, so refresh,
+    // collapse, size and direction buttons keep working and text
+    // selection/scrolling are untouched. Drag exists only in
+    // customize mode (the handle renders only there).
+    const blockDragProps = (id) => ({
+        onDragOver: (e) => { if (customizing) e.preventDefault(); },
+        onDrop: (e) => {
+            e.preventDefault();
+            const dragged = e.dataTransfer.getData("text/plain");
+            if (!dragged || dragged === id || dragged === "summary") return;
+            setLayout((prev) => {
+                const order = prev.order.filter((x) => x !== dragged);
+                order.splice(order.indexOf(id), 0, dragged);
+                return {...prev, order};
+            });
+        },
+    });
+    const dragHandleProps = (id) => ({
+        draggable: customizing,
+        onDragStart: (e) => {
+            e.dataTransfer.setData("text/plain", id);
+            e.dataTransfer.effectAllowed = "move";
+            // Drag the whole block card as the ghost image, not the
+            // tiny grip (guarded: setDragImage throws in some heads).
+            try {
+                const card = e.currentTarget.closest("[data-block]");
+                if (card) e.dataTransfer.setDragImage(card, 20, 20);
+            } catch (err) { /* default ghost image */ }
+        },
+    });
+    // Customize-mode controls shared by every non-summary block: the
+    // S/M/L size pills + the four move buttons (← → ↑ ↓). Density
+    // stays as the separate inner-spacing control (sectionDensityControl).
+    // data-size-block / data-move-block are the verify script's hooks.
+    const blockControls = (id) => {
+        if (!customizing) return null;
+        const size = layout.sizes[id] || "M";
+        const dirIcon = {left: <ChevronLeft size={16} />, right: <ChevronRight size={16} />, up: <ChevronUp size={16} />, down: <ChevronDown size={16} />};
+        const dirLabel = {left: t("dashboard.moveLeft"), right: t("dashboard.moveRight"), up: t("dashboard.moveUp"), down: t("dashboard.moveDown")};
+        return (
+            <div className="widget-controls">
+                <span className="widget-drag-handle" title={t("dashboard.customize")} data-drag-handle={id} {...dragHandleProps(id)}><GripVertical size={16} /></span>
+                <span className="widget-control-group">
+                    <span className="widget-control-label">{t("dashboard.size")}</span>
+                    {["S", "M", "L"].map((s) => (
+                        <button
+                            key={s}
+                            type="button"
+                            className={size === s ? "widget-size-btn active" : "widget-size-btn"}
+                            aria-pressed={size === s}
+                            data-size-block={id}
+                            data-size-value={s}
+                            onClick={() => setLayout((prev) => ({...prev, sizes: {...prev.sizes, [id]: s}}))}
+                        >
+                            {t(`dashboard.size${s}`)}
+                        </button>
+                    ))}
+                </span>
+                <span className="widget-control-group">
+                    {["left", "right", "up", "down"].map((dir) => (
+                        <button
+                            key={dir}
+                            type="button"
+                            className="widget-move-btn"
+                            disabled={!moveEnabled(id, dir)}
+                            onClick={() => moveBlock(id, dir)}
+                            title={dirLabel[dir]}
+                            aria-label={dirLabel[dir]}
+                            data-move-block={id}
+                            data-move-dir={dir}
+                        >
+                            {dirIcon[dir]}
+                        </button>
+                    ))}
+                </span>
             </div>
         );
     };
@@ -980,41 +1247,18 @@ function Dashboard() {
         // v3.0.9: the chevron + toggle live in the shared collapseBtnFor
         // helper above (sections use it too).
         const collapsed = isCollapsed(id);
-        const widgetTitle = (wid) => {
-            switch (wid) {
-                case "trend": return t("dashboard.trendTitle");
-                case "status": return t("dashboard.byStatus");
-                case "perMonth": return t("dashboard.createdPerMonth");
-                case "byProduct": return t("dashboard.byProduct");
-                case "activations": return t("dashboard.activationsTrend");
-                case "webhooks": return t("dashboard.webhookStats");
-                case "services": return t("dashboard.serviceStatusTitle");
-                case "sending": return t(`dashboard.sendingChannel.${sendingChannel}`);
-                default: return wid;
-            }
-        };
+        // v3.0.11: title, move and drag live in the shared block
+        // helpers above — widgets and sections move the same way now.
+        // Refresh + collapse sit together in the chart header action
+        // slot (the title stays exactly centered — see
+        // .chart-title-action in Dashboard.css).
         const collapseBtn = collapseBtnFor(id);
-        // Position among the widgets visible on the single page
-        // (v3.0.3): the ↑/↓ buttons move the widget within the page
-        // order, so the change is always visible. The old version
-        // swapped adjacent positions within a tab, which often moved a
-        // widget of another tab instead — layout.order changed, nothing
-        // on screen did.
-        const visibleIds = layout.order.filter((x) => isVisible(x));
-        const posInList = visibleIds.indexOf(id);
-        const move = (dir) => {
-            setLayout((prev) => {
-                const order = [...prev.order];
-                const ids = order.filter((x) => !prev.hidden[x]);
-                const pos = ids.indexOf(id);
-                const j = pos + dir;
-                if (pos < 0 || j < 0 || j >= ids.length) return prev;
-                const a = order.indexOf(ids[pos]);
-                const b = order.indexOf(ids[j]);
-                [order[a], order[b]] = [order[b], order[a]];
-                return {...prev, order};
-            });
-        };
+        const headerAction = (
+            <span className="widget-header-actions">
+                {refreshBtnFor(id)}
+                {collapseBtn}
+            </span>
+        );
         const rangeControl = (rangeKey, options, unitKey) => (
             <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
                 <span className="chart-range-label">{t("dashboard.range")}</span>
@@ -1035,89 +1279,58 @@ function Dashboard() {
             <motion.div
                 key={id}
                 className={`dashboard-widget widget-size-${size.toLowerCase()}${customizing ? " widget-customizing" : ""}${collapsed ? " widget-collapsed" : ""}`}
-                draggable={customizing}
-                onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); }}
-                onDragOver={(e) => { if (customizing) e.preventDefault(); }}
-                onDrop={(e) => {
-                    e.preventDefault();
-                    const dragged = e.dataTransfer.getData("text/plain");
-                    if (!dragged || dragged === id) return;
-                    setLayout((prev) => {
-                        const order = prev.order.filter((x) => x !== dragged);
-                        order.splice(order.indexOf(id), 0, dragged);
-                        return {...prev, order};
-                    });
-                }}
+                data-block={id}
+                {...blockDragProps(id)}
                 {...cardMotion(Math.min(index * 0.05, 0.4))}
             >
-                {customizing && (
-                    <div className="widget-controls">
-                        <span className="widget-drag-handle" title={t("dashboard.customize")}><GripVertical size={16} /></span>
-                        <span className="widget-control-group">
-                            <span className="widget-control-label">{t("dashboard.size")}</span>
-                            {["S", "M", "L"].map((s) => (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    className={size === s ? "widget-size-btn active" : "widget-size-btn"}
-                                    aria-pressed={size === s}
-                                    onClick={() => setLayout((prev) => ({...prev, sizes: {...prev.sizes, [id]: s}}))}
-                                >
-                                    {t(`dashboard.size${s}`)}
-                                </button>
-                            ))}
-                        </span>
-                        <span className="widget-control-group">
-                            <button type="button" className="widget-move-btn" disabled={posInList <= 0} onClick={() => move(-1)} title={t("dashboard.moveUp")} aria-label={t("dashboard.moveUp")}><ChevronUp size={16} /></button>
-                            <button type="button" className="widget-move-btn" disabled={posInList >= visibleIds.length - 1} onClick={() => move(1)} title={t("dashboard.moveDown")} aria-label={t("dashboard.moveDown")}><ChevronDown size={16} /></button>
-                        </span>
-                    </div>
-                )}
+                {blockControls(id)}
+                {refreshError[id] && <p className="block-refresh-error">{refreshError[id]}</p>}
                 {collapsed ? (
                     <div className="widget-collapsed-head">
                         <span className="chart-title-icon">{WIDGET_ICONS[id]}</span>
-                        <span className="widget-collapsed-title">{widgetTitle(id)}</span>
+                        <span className="widget-collapsed-title">{blockTitle(id)}</span>
+                        {refreshBtnFor(id)}
                         {collapseBtn}
                     </div>
                 ) : (
                 <>
                 {id === "trend" && (
                     <>
-                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" action={collapseBtn} />
+                        <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" action={headerAction} />
                         {typeControl("trend")}
                         {rangeControl("trend", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "status" && (
                     <>
-                        <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} action={collapseBtn} />
+                        <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} action={headerAction} />
                         {typeControl("status")}
                     </>
                 )}
                 {id === "perMonth" && (
                     <>
-                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} action={collapseBtn} />
+                        <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} action={headerAction} />
                         {typeControl("perMonth")}
                         {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
                     </>
                 )}
                 {id === "byProduct" && (
                     <>
-                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} action={collapseBtn} />
+                        <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} action={headerAction} />
                         {typeControl("byProduct")}
                         {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "activations" && (
                     <>
-                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" action={collapseBtn} />
+                        <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" action={headerAction} />
                         {typeControl("activations")}
                         {rangeControl("activations", RANGE_OPTIONS, "common.days")}
                     </>
                 )}
                 {id === "webhooks" && (
                     <>
-                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.webhooks} action={collapseBtn} />
+                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.webhooks} action={headerAction} />
                         {typeControl("webhooks")}
                     </>
                 )}
@@ -1131,7 +1344,11 @@ function Dashboard() {
                         <div className="service-status-header">
                             <h3><span className="chart-title-icon">{WIDGET_ICONS.services}</span>{t("dashboard.serviceStatusTitle")}</h3>
                             <div className="service-status-actions">
-                                <button type="button" className="btn-ghost btn-icon" aria-label={t("dashboard.serviceRecheck")} title={t("dashboard.serviceRecheck")} onClick={() => { fetchServiceStatus(); fetchSmsBalance(true); }} disabled={serviceLoading}>
+                                {/* v3.0.11: the Services re-check IS this widget's
+                                    per-widget refresh — same handler, spinner
+                                    and data-refresh-block hook as every other
+                                    block (it also re-checks the SMS balance). */}
+                                <button type="button" className={`btn-ghost btn-icon${refreshing[id] ? " spinning" : ""}`} aria-label={t("dashboard.refresh")} title={t("dashboard.refresh")} data-refresh-block={id} onClick={() => refreshBlock(id)} disabled={serviceLoading || !!refreshing[id]}>
                                     <RefreshCw size={16} />
                                 </button>
                                 {collapseBtn}
@@ -1222,7 +1439,7 @@ function Dashboard() {
                                     size={size}
                                     type={chartType}
                                     icon={WIDGET_ICONS.sending}
-                                    action={collapseBtn}
+                                    action={headerAction}
                                 />
                                 {typeControl("sending")}
                                 <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
@@ -1249,6 +1466,196 @@ function Dashboard() {
         );
     };
 
+    // v3.0.11: sections render as real widgets now — the same glass
+    // card, header chrome (icon + centered title + count badge +
+    // refresh + collapse), S/M/L + ↑/↓/←/→ controls and drag handle
+    // as the chart widgets, in the current dashboard style. The 4
+    // table sections get rich rows (copy buttons, coloured chips and
+    // pills, avatars) instead of dry plain tables. Same data, richer
+    // rows — every field below comes from the real /api/dashboard
+    // response or the demo mock; nothing is invented.
+    const userInitials = (user) => {
+        const name = String((user && (user.display_name || user.email)) || "?").trim();
+        const parts = name.split(/[\s@._-]+/).filter(Boolean);
+        return (parts.slice(0, 2).map((p) => p[0]).join("") || "?").toUpperCase();
+    };
+    const renderSection = (id, index) => {
+        const size = layout.sizes[id] || "M";
+        const collapsed = isCollapsed(id);
+        const collapseBtn = collapseBtnFor(id, "section-collapse-btn");
+        // Header count badge for the blocks that have a meaningful
+        // count (the 4 tables + news).
+        const countFor = {expiring: expiringSoon.length, recentLicenses: recentLicenses.length, recentApiKeys: recentApiKeys.length, recentUsers: recentUsers.length, news: newsItems.length};
+        const count = countFor[id];
+        const iconFor = {actions: <Zap size={16} />, highlights: <Sparkles size={16} />, news: SECTION_ICONS.news, expiring: SECTION_ICONS.expiring, recentLicenses: SECTION_ICONS.recentLicenses, recentApiKeys: SECTION_ICONS.recentApiKeys, recentUsers: SECTION_ICONS.recentUsers};
+        const emptyIconFor = {expiring: <CalendarClock size={28} />, recentLicenses: <FileText size={28} />, recentApiKeys: <KeyRound size={28} />, recentUsers: <Users size={28} />};
+        const emptyTextFor = {expiring: t("dashboard.noExpiring"), recentLicenses: t("dashboard.noLicenses"), recentApiKeys: t("dashboard.noApiKeys"), recentUsers: t("dashboard.noUsers")};
+        return (
+            <motion.div
+                key={id}
+                className={`dashboard-block widget-size-${size.toLowerCase()} ${sectionDensityClass(id)}${customizing ? " widget-customizing" : ""}${collapsed ? " widget-collapsed" : ""}`}
+                data-block={id}
+                {...blockDragProps(id)}
+                {...cardMotion(Math.min(index * 0.05, 0.4))}
+            >
+                {blockControls(id)}
+                {sectionDensityControl(id)}
+                <div className="block-head">
+                    <span className="block-head-title">
+                        <span className="chart-title-icon">{iconFor[id]}</span>
+                        {blockTitle(id)}
+                        {count !== undefined && <span className="count-badge" data-count-badge={id}>{count}</span>}
+                    </span>
+                    <span className="block-head-actions">
+                        {refreshBtnFor(id)}
+                        {collapseBtn}
+                    </span>
+                </div>
+                {refreshError[id] && <p className="block-refresh-error">{refreshError[id]}</p>}
+                {!collapsed && (
+                <div className="block-body">
+                {id === "actions" && (
+                    <div className="action-buttons">
+                        <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
+                        <Link className="action-btn" to="/api-keys"><KeyRound size={16} />{t("dashboard.createApiKey")}</Link>
+                        <Link className="action-btn" to="/users"><UserPlus size={16} />{t("dashboard.addUser")}</Link>
+                        <Link className="action-btn" to="/products"><Boxes size={16} />{t("nav.products")}</Link>
+                        <Link className="action-btn" to="/docs"><BookOpen size={16} />{t("nav.apiDocs")}</Link>
+                        <Link className="action-btn" to="/settings"><SettingsIcon size={16} />{t("dashboard.settings")}</Link>
+                    </div>
+                )}
+                {id === "highlights" && (
+                    <div className="highlights-slider" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+                        <div className="slide slide-fade" key={slide}>
+                            <h3><Sparkles size={16} />{slides[slide].title}</h3>
+                            <p>{slides[slide].text}</p>
+                        </div>
+                        <div className="slider-dots">
+                            {slides.map((_, i) => (
+                                <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {id === "news" && (
+                    <>
+                    {newsItems.length === 0 ? (
+                        <p className="dashboard-empty table-empty"><Newspaper size={28} />{t("news.empty")}</p>
+                    ) : (
+                        <ul className="news-list">
+                            {newsItems.map((item) => {
+                                const title = (lang === "fa" ? item.title?.fa : item.title?.en) || item.title?.en || item.title?.fa || "";
+                                const body = (lang === "fa" ? item.body?.fa : item.body?.en) || item.body?.en || item.body?.fa || "";
+                                return (
+                                    <li key={item.id} className="news-item">
+                                        <div className="news-item-head">
+                                            <span className="news-item-title">{title}</span>
+                                            {item.date ? <span className="news-item-date">{formatDate(item.date, lang)}</span> : null}
+                                        </div>
+                                        {body ? <p className="news-item-body">{body}</p> : null}
+                                        {isSafeHttpUrl(item.link) ? <a className="news-item-link" href={item.link} target="_blank" rel="noreferrer">{t("news.readMore")} <ExternalLink size={14} /></a> : null}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                    </>
+                )}
+                {id === "expiring" && (
+                    <>
+                    {expiringSoon.length === 0 ? (
+                        <p className="dashboard-empty table-empty">{emptyIconFor.expiring}{emptyTextFor.expiring}</p>
+                    ) : (
+                        <div className="table-wrap">
+                        <table className="rich-table">
+                            <thead><tr><th className="col-product">{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
+                            <tbody>
+                            {expiringSoon.map((lic) => {
+                                const left = daysLeft(lic.expires_at);
+                                return (
+                                <tr key={lic.id}>
+                                    <td className="col-product rich-product">{lic.product}</td>
+                                    <td><span className="key-cell-wrap"><span className="key-cell">{lic.key}</span><CopyButton text={lic.key} /></span></td>
+                                    <td className="nowrap"><span className={`days-chip${left <= 7 ? " days-urgent" : " days-soon"}`}>{left} {t("common.days")}</span></td>
+                                    <td><button className="rich-renew-btn" onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
+                                </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                        </div>
+                    )}
+                    <p className="block-view-all"><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                    </>
+                )}
+                {id === "recentLicenses" && (
+                    <>
+                    {recentLicenses.length === 0 ? (
+                        <p className="dashboard-empty table-empty">{emptyIconFor.recentLicenses}{emptyTextFor.recentLicenses}</p>
+                    ) : (
+                        <div className="table-wrap">
+                        <table className="rich-table">
+                            <thead><tr><th className="col-product">{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th className="col-created">{t("common.createdAt")}</th></tr></thead>
+                            <tbody>{recentLicenses.map((lic) => (
+                                <tr key={lic.id}>
+                                    <td className="col-product rich-product">{lic.product}</td>
+                                    <td><span className="key-cell-wrap"><span className="key-cell">{lic.key}</span><CopyButton text={lic.key} /></span></td>
+                                    <td><span className={`status-pill status-${lic.status}`}>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</span></td>
+                                    <td className="col-created nowrap">{formatDate(lic.created_at, lang)}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                        </div>
+                    )}
+                    <p className="block-view-all"><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                    </>
+                )}
+                {id === "recentApiKeys" && (
+                    <>
+                    {recentApiKeys.length === 0 ? (
+                        <p className="dashboard-empty table-empty">{emptyIconFor.recentApiKeys}{emptyTextFor.recentApiKeys}</p>
+                    ) : (
+                        <div className="table-wrap">
+                        <table className="rich-table">
+                            <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
+                            <tbody>{recentApiKeys.map((key) => (
+                                <tr key={key.id}>
+                                    <td><span className="key-cell-wrap"><span className="key-cell">{key.key}</span><CopyButton text={key.key} /></span></td>
+                                    <td className="rights-cell">{(key.access_rights || []).map((r) => (<span key={r} className="rights-chip">{r}</span>))}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                        </div>
+                    )}
+                    <p className="block-view-all"><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+                    </>
+                )}
+                {id === "recentUsers" && (
+                    <>
+                    {recentUsers.length === 0 ? (
+                        <p className="dashboard-empty table-empty">{emptyIconFor.recentUsers}{emptyTextFor.recentUsers}</p>
+                    ) : (
+                        <div className="table-wrap">
+                        <table className="rich-table">
+                            <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
+                            <tbody>{recentUsers.map((user) => (
+                                <tr key={user.id}>
+                                    <td><span className="user-cell"><span className="user-avatar">{userInitials(user)}</span><span className="user-email">{user.email}</span></span></td>
+                                    <td><span className={`role-chip role-${user.role}`}>{user.role}</span></td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                        </div>
+                    )}
+                    <p className="block-view-all"><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
+                    </>
+                )}
+                </div>
+                )}
+            </motion.div>
+        );
+    };
+
     const countdownText = () => {
         const m = Math.floor(serviceCountdown / 60);
         const s = serviceCountdown % 60;
@@ -1267,6 +1674,7 @@ function Dashboard() {
             <div className="dashboard-header">
                 <span className="dashboard-title gradient-text">{t("dashboard.title")}</span>
                 <div className="dashboard-header-actions">
+                    <LiveIndicator lastUpdated={lastUpdated} />
                     <button
                         type="button"
                         className="btn-ghost dashboard-gear-btn"
@@ -1321,177 +1729,23 @@ function Dashboard() {
             </div>
             </>
             )}
-            {isVisible("actions") && (
-            <>
-            {sectionDensityControl("actions")}
-            <div className={`dashboard-actions ${sectionDensityClass("actions")}`}>
-                <h2><Zap size={16} />{t("dashboard.quickActions")}{collapseBtnFor("actions", "section-collapse-btn")}</h2>
-                {!isCollapsed("actions") && (
-                <div className="action-buttons">
-                    <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
-                    <Link className="action-btn" to="/api-keys"><KeyRound size={16} />{t("dashboard.createApiKey")}</Link>
-                    <Link className="action-btn" to="/users"><UserPlus size={16} />{t("dashboard.addUser")}</Link>
-                    <Link className="action-btn" to="/products"><Boxes size={16} />{t("nav.products")}</Link>
-                    <Link className="action-btn" to="/docs"><BookOpen size={16} />{t("nav.apiDocs")}</Link>
-                    <Link className="action-btn" to="/settings"><SettingsIcon size={16} />{t("dashboard.settings")}</Link>
-                </div>
-                )}
-            </div>
-            </>
-            )}
-            {isVisible("highlights") && (
-            <>
-            {sectionDensityControl("highlights")}
-            <div className="section-head">
-                <span className="section-head-title"><Sparkles size={16} />{t("dashboard.sections.highlights")}</span>
-                {collapseBtnFor("highlights", "section-collapse-btn")}
-            </div>
-            {!isCollapsed("highlights") && (
-            <div className={`highlights-slider glass-card ${sectionDensityClass("highlights")}`} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-                <div className="slide slide-fade" key={slide}>
-                    <h3><Sparkles size={16} />{slides[slide].title}</h3>
-                    <p>{slides[slide].text}</p>
-                </div>
-                <div className="slider-dots">
-                    {slides.map((_, i) => (
-                        <button key={i} className={`slider-dot${i === slide ? " active" : ""}`} aria-label={`${t("dashboard.slide")} ${i + 1}`} onClick={() => setSlide(i)} />
-                    ))}
-                </div>
-            </div>
-            )}
-            </>
-            )}
-            {isVisible("news") && (
-            <motion.div className={`dashboard-section news-section ${sectionDensityClass("news")}`} {...cardMotion(0)}>
-                {sectionDensityControl("news")}
-                <h2>{SECTION_ICONS.news}{t("news.title")}{collapseBtnFor("news", "section-collapse-btn")}</h2>
-                {!isCollapsed("news") && (
-                <>
-                {newsItems.length === 0 ? (
-                    <p className="dashboard-empty">{t("news.empty")}</p>
-                ) : (
-                    <ul className="news-list">
-                        {newsItems.map((item) => {
-                            const title = (lang === "fa" ? item.title?.fa : item.title?.en) || item.title?.en || item.title?.fa || "";
-                            const body = (lang === "fa" ? item.body?.fa : item.body?.en) || item.body?.en || item.body?.fa || "";
-                            return (
-                                <li key={item.id} className="news-item">
-                                    <div className="news-item-head">
-                                        <span className="news-item-title">{title}</span>
-                                        {item.date ? <span className="news-item-date">{formatDate(item.date, lang)}</span> : null}
-                                    </div>
-                                    {body ? <p className="news-item-body">{body}</p> : null}
-                                    {isSafeHttpUrl(item.link) ? <a className="news-item-link" href={item.link} target="_blank" rel="noreferrer">{t("news.readMore")} <ExternalLink size={14} /></a> : null}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
-                </>
-                )}
-            </motion.div>
-            )}
-            {visibleWidgets.length > 0 && (
+            {/* v3.0.11: ONE unified grid in layout.order — chart widgets
+                and sections are all widgets now (the summary renders
+                above, pinned). */}
+            {gridBlocks.length > 0 && (
             <div className="charts-row">
-                {visibleWidgets.map((id) => renderWidget(id, layout.order.indexOf(id)))}
+                {gridBlocks.map((id, i) => WIDGET_IDS.includes(id) ? renderWidget(id, i) : renderSection(id, i))}
             </div>
-            )}
-
-            {isVisible("expiring") && (
-            <motion.div className={`dashboard-section ${sectionDensityClass("expiring")}`} {...cardMotion(0)}>
-                {sectionDensityControl("expiring")}
-                <h2>{SECTION_ICONS.expiring}{t("dashboard.expiringSoon")}{collapseBtnFor("expiring", "section-collapse-btn")}</h2>
-                {!isCollapsed("expiring") && (
-                <>
-                {expiringSoon.length === 0 ? (
-                    <p className="dashboard-empty">{t("dashboard.noExpiring")}</p>
-                ) : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("dashboard.daysLeft")}</th><th>{t("common.actions")}</th></tr></thead>
-                        <tbody>
-                        {expiringSoon.map((lic) => (
-                            <tr key={lic.id}>
-                                <td>{lic.product}</td>
-                                <td className="key-cell">{lic.key}</td>
-                                <td className="nowrap">{daysLeft(lic.expires_at)} {t("common.days")}</td>
-                                <td><button onClick={() => handleRenew(lic.id)}>{t("common.renew")}</button></td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                    </div>
-                )}
-                </>
-                )}
-            </motion.div>
-            )}
-            {isVisible("recentLicenses") && (
-            <motion.div className={`dashboard-section ${sectionDensityClass("recentLicenses")}`} {...cardMotion(0.05)}>
-                {sectionDensityControl("recentLicenses")}
-                <h2>{SECTION_ICONS.recentLicenses}{t("dashboard.recentLicenses")}{collapseBtnFor("recentLicenses", "section-collapse-btn")}</h2>
-                {!isCollapsed("recentLicenses") && (
-                <>
-                {recentLicenses.length === 0 ? <p className="dashboard-empty">{t("dashboard.noLicenses")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("dashboard.product")}</th><th>{t("dashboard.licenseKey")}</th><th>{t("common.status")}</th><th>{t("common.createdAt")}</th></tr></thead>
-                        <tbody>{recentLicenses.map((lic) => (<tr key={lic.id}><td>{lic.product}</td><td className="key-cell">{lic.key}</td><td>{t(`common.${lic.status}`) !== `common.${lic.status}` ? t(`common.${lic.status}`) : lic.status}</td><td className="nowrap">{formatDate(lic.created_at, lang)}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
-                </>
-                )}
-            </motion.div>
-            )}
-            {isVisible("recentApiKeys") && (
-            <motion.div className={`dashboard-section ${sectionDensityClass("recentApiKeys")}`} {...cardMotion(0.1)}>
-                {sectionDensityControl("recentApiKeys")}
-                <h2>{SECTION_ICONS.recentApiKeys}{t("dashboard.recentApiKeys")}{collapseBtnFor("recentApiKeys", "section-collapse-btn")}</h2>
-                {!isCollapsed("recentApiKeys") && (
-                <>
-                {recentApiKeys.length === 0 ? <p className="dashboard-empty">{t("dashboard.noApiKeys")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("apikeys.key")}</th><th>{t("apikeys.accessRights")}</th></tr></thead>
-                        <tbody>{recentApiKeys.map((key) => (<tr key={key.id}><td className="key-cell">{key.key}</td><td>{key.access_rights.join(", ")}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
-                </>
-                )}
-            </motion.div>
-            )}
-            {isVisible("recentUsers") && (
-            <motion.div className={`dashboard-section ${sectionDensityClass("recentUsers")}`} {...cardMotion(0.15)}>
-                {sectionDensityControl("recentUsers")}
-                <h2>{SECTION_ICONS.recentUsers}{t("dashboard.recentUsers")}{collapseBtnFor("recentUsers", "section-collapse-btn")}</h2>
-                {!isCollapsed("recentUsers") && (
-                <>
-                {recentUsers.length === 0 ? <p className="dashboard-empty">{t("dashboard.noUsers")}</p> : (
-                    <div className="table-wrap">
-                    <table>
-                        <thead><tr><th>{t("common.email")}</th><th>{t("common.role")}</th></tr></thead>
-                        <tbody>{recentUsers.map((user) => (<tr key={user.id}><td>{user.email}</td><td>{user.role}</td></tr>))}</tbody>
-                    </table>
-                    </div>
-                )}
-                <p><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
-                </>
-                )}
-            </motion.div>
             )}
 
             {/* Widget visibility popup (v3.0.4): every dashboard block —
-                the 8 chart widgets plus the 7 sections (summary, quick
-                actions, highlights, expiring, recent licenses, recent API
-                keys, recent users) — with a quick on/off toggle; takes
-                effect immediately and persists with the widget preferences. */}
+                the 8 chart widgets plus the 8 sections — with a quick
+                on/off toggle; takes effect immediately and persists
+                with the widget preferences. v3.0.11: listed in the
+                unified layout order (summary first, pinned). */}
             <Modal open={gearOpen} onClose={() => setGearOpen(false)} title={t("dashboard.widgetVisibility")}>
                 <ul className="widget-visibility-list">
-                    {[...WIDGET_IDS, ...SECTION_IDS].map((id) => (
+                    {ALL_BLOCK_IDS.map((id) => (
                         <li key={id} className="widget-visibility-row">
                             <span>{WIDGET_IDS.includes(id) ? t(`dashboard.widgets.${id}`) : t(`dashboard.sections.${id}`)}</span>
                             <button

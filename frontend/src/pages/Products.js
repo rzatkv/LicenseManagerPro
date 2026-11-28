@@ -5,6 +5,8 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
@@ -67,7 +69,7 @@ function Products() {
   const [notesEnabled, setNotesEnabled] = useState(true);
 
   // v3.0.6: shared list fetch (loading + toast + empty fallback).
-  const {loading, reload: fetchProducts} = useListFetch(
+  const {loading, reload: fetchProducts, reloadQuiet: fetchProductsQuiet, lastUpdated} = useListFetch(
     async () => {
       const base = groupFilter ? `/products?group_id=${groupFilter}` : "/products";
       return getList(base, {skip: (page - 1) * pageSize, limit: pageSize});
@@ -78,6 +80,9 @@ function Products() {
       onError: () => { setProducts([]); setTotal(0); },
     },
   );
+
+  // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+  useLiveRefresh(fetchProductsQuiet);
 
   // v3.0.6: auxiliary picker data — silent on failure (a failed group
   // picker must never spam the user), same policy as before.
@@ -387,6 +392,7 @@ function Products() {
       </Modal>
 
       <div className="toolbar">
+        <LiveIndicator lastUpdated={lastUpdated} />
         <div className="filter-container">
           <label htmlFor="group-filter">{t("products.group")}:</label>
           <select id="group-filter" value={groupFilter} onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }}>

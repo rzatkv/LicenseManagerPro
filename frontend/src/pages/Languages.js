@@ -3,6 +3,8 @@ import {get, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import {usePageSize} from "../utils/responsive";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
@@ -43,11 +45,14 @@ export function LanguagesPanel() {
 
   // v3.0.6: shared list fetch (toast on error; this page has no loading
   // state — the list simply renders when it arrives).
-  const {reload: fetchList} = useListFetch(
+  const {reload: fetchList, reloadQuiet: fetchListQuiet, lastUpdated} = useListFetch(
     async () => get("/languages"),
     [],
     {onData: (data) => setLanguages(Array.isArray(data) ? data : [])},
   );
+
+  // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+  useLiveRefresh(fetchListQuiet);
 
   const openEditor = async (lang) => {
     try {
@@ -127,6 +132,7 @@ export function LanguagesPanel() {
   return (
     <div className="languages-panel">
       <div className="toolbar">
+        <LiveIndicator lastUpdated={lastUpdated} />
         <button type="button" onClick={() => setAddOpen(true)}>{t("languages.add")}</button>
       </div>
 

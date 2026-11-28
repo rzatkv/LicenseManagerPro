@@ -23,8 +23,12 @@ import {useToast} from "../components/Toast";
  *   flag instead of toasting). Auxiliary dropdown data (product/group
  *   pickers) uses `silent: true` + an empty fallback — a failed picker
  *   must never spam the user, same policy as before.
- * Returns {loading, reload} — `reload` is the old fetch function, used
- * after creates/deletes.
+ * Returns {loading, reload, reloadQuiet, lastUpdated} — `reload` is the
+ * old fetch function, used after creates/deletes. `reloadQuiet` (v3.0.11)
+ * re-runs the fetcher WITHOUT touching `loading`, WITHOUT toasting and
+ * WITHOUT the onError empty-fallbacks: a failed quiet tick must keep the
+ * old data on screen and fail silently (the live-refresh hook drives it).
+ * `lastUpdated` is the Date of the last successful load (either path).
  *
  * NOT for: parameterised fetches (fetchActivations(id),
  * fetchDeliveries(productId)), the Dashboard's multi-source orchestration
@@ -35,6 +39,7 @@ export function useListFetch(fetcher, deps, {onData, onStart, onError, silent = 
   const {t} = useLanguage();
   const {toast} = useToast();
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +47,7 @@ export function useListFetch(fetcher, deps, {onData, onStart, onError, silent = 
     try {
       const data = await fetcher();
       if (onData) onData(data);
+      setLastUpdated(new Date());
     } catch (err) {
       if (!silent) toast.error(err.message || t("common.failedFetch"));
       if (onError) onError(err);
@@ -49,8 +55,21 @@ export function useListFetch(fetcher, deps, {onData, onStart, onError, silent = 
       setLoading(false);
     }
   }, deps);
+  // Quiet re-fetch for live auto-refresh (v3.0.11): same fetcher, no
+  // loading flash, no toast, no empty-fallback — a failed tick keeps the
+  // old data and retries on the next tick.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reloadQuiet = useCallback(async () => {
+    try {
+      const data = await fetcher();
+      if (onData) onData(data);
+      setLastUpdated(new Date());
+    } catch (err) {
+      // Silent by design: keep the old data, retry on the next tick.
+    }
+  }, deps);
   useEffect(() => {
     load();
   }, [load]);
-  return {loading, reload: load};
+  return {loading, reload: load, reloadQuiet, lastUpdated};
 }

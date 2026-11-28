@@ -170,6 +170,13 @@
     }
 }
 
-/* v3.0.4: the About tab strip is a TabDropdown now. */
+/* v3.0.11: the About tab strip is a real tab strip (same pill/glass family
+   as the Settings tabs) — it replaced the TabDropdown. Wraps on narrow
+   screens, so all 5 tabs stay reachable at every width. */
+.about-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 auto 20px; max-width: 880px; width: 100%; flex-shrink: 0; min-width: 0; }
+.about-tab { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.about-tab:hover { border-color: var(--accent); color: var(--text); }
+.about-tab.active { background: var(--accent-gradient); color: #fff; border-color: transparent; box-shadow: var(--shadow); }
+.about-tab svg { flex-shrink: 0; }
 .about-tab-panel { max-width: 880px; margin: 0 auto; flex: 1; min-height: 0; min-width: 0; overflow-y: auto; width: 100%; padding-bottom: 4px; }
 .about-tab-panel .about-card { margin: 0; }

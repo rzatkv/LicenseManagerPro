@@ -10,6 +10,8 @@ import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import {usePageSize} from "../utils/responsive";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import {TableSkeleton} from "../components/Skeleton";
 import Wizard from "../components/Wizard";
 import ChipSelect from "../components/ChipSelect";
@@ -80,7 +82,7 @@ function APIKeyList() {
     const [createdKey, setCreatedKey] = useState(null);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchApiKeys} = useListFetch(
+    const {loading, reload: fetchApiKeys, reloadQuiet: fetchApiKeysQuiet, lastUpdated} = useListFetch(
         async () => getList("/api-keys", {skip: (page - 1) * pageSize, limit: pageSize}),
         [page, pageSize],
         {
@@ -88,6 +90,9 @@ function APIKeyList() {
             onError: () => { setApiKeys([]); setTotal(0); },
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchApiKeysQuiet);
 
     const handleDelete = async (id) => {
         try {
@@ -367,6 +372,7 @@ function APIKeyList() {
             </Modal>
 
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>

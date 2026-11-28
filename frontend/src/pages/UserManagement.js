@@ -3,6 +3,8 @@ import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
@@ -51,7 +53,7 @@ function UserManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchUsers} = useListFetch(
+    const {loading, reload: fetchUsers, reloadQuiet: fetchUsersQuiet, lastUpdated} = useListFetch(
         async () => getList("/users", {skip: (page - 1) * pageSize, limit: pageSize}),
         [page, pageSize],
         {
@@ -59,6 +61,9 @@ function UserManagement() {
             onError: () => { setUsers([]); setTotal(0); },
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchUsersQuiet);
 
     useEffect(() => {
         // Custom roles for the role filter (GET /api/roles, admin only).
@@ -141,6 +146,7 @@ function UserManagement() {
         <div className="user-management-container page-enter">
             <h1 className="gradient-text">{t("users.title")}</h1>
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <button type="button" onClick={() => setAddOpen(true)}><Plus size={16} />{t("users.addButton")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">

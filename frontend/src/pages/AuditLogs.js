@@ -4,6 +4,8 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
@@ -59,7 +61,7 @@ function AuditLogs() {
   // v3.0.6: shared list fetch. The 403 case keeps its exact UX
   // (errors.forbidden instead of the raw message), so it runs silent
   // with a reproducing onError.
-  const {loading, reload: fetchLogs} = useListFetch(
+  const {loading, reload: fetchLogs, reloadQuiet: fetchLogsQuiet, lastUpdated} = useListFetch(
     async () => {
       const params = new URLSearchParams();
       if (entity) params.set("entity", entity);
@@ -79,6 +81,9 @@ function AuditLogs() {
       },
     },
   );
+
+  // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+  useLiveRefresh(fetchLogsQuiet);
 
   const handleDelete = async (id) => {
     try {
@@ -158,6 +163,7 @@ function AuditLogs() {
             />
 
       <div className="toolbar">
+        <LiveIndicator lastUpdated={lastUpdated} />
         <button type="button" className="btn-danger" onClick={() => setDeleteAllOpen(true)}>{t("audit.deleteAll")}</button>
         <label htmlFor="audit-entity">{t("audit.filterEntity")}:</label>
         <select

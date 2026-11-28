@@ -3,6 +3,8 @@ import {get} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import EmptyState from "../components/EmptyState";
 import {SkeletonCard} from "../components/Skeleton";
 import {DEMO_MODE, API_BASE_URL} from "../config";
@@ -46,7 +48,7 @@ function Downloads() {
     const visibleModules = modules.slice((safePage - 1) * pageSize, safePage * pageSize);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchAll} = useListFetch(
+    const {loading, reload: fetchAll, reloadQuiet: fetchAllQuiet, lastUpdated} = useListFetch(
         async () => Promise.all([
             get("/downloads"),
             get("/downloads/versions").catch(() => null),
@@ -57,6 +59,9 @@ function Downloads() {
             onError: () => setModules([]),
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchAllQuiet);
 
     // Streaming fallback (only when there is no direct URL): fetch a ZIP
     // of the installed module files from the backend and save it.
@@ -105,6 +110,8 @@ function Downloads() {
     return (
         <div className="downloads-container page-enter">
             <h1 className="gradient-text">{t("downloads.title")}</h1>
+            {/* v3.0.11: Downloads has no toolbar — the live indicator sits under the title. */}
+            <LiveIndicator lastUpdated={lastUpdated} />
             {modules.length === 0 ? (
                 <EmptyState title={t("common.noData")} />
             ) : (

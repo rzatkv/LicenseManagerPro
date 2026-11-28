@@ -5,6 +5,8 @@ import {formatDate} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import CopyButton from "../components/CopyButton";
 import EmptyState from "../components/EmptyState";
@@ -95,7 +97,7 @@ function LicenseList() {
     const [wNotes, setWNotes] = useState("");
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchLicenses} = useListFetch(
+    const {loading, reload: fetchLicenses, reloadQuiet: fetchLicensesQuiet, lastUpdated} = useListFetch(
         async () => {
             const q = productFilter ? `?filter=${filter}&product=${productFilter}` : `?filter=${filter}`;
             return getList(`/licenses${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
@@ -106,6 +108,9 @@ function LicenseList() {
             onError: () => { setLicenses([]); setTotal(0); },
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchLicensesQuiet);
 
     // v3.0.6: auxiliary picker data — silent on failure (a failed
     // product/group picker must never spam the user), same policy as before.
@@ -375,6 +380,7 @@ function LicenseList() {
             <h1 className="gradient-text">{t("licenses.title")}</h1>
             {productFilter && <p className="dashboard-empty">{t("products.title")}: {products.find((p) => String(p.id) === productFilter)?.name || productFilter}</p>}
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <button onClick={() => { resetWizard(); setShowWizard(true); }}><Plus size={16} />{t("licenses.create")}</button>
                 <div className="filter-container">
                     <label htmlFor="filter">{t("licenses.filter")}:</label>

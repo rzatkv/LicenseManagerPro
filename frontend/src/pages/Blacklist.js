@@ -4,6 +4,8 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import Modal from "../components/Modal";
 import EmptyState from "../components/EmptyState";
@@ -34,7 +36,7 @@ function Blacklist() {
     const [pendingDelete, setPendingDelete] = useState(null);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchEntries} = useListFetch(
+    const {loading, reload: fetchEntries, reloadQuiet: fetchEntriesQuiet, lastUpdated} = useListFetch(
         async () => {
             const q = typeFilter ? `?type=${typeFilter}` : "";
             return getList(`/blacklist${q}`, {skip: (page - 1) * pageSize, limit: pageSize});
@@ -45,6 +47,9 @@ function Blacklist() {
             onError: () => { setEntries([]); setTotal(0); },
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchEntriesQuiet);
 
     const handleAdd = async (e) => {
         e.preventDefault();
@@ -97,6 +102,7 @@ function Blacklist() {
             <p className="dashboard-empty">{t("blacklist.blockedNote")}</p>
 
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <button type="button" onClick={() => setAddOpen(true)}><Plus size={16} />{t("blacklist.add")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">

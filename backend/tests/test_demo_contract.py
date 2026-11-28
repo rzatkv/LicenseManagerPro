@@ -240,6 +240,30 @@ def test_version_agreement():
     assert news["items"][0]["id"] == f"v{major * 100 + minor * 10 + patch}-release"
 
 
+def test_dashboard_layout_covers_all_blocks():
+    """v3.0.11: the dashboard layout order holds ALL 16 blocks (summary
+    first, pinned) and the S/M/L size map covers every one of them —
+    sections are widgets now, not a fixed tail below the charts."""
+    dashboard = _read(FRONTEND / "pages" / "Dashboard.js")
+    expected = [
+        "summary", "actions", "highlights", "news",
+        "trend", "status", "perMonth", "byProduct",
+        "activations", "webhooks", "services", "sending",
+        "expiring", "recentLicenses", "recentApiKeys", "recentUsers",
+    ]
+    assert set(_quoted_list(dashboard, r"const ALL_BLOCK_IDS")) == set(expected)
+    assert dashboard.index('"summary"') < dashboard.index('"actions"')
+    m = re.search(r"const DEFAULT_BLOCK_SIZES = \{([^}]*)\}", dashboard)
+    assert m, "DEFAULT_BLOCK_SIZES not found"
+    sizes = dict(re.findall(r'(\w+):\s*"([SML])"', m.group(1)))
+    # Every block except the summary has an S/M/L default (the summary
+    # is pinned full-width with no size control, so it has none).
+    assert set(sizes) == set(expected) - {"summary"}, f"sizes cover {sorted(sizes)}"
+    # The default order is the full block list (migration appends the
+    # sections to old widget-only layouts in normalizeLayout).
+    assert "order: [...ALL_BLOCK_IDS]" in dashboard
+
+
 def test_validate_setting_value_rejects_garbage():
     """F4 (behaviour, not just keys): the on/off toggles reject anything
     that is not on/off on the backend, exactly like the demo mock."""

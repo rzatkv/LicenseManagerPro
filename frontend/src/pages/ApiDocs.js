@@ -765,7 +765,7 @@ curl ${BASE}/api/products \\
 # Test connection:
 curl ${BASE}/api/system/info \\
   -H "X-API-Key: lmp_..."
-# => {"version": "3.0.10", "lastUpdated": "2026-11-27"}
+# => {"version": "3.0.11", "lastUpdated": "2026-11-28"}
 
 # Exception: license checks (POST /api/licenses/validate) are PUBLIC —
 # they send NO key at all (see the Guides tab: "Connect a product").
@@ -912,12 +912,25 @@ function ApiDocs() {
       <p className="docs-subtitle">{t("docs.subtitle")}</p>
       <p className="docs-template-note">{t("docs.templateNote")}</p>
 
-      <TabDropdown
-        ariaLabel={t("docs.title")}
-        value={tab}
-        onChange={setTab}
-        options={TABS.map((id) => ({value: id, label: t(`docs.tabs.${id}`), icon: DOC_TAB_ICONS[id]}))}
-      />
+      {/* v3.0.11: the MAIN sections are a real tab strip (same pill/glass
+          family as the Settings tabs) — replaced the top TabDropdown.
+          The LOWER dropdowns inside the panels stay dropdowns. */}
+      <div className="docs-tabs" role="tablist" aria-label={t("docs.title")}>
+        {TABS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            data-apidocs-tab={id}
+            className={tab === id ? "docs-tab active" : "docs-tab"}
+            onClick={() => setTab(id)}
+          >
+            {DOC_TAB_ICONS[id]}
+            <span>{t(`docs.tabs.${id}`)}</span>
+          </button>
+        ))}
+      </div>
 
       {tab === "auth" && (
         <div className="docs-tabpanel">

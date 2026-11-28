@@ -4,6 +4,8 @@ import {get, getList, post, put, del} from "../utils/api";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
@@ -34,7 +36,7 @@ function ProductGroups() {
     const [pendingGroupDelete, setPendingGroupDelete] = useState(null);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchAll} = useListFetch(
+    const {loading, reload: fetchAll, reloadQuiet: fetchAllQuiet, lastUpdated} = useListFetch(
         async () => Promise.all([
             get("/product-groups"),
             getList("/products", {skip: 0, limit: 100}),
@@ -48,6 +50,9 @@ function ProductGroups() {
             onError: () => { setGroups([]); setProducts([]); },
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    useLiveRefresh(fetchAllQuiet);
 
     const handleGroupWizardCreate = async () => {
         if (!groupForm.name.trim()) { toast.error(t("wizard.nameRequired")); return; }
@@ -95,6 +100,7 @@ function ProductGroups() {
         <div className="products-container page-enter">
             <h1 className="gradient-text">{t("groups.title")}</h1>
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <button onClick={() => { setEditingGroupId(null); setGroupForm(emptyGroupForm); setGroupStep(0); setShowGroupWizard(true); }}>
                     <Plus size={16} />{t("groups.create")}
                 </button>

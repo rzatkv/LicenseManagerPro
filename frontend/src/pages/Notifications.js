@@ -5,6 +5,8 @@ import {formatDateTime} from "../utils/format";
 import {useLanguage} from "../i18n";
 import {useToast} from "../components/Toast";
 import {useListFetch} from "../utils/useListFetch";
+import {useLiveRefresh} from "../utils/useLiveRefresh";
+import LiveIndicator from "../components/LiveIndicator";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
@@ -23,7 +25,7 @@ function Notifications() {
     const [selected, setSelected] = useState(null);
 
     // v3.0.6: shared list fetch (loading + toast + empty fallback).
-    const {loading, reload: fetchNotifications} = useListFetch(
+    const {loading, reload: fetchNotifications, reloadQuiet: fetchNotificationsQuiet, lastUpdated} = useListFetch(
         async () => get("/notifications?limit=50"),
         [],
         {
@@ -31,6 +33,10 @@ function Notifications() {
             onError: () => setNotifications([]),
         },
     );
+
+    // Live auto-refresh (v3.0.11): quiet 60s tick, pauses when hidden.
+    // (The bell already polls every 60s; this is the page itself.)
+    useLiveRefresh(fetchNotificationsQuiet);
 
     const markAllRead = async () => {
         try {
@@ -85,6 +91,7 @@ function Notifications() {
         <div className="notifications-container page-enter">
             <h1 className="gradient-text">{t("notifications.title")}</h1>
             <div className="toolbar">
+                <LiveIndicator lastUpdated={lastUpdated} />
                 <button className="btn-ghost" onClick={markAllRead}>{t("notifications.markAllRead")}</button>
                 <div className="search-wrap">
                     <span className="search-icon" aria-hidden="true">

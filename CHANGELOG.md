@@ -1,8 +1,17 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.10) lives in the [README](README.md#whats-new-in-v310) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.11) lives in the [README](README.md#whats-new-in-v311) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.10 — 2026-11-28
+
+Two dashboard fixes, as the user asked — the summary section kept collapsing, and some size controls changed nothing on screen:
+
+- **Summary never collapses:** the collapse chevron is gone from the summary section; the four top cards always render expanded, even for an admin whose saved layout still has the summary collapsed from v3.0.9 (the stale flag is cleaned on load and never re-saved). The other 15 blocks keep their chevron and persisted collapse state exactly as before.
+- **Every size control visibly works:** the webhook widget's chart now scales with S/M/L (it rendered a fixed 150px chart, so the buttons did nothing below 1024px and M/L were identical at 1024px), and the services widget scales its service rows and SMS balance value with the size — every size step is now visible at every width. The other six chart widgets already scaled their chart height and are unchanged.
+- **Section density steps are real:** the summary compact padding was identical to the phone base padding, so compact→normal changed nothing at 360px, and the compact gap flipped the card column count near 768px; compact is now a clean 8px padding step with the base gap. The quick-actions steps were nearly the base padding too (compact→normal moved the section only ~5px at laptop width) — the steps are now 6/10/16px padding with 13/15/16px fonts. Table, news and highlights density already worked at every width and are unchanged.
+- **Version bump:** 3.0.10 everywhere, demo storage key `lmp-demo-db-v24`, `smoke_test_310.py`, all 10 module ZIPs rebuilt at 3.0.10 parity.
 
 ## v3.0.9 — 2026-11-27
 

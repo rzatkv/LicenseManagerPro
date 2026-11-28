@@ -14,7 +14,7 @@ import {APP_VERSION} from "../version";
 
 export {DEMO_MODE};
 
-const STORAGE_KEY = "lmp-demo-db-v24";
+const STORAGE_KEY = "lmp-demo-db-v25";
 // Demo 2FA (v2.3): the demo secret is DEMO2FASECRET and the only accepted
 // code is 123456 — the Profile page says so. Module scope so the login
 // handler (which runs before the 2FA section) can use DEMO_2FA_CODE.
@@ -26,6 +26,7 @@ const GITHUB_RELEASE_BASE = "https://github.com/rzatkv/LicenseManagerPro/release
 // these; the Dashboard in demo mode tries the live file from
 // raw.githubusercontent.com first and falls back to these when offline.
 const NEWS_ITEMS = [
+    {id: "v311-release", title: {en: "LicenseManagerPro v3.0.11 is out", fa: "نسخه ۳٫۰٫۱۱ لایسنس منیجر پرو منتشر شد"}, body: {en: "Every dashboard block except the summary is now a real widget — rich tables with copy buttons and colored chips, S/M/L sizes, four-direction moves and mouse drag-and-drop, and a per-widget refresh button, all in the same glass style.", fa: "همه بخش‌های داشبورد به‌جز خلاصه حالا ویجت واقعی‌اند — جدول‌های زیبا با دکمه کپی و برچسب‌های رنگی، اندازه S/M/L، جابه‌جایی چهارجهته و کشیدن با ماوس، و دکمه تازه‌سازی برای هر ویجت، همه با همان سبک شیشه‌ای."}, date: "2026-11-28", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v310-release", title: {en: "LicenseManagerPro v3.0.10 is out", fa: "نسخه ۳٫۰٫۱۰ لایسنس منیجر پرو منتشر شد"}, body: {en: "The summary section never collapses now, and every dashboard block's size control visibly works — webhook and service widgets scale with S/M/L at every width, and section density steps are clearly visible on all eight sections.", fa: "بخش خلاصه دیگر جمع نمی‌شود و کنترل اندازه همه بخش‌های داشبورد واقعاً کار می‌کند — ویجت‌های وب‌هوک و سرویس با S/M/L در همه عرض‌ها تغییر اندازه می‌دهند و پله‌های تراکم هر هشت بخش کاملاً محسوس‌اند."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v309-release", title: {en: "LicenseManagerPro v3.0.9 is out", fa: "نسخه ۳٫۰٫۹ لایسنس منیجر پرو منتشر شد"}, body: {en: "Full-width desktop dashboard with a real responsive widget grid — widgets sit side by side on wide screens, every block collapses, summary cards link to their pages, modals size per breakpoint, proper pagination with a live page-size selector, and the in-app API docs are synced with the backend.", fa: "داشبورد دسکتاپ تمام‌عرض با گرید واکنش‌گرای واقعی — ویجت‌ها در صفحه‌های عریض کنار هم می‌نشینند، هر بخش جمع می‌شود، کارت‌های خلاصه به صفحه‌هایشان لینک می‌دهند، مودال‌ها بر اساس اندازه صفحه بزرگ می‌شوند، صفحه‌بندی درست با انتخاب‌گر زنده اندازه صفحه، و مستندات API داخل برنامه با بک‌اند همگام شد."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
     {id: "v308-release", title: {en: "LicenseManagerPro v3.0.8 is out", fa: "نسخه ۳٫۰٫۸ لایسنس منیجر پرو منتشر شد"}, body: {en: "Notification template variables with sample values — %client% and %license% (plus %var% aliases for every variable) now work in email, SMS and Telegram, with a click-to-insert variable guide and a live preview rendered with sample values.", fa: "متغیرهای قالب اعلان با مقادیر نمونه — %client% و %license% (به‌علاوه نام مستعار %var% برای همه متغیرها) حالا در ایمیل، پیامک و تلگرام کار می‌کنند، با راهنمای متغیرها برای درج با یک کلیک و پیش‌نمایش زنده با مقادیر نمونه."}, date: "2026-11-27", link: "https://github.com/rzatkv/LicenseManagerPro/releases"},
@@ -231,7 +232,7 @@ function seed() {
         },
         product_groups: productGroups,
         notifications: [
-            {id: 1, user_id: null, title: "Welcome to v3.0.10", message: "Summary never collapses, and every dashboard block's size control works — see the dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
+            {id: 1, user_id: null, title: "Welcome to v3.0.11", message: "Every dashboard block is now a real widget — drag it, move it, refresh it — see the dashboard.", type: "info", link: "/downloads", is_read: false, created_at: isoDaysAgo(1)},
             {id: 2, user_id: null, title: "License expiring soon", message: "License LIC-XXXX-XXXX-XXXX (HelpDesk) expires in 15 days.", type: "warning", link: "/licenses", is_read: false, created_at: isoDaysAgo(1)},
             {id: 3, user_id: null, title: "License created", message: "A new CRM Suite license was created for sales@example.com.", type: "success", link: "/licenses", is_read: true, created_at: isoDaysAgo(2)},
         ],
@@ -302,7 +303,7 @@ function loadDb() {
                 if (!parsed.roles) { parsed.roles = fresh.roles; parsed.nextRoleId = fresh.nextRoleId; }
                 if (!parsed.preferences) parsed.preferences = {};
                 if (!parsed.licenseSecurity) parsed.licenseSecurity = fresh.licenseSecurity;
-                if (!parsed.users[0].role_id) {
+                if (parsed.users.length && !parsed.users[0].role_id) {
                     parsed.users.forEach((u, i) => {
                         u.role_id = i + 1;
                         u.display_name = u.display_name || null;

@@ -8,8 +8,8 @@ import httpx
 import services.updates as update_service
 
 # The mocked "latest" release is always NEWER than the running app
-# (3.0.10) — otherwise the update path refuses with "Already up to date".
-RELEASE_310 = {
+# (3.0.11) — otherwise the update path refuses with "Already up to date".
+RELEASE_311 = {
     "tag_name": "v3.1.0",
     "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.1.0",
     "body": "## Highlights\n- something new",
@@ -52,7 +52,7 @@ def _mock_client(monkeypatch, release=None, tarball_bytes=None, api_status=200, 
         if url.endswith("/releases/latest"):
             if api_status != 200:
                 return httpx.Response(api_status, json={"message": "not found"})
-            return httpx.Response(200, json=release if release is not None else RELEASE_310)
+            return httpx.Response(200, json=release if release is not None else RELEASE_311)
         if "tarball" in url or "codeload.github.com" in url:
             return httpx.Response(200, content=tarball_bytes if tarball_bytes is not None else _gzip_bytes())
         if url.endswith("/modules.json"):
@@ -60,7 +60,7 @@ def _mock_client(monkeypatch, release=None, tarball_bytes=None, api_status=200, 
             return httpx.Response(
                 200,
                 json={
-                    **{m: {"version": "3.0.10"} for m in ALL_MODULES},
+                    **{m: {"version": "3.0.11"} for m in ALL_MODULES},
                     "whmcs": {"version": "3.1.0"},
                 },
             )
@@ -79,7 +79,7 @@ def test_update_check_newer_available(client, auth_headers, monkeypatch):
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["current_version"] == "3.0.10"
+    assert data["current_version"] == "3.0.11"
     assert data["latest_version"] == "3.1.0"
     assert data["update_available"] is True
     assert "3.1.0" in data["release_url"]
@@ -87,11 +87,11 @@ def test_update_check_newer_available(client, auth_headers, monkeypatch):
 
 
 def test_update_check_already_latest(client, auth_headers, monkeypatch):
-    _mock_client(monkeypatch, release={**RELEASE_310, "tag_name": "v3.0.10"})
+    _mock_client(monkeypatch, release={**RELEASE_311, "tag_name": "v3.0.11"})
     response = client.get("/api/system/update-check", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["update_available"] is False
-    assert response.json()["latest_version"] == "3.0.10"
+    assert response.json()["latest_version"] == "3.0.11"
 
 
 def test_update_check_github_failure(client, auth_headers, monkeypatch):
@@ -163,10 +163,10 @@ def test_downloads_list_and_zip(client, auth_headers):
     # release-asset link (version parity).
     assert set(items) == set(ALL_MODULES)
     for module_id, item in items.items():
-        assert item["version"] == "3.0.10", module_id
+        assert item["version"] == "3.0.11", module_id
         assert item["download_url"] == (
             "https://github.com/rzatkv/LicenseManagerPro/releases/download/"
-            f"v3.0.10/licensemanagerpro-{module_id}-3.0.10.zip"
+            f"v3.0.11/licensemanagerpro-{module_id}-3.0.11.zip"
         ), module_id
         assert item["zip_url"] == f"/api/downloads/{module_id}"
 
@@ -193,11 +193,11 @@ def test_module_versions_against_manifest(client, auth_headers, monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert set(data) == set(ALL_MODULES)
-    assert data["whmcs"]["local"] == "3.0.10"
+    assert data["whmcs"]["local"] == "3.0.11"
     assert data["whmcs"]["latest"] == "3.1.0"
     assert data["whmcs"]["update_available"] is True
-    assert data["woocommerce"]["local"] == "3.0.10"
-    assert data["woocommerce"]["latest"] == "3.0.10"
+    assert data["woocommerce"]["local"] == "3.0.11"
+    assert data["woocommerce"]["latest"] == "3.0.11"
     assert data["woocommerce"]["update_available"] is False
 
 
@@ -206,7 +206,7 @@ def test_stage_update_refuses_foreign_tarball_host(client, auth_headers, monkeyp
     response. Before the fix any host was fetched — a compromised or
     moved repo could point the updater at an arbitrary server. Only
     GitHub's own hosts are allowed."""
-    evil = {**RELEASE_310, "tarball_url": "https://evil.example.com/repo/archive/v3.1.0.tar.gz"}
+    evil = {**RELEASE_311, "tarball_url": "https://evil.example.com/repo/archive/v3.1.0.tar.gz"}
     _mock_client(monkeypatch, release=evil)
     resp = client.post("/api/system/update", headers=auth_headers)
     assert resp.status_code == 400, resp.text
@@ -219,7 +219,7 @@ def test_stage_update_allows_github_tarball_host(client, auth_headers, monkeypat
     from services import updates as update_service
 
     monkeypatch.setattr(update_service, "LMP_ALLOW_SELF_UPDATE", False)
-    good = {**RELEASE_310, "tarball_url": "https://codeload.github.com/rzatkv/LicenseManagerPro/tar.gz/refs/tags/v3.1.0"}
+    good = {**RELEASE_311, "tarball_url": "https://codeload.github.com/rzatkv/LicenseManagerPro/tar.gz/refs/tags/v3.1.0"}
     _mock_client(monkeypatch, release=good)
     resp = client.post("/api/system/update", headers=auth_headers)
     assert resp.status_code == 200, resp.text
