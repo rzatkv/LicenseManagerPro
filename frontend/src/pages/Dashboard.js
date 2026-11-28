@@ -52,6 +52,10 @@ const PIE_COLORS = ["#6D5DF6", "#10B981", "#F59E0B", "#EC4899", "#06B6D4", "#F43
 const CHART_HEIGHT = {S: 150, M: 200, L: 280};
 const BAR_HEIGHT = {S: 140, M: 190, L: 250};
 const DONUT_SIZE = {S: 120, M: 180, L: 240};
+// v3.0.10: webhook chart height per size — the widget took no size
+// prop and rendered a fixed 150px chart, so S/M/L changed nothing
+// below 1024px and M/L were identical at 1024px (measured).
+const WEBHOOK_HEIGHT = {S: 110, M: 150, L: 200};
 
 // Long labels wrap onto two lines instead of being truncated ("CloudPanel P…").
 const splitLabel = (label) => {
@@ -288,7 +292,8 @@ function TrendChart({points, title, lang, size = "M", type = "line", icon, widge
 /** Webhook delivery stats widget (v2.3, Recharts line variant v3.0.4):
  * overall success rate + a row per event; the "line" type draws the
  * per-event success rate as a line chart instead of bars. */
-function WebhookStatsWidget({stats, title, t, type = "bar", icon, action}) {
+function WebhookStatsWidget({stats, title, t, size = "M", type = "bar", icon, action}) {
+    const height = WEBHOOK_HEIGHT[size] || 150;
     if (!stats) return (
         <div className="chart-card">
             <ChartTitle icon={icon} title={title} action={action} />
@@ -315,7 +320,7 @@ function WebhookStatsWidget({stats, title, t, type = "bar", icon, action}) {
                 {stats.total} total
             </p>
             {type === "line" ? (
-                <ResponsiveContainer width="100%" height={150}>
+                <ResponsiveContainer width="100%" height={height}>
                     <RLineChart data={lineData} margin={{top: 8, right: 8, bottom: 4, left: 0}}>
                         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="event" interval={0} tickLine={false} axisLine={false} tick={{fontSize: 9, fill: "var(--muted)"}} />
@@ -325,7 +330,7 @@ function WebhookStatsWidget({stats, title, t, type = "bar", icon, action}) {
                     </RLineChart>
                 </ResponsiveContainer>
             ) : (
-                <ResponsiveContainer width="100%" height={150}>
+                <ResponsiveContainer width="100%" height={height}>
                     <RBarChart data={lineData} layout="vertical" margin={{top: 4, right: 12, bottom: 4, left: 4}}>
                         <XAxis type="number" domain={[0, 100]} hide />
                         <YAxis type="category" dataKey="event" width={110} tickLine={false} axisLine={false}
@@ -479,8 +484,12 @@ function normalizeLayout(saved) {
     // v3.0.6: collapsed widgets — unknown ids are dropped, non-boolean
     // values ignored, so layouts saved before v3.0.6 keep working.
     // v3.0.9: sections collapse too — the same filter covers them.
+    // v3.0.10: the SUMMARY section never collapses — a stale
+    // collapsed.summary=true from v3.0.9 is dropped here on load and
+    // never re-saved, so the summary is always expanded.
     const collapsed = {};
     for (const [id, v] of Object.entries(saved.collapsed || {})) {
+        if (id === "summary") continue;
         if ((WIDGET_IDS.includes(id) || SECTION_IDS.includes(id)) && v === true) collapsed[id] = true;
     }
     return {
@@ -916,7 +925,9 @@ function Dashboard() {
     // block shows only its title row + expand chevron; the state
     // persists like any other layout field (localStorage +
     // /users/me/preferences) and survives a reload.
-    const isCollapsed = (id) => !!(layout.collapsed && layout.collapsed[id]);
+    // v3.0.10: the summary never collapses — isCollapsed("summary")
+    // is always false even if a stale flag somehow reaches state.
+    const isCollapsed = (id) => id !== "summary" && !!(layout.collapsed && layout.collapsed[id]);
     const toggleCollapse = (id) => setLayout((prev) => ({...prev, collapsed: {...(prev.collapsed || {}), [id]: !prev.collapsed[id]}}));
     const collapseBtnFor = (id, extraClass) => {
         const collapsed = isCollapsed(id);
@@ -1106,7 +1117,7 @@ function Dashboard() {
                 )}
                 {id === "webhooks" && (
                     <>
-                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} type={chartType} icon={WIDGET_ICONS.webhooks} action={collapseBtn} />
+                        <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.webhooks} action={collapseBtn} />
                         {typeControl("webhooks")}
                     </>
                 )}
@@ -1287,11 +1298,11 @@ function Dashboard() {
             {isVisible("summary") && (
             <>
             {sectionDensityControl("summary")}
+            {/* v3.0.10: no collapse chevron on the summary — it is always
+                expanded. The other 15 blocks keep theirs. */}
             <div className="section-head">
                 <span className="section-head-title"><LayoutDashboard size={16} />{t("dashboard.sections.summary")}</span>
-                {collapseBtnFor("summary", "section-collapse-btn")}
             </div>
-            {!isCollapsed("summary") && (
             <div className={`dashboard-summary ${sectionDensityClass("summary")}`}>
                 {[
                     {label: t("dashboard.apiKeys"), value: summary.apiKeysCount, variant: "violet", to: "/api-keys", card: "apiKeys"},
@@ -1308,7 +1319,6 @@ function Dashboard() {
                     </Link>
                 ))}
             </div>
-            )}
             </>
             )}
             {isVisible("actions") && (

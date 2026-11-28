@@ -233,7 +233,11 @@ def test_version_agreement():
     assert package["version"] == APP_VERSION
     news = json.loads((REPO / "news.json").read_text())
     assert APP_VERSION in news["items"][0]["title"]["en"]
-    assert news["items"][0]["id"] == f"v{APP_VERSION.replace('.', '')}-release"
+    # News ids are the version as a 3-digit build number (3.0.9 -> v309,
+    # 3.0.10 -> v310); plain dot-stripping gives v3010 for 3.0.10, which
+    # is not the id the panel and the demo mock both use.
+    major, minor, patch = (int(p) for p in APP_VERSION.split("."))
+    assert news["items"][0]["id"] == f"v{major * 100 + minor * 10 + patch}-release"
 
 
 def test_validate_setting_value_rejects_garbage():

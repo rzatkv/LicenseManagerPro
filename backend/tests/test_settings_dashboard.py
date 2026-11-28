@@ -6,7 +6,7 @@ def test_settings_crud(client, auth_headers):
     assert response.status_code == 200
     settings = response.json()
     assert settings["daily_request_limit"] == "100"
-    assert settings["app_version"] == "3.0.9"
+    assert settings["app_version"] == "3.0.10"
 
     response = client.put(
         "/api/settings/daily_request_limit",
@@ -121,7 +121,7 @@ def test_dashboard_summary(client, auth_headers):
 def test_system_info_and_check_updates(client, auth_headers):
     response = client.get("/api/system/info", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["version"] == "3.0.9"
+    assert response.json()["version"] == "3.0.10"
     assert response.json()["lastUpdated"]
     # v3.0.2: full stack — every field present and non-empty, all live
     # runtime values (the test suite runs on SQLite, so the engine is
@@ -171,11 +171,11 @@ def test_system_update_when_up_to_date(client, auth_headers, monkeypatch):
         return httpx.Response(
             200,
             json={
-                "tag_name": "v3.0.9",
-                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.9",
+                "tag_name": "v3.0.10",
+                "html_url": "https://github.com/rzatkv/LicenseManagerPro/releases/tag/v3.0.10",
                 "body": "no changes",
                 "published_at": "2026-11-25T00:00:00Z",
-                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.9",
+                "tarball_url": "https://api.github.com/repos/rzatkv/LicenseManagerPro/tarball/v3.0.10",
             },
         )
 

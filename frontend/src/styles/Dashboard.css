@@ -119,12 +119,21 @@
    width. The control bar shows while customizing (same pill buttons as
    the widget size control). */
 .section-density-control { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 8px 4px; font-size: 13px; color: var(--muted); }
-.dashboard-summary.section-density-compact { gap: 8px; }
-.dashboard-summary.section-density-compact .summary-box { padding: 12px 14px; }
+/* v3.0.10: summary density — the old compact box padding (12px) was
+   identical to the phone base padding (12px at <=640px), so
+   compact->normal changed nothing at 360px (measured 159=159px); the
+   compact gap (8px) also flipped the auto-fit column count at ~768px
+   (1 row vs 2 rows). Compact is now 8px padding with the base gap, so
+   every step is a smooth padding step at every width. */
+.dashboard-summary.section-density-compact .summary-box { padding: 8px 10px; }
 .dashboard-summary.section-density-roomy { gap: 20px; }
 .dashboard-summary.section-density-roomy .summary-box { padding: 26px 22px; }
-.dashboard-actions.section-density-compact .action-btn { padding: 8px 14px; font-size: 14px; }
-.dashboard-actions.section-density-roomy .action-btn { padding: 14px 24px; font-size: 16px; }
+/* v3.0.10: actions density — the old compact padding (8px, font 14px)
+   was nearly the base (10px, font 15px), so compact->normal moved the
+   section only ~5px at >=1024px (measured 78->83px). The steps are now
+   6/10/16px padding with 13/15/16px fonts. */
+.dashboard-actions.section-density-compact .action-btn { padding: 6px 10px; font-size: 13px; }
+.dashboard-actions.section-density-roomy .action-btn { padding: 16px 26px; font-size: 16px; }
 .highlights-slider.section-density-compact { padding: 12px; }
 .highlights-slider.section-density-roomy { padding: 28px; }
 .dashboard-section.section-density-compact table th, .dashboard-section.section-density-compact table td { padding: 5px 6px; font-size: 13px; }
@@ -265,6 +274,18 @@
 .widget-size-s .chart-card > svg { max-height: 140px; }
 .widget-size-m .chart-card > svg { max-height: 210px; }
 .widget-size-l .chart-card > svg { max-height: 320px; }
+/* v3.0.10: the Services widget has no chart, so S/M/L never changed
+   its height — the size buttons did nothing below 1024px and M/L were
+   identical at 1024px (measured: 296x553 at all three sizes at 360px,
+   472/960/960x476 at 1024px). The size class on the wrapper now scales
+   the service rows and the SMS balance value, so every size step is
+   visible at every width (M keeps the base sizes). */
+.widget-size-s .service-status-row { padding: 5px 4px; }
+.widget-size-s .service-status-list { margin-top: 8px; }
+.widget-size-s .sms-balance-value { font-size: 15px; }
+.widget-size-l .service-status-row { padding: 15px 4px; }
+.widget-size-l .service-status-list { margin-top: 24px; }
+.widget-size-l .sms-balance-value { font-size: 24px; }
 /* Donut centre total (v3.0.4, Recharts PieChart): absolutely centred
    over the pie; the wrapper is a fixed square per size (see
    DONUT_SIZE in Dashboard.js). */

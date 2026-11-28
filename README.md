@@ -17,18 +17,14 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.9
+## What's new in v3.0.10
 
-The desktop dashboard, as the user asked from his laptop screenshot — the dashboard was a centred 1000px column with empty space on both sides and widgets too big to sit side by side:
+Two dashboard fixes, as the user asked — the summary section kept collapsing, and some size controls changed nothing on screen:
 
-- **Full-width dashboard:** on wide screens the dashboard spans the whole content width (24–32px side padding, no 900/1000px caps); the sidebar is unchanged, and phones/tablets keep their single-column layout.
-- **Real responsive widget grid:** at laptop width the grid has two columns and at very wide screens three; S/M/L are grid spans now (S = one column, M = two, L = the full row), so widgets can sit side by side — set the size from Customize, per admin.
-- **Collapse for every block:** the 32px chevron the chart widgets got in v3.0.6 now works on the summary, quick actions, highlights, news, expiring-soon and the three recent lists too; a collapsed block shows only its title row + expand chevron, and the state persists per admin.
-- **Summary cards navigate:** the four top cards are links now — API keys → API Keys page, Users → Users page, Active/Inactive licenses → Licenses page — with button/link semantics and a visible focus ring; the entrance animation is unchanged.
-- **Responsive modals:** details popups, wide editors, confirm dialogs and wizards size per breakpoint now (phone keeps the near-full-width vertical sheet, laptop gets a wider card, very wide screens the widest); wizard fields use two columns on wide screens, one on phones. The 90dvh cap, internal body scroll and the always-visible × stay.
-- **Proper pagination + live page-size selector:** every paginated list gets first + previous + numbered window + ellipsis + last + next, and a page-size selector that refetches live on the same page and resets to page 1; the user's choice persists per list. Phones get a compact but complete pager instead of hiding all non-active numbers.
-- **API docs synced with the backend:** the validate samples in every language now show the real 7-field response (product, product_id, billing_cycle, status, expires_at, max_activations, activations) and the observed-IP note; the endpoint table gains the 2FA, captcha, roles, search, news, SMS, notification-texts/channels/patterns and key-rotation endpoints; the webhook payload sample now shows the real flat shape the backend sends.
-- **Version bump:** 3.0.9 everywhere, demo storage key `lmp-demo-db-v23`, `smoke_test_309.py`, all 10 module ZIPs rebuilt at 3.0.9 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **Summary never collapses:** the collapse chevron is gone from the summary section; the four top cards always render expanded, even for an admin whose saved layout still has the summary collapsed from v3.0.9 (the stale flag is cleaned on load and never re-saved). The other 15 blocks keep their chevron and persisted collapse state exactly as before.
+- **Every size control visibly works:** the webhook widget's chart now scales with S/M/L (it rendered a fixed 150px chart, so the buttons did nothing below 1024px and M/L were identical at 1024px), and the services widget scales its service rows and SMS balance value with the size — every size step is now visible at every width. The other six chart widgets already scaled their chart height and are unchanged.
+- **Section density steps are real:** the summary compact padding was identical to the phone base padding, so compact→normal changed nothing at 360px, and the compact gap flipped the card column count near 768px; compact is now a clean 8px padding step with the base gap. The quick-actions steps were nearly the base padding too (compact→normal moved the section only ~5px at laptop width) — the steps are now 6/10/16px padding with 13/15/16px fonts. Table, news and highlights density already worked at every width and are unchanged.
+- **Version bump:** 3.0.10 everywhere, demo storage key `lmp-demo-db-v24`, `smoke_test_310.py`, all 10 module ZIPs rebuilt at 3.0.10 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Publishing news
 
