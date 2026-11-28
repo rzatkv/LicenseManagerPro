@@ -1,8 +1,18 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.12) lives in the [README](README.md#whats-new-in-v312) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.13) lives in the [README](README.md#whats-new-in-v313) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.12 — 2026-11-28
+
+Dashboard polish, as the user asked from his phone screenshot — widget titles were clipped at the card's edge, the topbar icons sat on different lines, and the controls under each widget were flat rows:
+
+- **Titles wrap, never clip:** every widget and section title now wraps to at most two lines, centered, with the icon attached — the trend title and "licenses by status" no longer lose their endings on phones; collapsed headers keep their one-line ellipsis with the full title on hover. The action buttons never overlap the title.
+- **Topbar icons on one line:** the profile avatar, language, theme, bell, search, hamburger and demo badge now share one exact vertical center line at every width — the language and profile wrappers were 40px boxes holding 36px buttons off-center; every control is a flex-centered 38px box now, with row heights unchanged.
+- **Every widget control in its own raised card:** the chart-type pills, the range pills and every other per-widget setting now live in a raised glass card inside the widget body, so they close together with the widget when it collapses — including the customize bar (size, four-direction moves, drag grip), which now hides on a collapsed widget too. The header refresh and collapse buttons stay in the header, as they are the ones that reopen a collapsed widget.
+- **"View all" links are buttons now:** the four section links (expiring licenses, recent licenses, recent API keys, recent users) are real gradient pill buttons with the same labels and destinations.
+- **Version bump:** 3.0.12 everywhere, demo storage key `lmp-demo-db-v26`, `smoke_test_312.py`, all 10 module ZIPs rebuilt at 3.0.12 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## v3.0.11 — 2026-11-28
 

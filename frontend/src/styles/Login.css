@@ -177,6 +177,52 @@
     .login-hero-slide { transition: none; }
 }
 
+/* v3.0.13 — short phone viewports: the stacked login (hero 288px +
+   form ~432px) is ~760px tall, so any viewport shorter than ~760px
+   scrolled (360x640 overflowed by ~120px, 360x740 by ~20px). Compact
+   the hero and the form on short screens so the whole page fits
+   without scroll. Desktop (side-by-side hero + form) is untouched:
+   both tiers are max-width: 768px only. */
+@media (max-width: 768px) and (max-height: 780px) {
+    .login-layout { gap: 12px; padding: 10px 12px; }
+    /* Hero sizes to its content instead of the fixed 288px basis:
+       the real content is ~176px, so ~100px of the hero was empty
+       slack pushing the form down. */
+    .login-hero { flex: 0 0 auto; }
+    .login-hero-logo { width: 56px; height: 56px; margin-bottom: 10px; }
+    .login-hero-slides { min-height: 64px; }
+    .login-hero-dots { margin-top: 14px; }
+    /* Form: tighter padding and vertical rhythm. */
+    .login-form { padding: 20px; }
+    .login-form h1 { margin-bottom: 10px; }
+    .login-form .login-subtitle { margin-bottom: 10px; }
+    .login-form .form-group { margin-bottom: 10px; }
+    .form-group input { padding: 9px 10px; }
+    .login-form button[type="submit"] { padding: 11px; }
+    /* Language menu open: hide the slides instead of shifting them
+       down 110px — on a short screen that shift would push the form
+       below the fold. The slides sit under the open dropdown anyway,
+       so hiding them loses nothing while the menu is open. */
+    .login-container:has(.language-menu-dropdown) .login-hero-slides { margin-top: 0; }
+    .login-container:has(.language-menu-dropdown) .login-hero-slide { opacity: 0; }
+}
+
+/* Very short viewports (360x600 needs ~160px saved vs the old 760px):
+   shrink the hero further and tighten the form again. The hero logo
+   and slides stay visible — only smaller. */
+@media (max-width: 768px) and (max-height: 660px) {
+    .login-layout { gap: 10px; padding: 8px 12px; }
+    .login-hero-logo { width: 40px; height: 40px; margin-bottom: 6px; }
+    .login-hero-slides { min-height: 48px; }
+    .login-hero-slide { font-size: 17px; }
+    .login-hero-dots { margin-top: 10px; }
+    .login-form { padding: 16px; }
+    .login-form h1 { margin-bottom: 8px; }
+    .login-form .login-subtitle { margin-bottom: 8px; }
+    .login-form .form-group { margin-bottom: 8px; }
+    .form-group input { padding: 8px 10px; }
+}
+
 /* v3.0 captcha block on the login form (custom models + reCAPTCHA). */
 .captcha-box { display: flex; flex-direction: column; gap: 8px; }
 .captcha-prompt { margin: 0; font-size: 14px; color: var(--muted); }
