@@ -25,15 +25,15 @@ Login page fix, as the user asked from his phone — the login page needed scrol
 - **Language menu no longer pushes the page:** on short screens the open language menu hides the hero lines instead of shifting them down 110px, so opening it never pushes the form below the fold.
 - **Version bump:** 3.0.13 everywhere, demo storage key `lmp-demo-db-v27`, `smoke_test_313.py`, all 10 module ZIPs rebuilt at 3.0.13 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
-## Dedicated Server Portal installer
+## One-command installer
 
-The one-command installer for the Dedicated Server Portal (MySQL 9, Nginx 443) lives in this repo at `installation/install.sh`. Run it from the extracted project directory:
+Install LicenseManagerPro on a fresh server with a single command. The installer (`installation/install.sh`) fetches the code itself, installs MySQL 9, builds the backend and frontend, creates the first admin account, and serves the app on your domain over HTTPS (port 443, Nginx + Let's Encrypt). No domain? It uses your server IP with an `sslip.io` certificate instead. Run it from any directory:
 
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/rzatkv/LicenseManagerPro/main/installation/install.sh)"
 ```
 
-نصب‌کننده یک‌دستوری پرتال سرورهای اختصاصی (MySQL 9 ،Nginx 443) در همین ریپو است: `installation/install.sh` — دستور بالا را از داخل پوشه پروژه اجرا کنید.
+نصب‌کننده یک‌دستوری LicenseManagerPro: کد را خودش دانلود می‌کند، MySQL 9 نصب می‌کند، بک‌اند و فرانت‌اند را می‌سازد، اکانت ادمین را می‌سازد و برنامه را روی دامنه شما با HTTPS (پورت ۴۴۳) بالا می‌آورد. بدون دامنه هم با IP سرور و گواهی `sslip.io` کار می‌کند — دستور بالا را از هر پوشه‌ای اجرا کنید.
 
 ## Publishing news
 
