@@ -1,6 +1,12 @@
-/* Header profile menu (v2.3) */
-.profile-menu { position: relative; flex-shrink: 0; }
+/* Header profile menu (v2.3). v3.0.12 (slice B): shared 38px topbar
+   control height — the wrapper is a flex-centered 38px box and the
+   button is a flex-centered 38px box around the 36px avatar (the old
+   block wrapper + inline-block button left the avatar sitting 2px
+   low; see Layout.css). The avatar itself stays 36px. */
+.profile-menu { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 38px; }
 .profile-menu-button {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
   background: none; border: none; padding: 0; margin: 0; border-radius: 50%;
   box-shadow: none; line-height: 0; cursor: pointer;
 }

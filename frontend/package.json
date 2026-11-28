@@ -36,5 +36,5 @@
     "start": "react-scripts start",
     "test": "react-scripts test"
   },
-  "version": "3.0.11"
+  "version": "3.0.12"
 }

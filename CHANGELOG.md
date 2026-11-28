@@ -1,8 +1,19 @@
 # Changelog
 
-Release history for LicenseManagerPro. The current release (v3.0.11) lives in the [README](README.md#whats-new-in-v311) — this file holds everything before it.
+Release history for LicenseManagerPro. The current release (v3.0.12) lives in the [README](README.md#whats-new-in-v312) — this file holds everything before it.
 
 > **Note:** v2.3.4 was renamed to v3.0.0 before release and never shipped under that number; its scope (login-dropdown fix, no money anywhere) is the v3.0.0 entry below.
+
+## v3.0.11 — 2026-11-28
+
+Every dashboard block except the summary is now a real widget, as the user asked from his laptop screenshot — the four table sections (expiring soon, recent licenses, recent API keys, recent users) were dry empty tables that never changed size, sat in the middle of the page and could not move:
+
+- **Beautiful rich tables:** the four sections show the same data, richer — license and API keys in mono with a copy button, days-left as a colored chip (red within 7 days, amber within 30), license status as a colored pill, API access rights as small chips instead of a comma string, users with an avatar circle of initials plus email and a role chip; every table has a count badge in its header, an icon empty state instead of bare text, hover row highlight and soft dividers, and the "view all" link is kept. On phones only the essential columns show.
+- **One unified widget grid:** all 16 blocks live in one layout order (summary pinned first) — the sections sit in the same grid as the charts (1 column on phones, 2 at laptop width, 3 at very wide screens) and take S/M/L sizes like every other widget, with the density control (compact/normal/roomy) kept as inner spacing alongside. An old saved layout with only the chart order migrates automatically, sections appended in their fixed positions.
+- **Four-direction moves + mouse drag-and-drop:** in Customize, every non-summary block has ← → ↑ ↓ buttons — left/right swap with the adjacent block, up/down swap with the block one row above/below (the row offset follows the current column count: 1 below 1024px, 2 at ≥1024px, 3 at ≥1440px) — and a grip handle to drag the block with the mouse and drop it on another block's position. Edge buttons are disabled, and every move persists per admin across reload. The summary has no move buttons and is not draggable.
+- **Per-widget refresh:** every non-summary block has a refresh button in its header — it re-fetches just that block's data (a spinner on that block only, a brief note on that block if it fails, never a page crash); the services widget re-checks its status and SMS balance, the SMS balance keeps its own path. In the demo the data is static, so refresh spins and re-renders honestly.
+- **Widget chrome everywhere:** every non-summary block is now a distinct glass card in the current dashboard style — header row with icon, title, count badge, refresh and collapse chevron; Customize shows the S/M/L buttons and the four move buttons there; a collapsed block shows only its header. The summary looks exactly as before.
+- **Version bump:** 3.0.11 everywhere, demo storage key `lmp-demo-db-v25`, `smoke_test_311.py`, all 10 module ZIPs rebuilt at 3.0.11 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## v3.0.10 — 2026-11-28
 

@@ -91,24 +91,26 @@ function SplitTick(props) {
 
 /** Chart header: icon + centered title. With `action` (v3.0.6, the widget
  * collapse button) the header becomes the same 1fr/auto/1fr grid the
- * Services header already uses, so the title stays EXACTLY centered
- * and the action sits at the end — never overlapping the title. */
+ * Services header already uses, so the title stays centered and the
+ * action sits at the end — never overlapping the title.
+ * v3.0.12: the title text lives in its own `.chart-title-label` span:
+ * a bare text node inside the inline-flex title became one anonymous
+ * flex item that never wrapped, and the old `auto` centre column sized
+ * to max-content, so long Persian titles overflowed the card and
+ * clipped at the edge in RTL. The centre column is minmax(0, auto)
+ * now and the third column has a 70px floor (refresh 32 + collapse 32
+ * + 6 gap), so the action always fits its track instead of spilling
+ * over the title; the label wraps to at most two lines (ellipsis +
+ * full text in the `title` attribute past that). */
 function ChartTitle({icon, title, action}) {
-    if (!action) {
-        return (
-            <h3>
-                {icon ? <span className="chart-title-icon">{icon}</span> : null}
-                {title}
-            </h3>
-        );
-    }
+    const label = typeof title === "string" ? title : "";
     return (
-        <h3 className="chart-title-with-action">
+        <h3 className={`chart-title-with-action${action ? "" : " chart-title-no-action"}`}>
             <span className="chart-title-text">
                 {icon ? <span className="chart-title-icon">{icon}</span> : null}
-                {title}
+                <span className="chart-title-label" title={label || undefined}>{title}</span>
             </span>
-            <span className="chart-title-action">{action}</span>
+            {action ? <span className="chart-title-action">{action}</span> : null}
         </h3>
     );
 }
@@ -1066,7 +1068,13 @@ function Dashboard() {
     const sectionDensityControl = (id) => {
         if (!customizing || isCollapsed(id)) return null;
         const current = (layout.sectionSizes && layout.sectionSizes[id]) || "normal";
+        // v3.0.12: every body control sits in a raised card — the
+        // density pills are a per-block setting, so they get one.
+        // The summary never collapses, so its card stays visible;
+        // for sections the caller renders this inside the
+        // collapsible body, so collapsing hides it with the block.
         return (
+            <div className="widget-controls-card section-density-card">
             <div className="section-density-control" role="group" aria-label={t("dashboard.sectionSize")}>
                 <span className="widget-control-label">{t("dashboard.sectionSize")}</span>
                 {SECTION_SIZES.map((sz) => (
@@ -1081,6 +1089,7 @@ function Dashboard() {
                         {t(`dashboard.sectionSize${sz === "compact" ? "Compact" : sz === "roomy" ? "Roomy" : "Normal"}`)}
                     </button>
                 ))}
+            </div>
             </div>
         );
     };
@@ -1185,15 +1194,22 @@ function Dashboard() {
         },
     });
     // Customize-mode controls shared by every non-summary block: the
-    // S/M/L size pills + the four move buttons (← → ↑ ↓). Density
-    // stays as the separate inner-spacing control (sectionDensityControl).
-    // data-size-block / data-move-block are the verify script's hooks.
+    // S/M/L size pills + the four move buttons (← → ↑ ↓) + the drag
+    // grip. Density stays as the separate inner-spacing control
+    // (sectionDensityControl). data-size-block / data-move-block are
+    // the verify script's hooks.
+    // v3.0.12: the bar lives INSIDE the collapsible body, in its own
+    // raised card — it is NOT available on a collapsed widget (user
+    // 2026-11-28 12:13, reversing the v3.0.6 exception): expand the
+    // widget first, then resize/move it. The caller renders this
+    // inside the expanded branch / block-body only.
     const blockControls = (id) => {
         if (!customizing) return null;
         const size = layout.sizes[id] || "M";
         const dirIcon = {left: <ChevronLeft size={16} />, right: <ChevronRight size={16} />, up: <ChevronUp size={16} />, down: <ChevronDown size={16} />};
         const dirLabel = {left: t("dashboard.moveLeft"), right: t("dashboard.moveRight"), up: t("dashboard.moveUp"), down: t("dashboard.moveDown")};
         return (
+            <div className="widget-controls-card widget-customize-card">
             <div className="widget-controls">
                 <span className="widget-drag-handle" title={t("dashboard.customize")} data-drag-handle={id} {...dragHandleProps(id)}><GripVertical size={16} /></span>
                 <span className="widget-control-group">
@@ -1230,6 +1246,7 @@ function Dashboard() {
                     ))}
                 </span>
             </div>
+            </div>
         );
     };
 
@@ -1241,9 +1258,11 @@ function Dashboard() {
         // v3.0.6: collapsible widgets — each widget folds to its header
         // in place. The state lives in the layout like size/order/type,
         // so it persists per admin (localStorage + /users/me/preferences)
-        // and survives a reload. The size/reorder controls above stay
-        // reachable while collapsed; the chart-type/range controls live
-        // under the chart, so they are reachable once expanded again.
+        // and survives a reload.
+        // v3.0.12: the size/reorder bar (blockControls) and the
+        // chart-type/range controls all live INSIDE the collapsible
+        // body, each in a raised card — collapsing the widget hides
+        // them with it. Only refresh + collapse stay in the header.
         // v3.0.9: the chevron + toggle live in the shared collapseBtnFor
         // helper above (sections use it too).
         const collapsed = isCollapsed(id);
@@ -1283,55 +1302,69 @@ function Dashboard() {
                 {...blockDragProps(id)}
                 {...cardMotion(Math.min(index * 0.05, 0.4))}
             >
-                {blockControls(id)}
                 {refreshError[id] && <p className="block-refresh-error">{refreshError[id]}</p>}
                 {collapsed ? (
                     <div className="widget-collapsed-head">
                         <span className="chart-title-icon">{WIDGET_ICONS[id]}</span>
-                        <span className="widget-collapsed-title">{blockTitle(id)}</span>
+                        <span className="widget-collapsed-title" title={blockTitle(id)}>{blockTitle(id)}</span>
                         {refreshBtnFor(id)}
                         {collapseBtn}
                     </div>
                 ) : (
                 <>
+                {/* v3.0.12: customize bar inside the body — hidden while
+                    collapsed; expand first, then resize/move. */}
+                {blockControls(id)}
                 {id === "trend" && (
                     <>
                         <TrendChart points={trend} title={`${t("dashboard.trendTitle")} · ${layout.ranges.trend} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.trend} widgetId="trend" action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("trend")}
                         {rangeControl("trend", RANGE_OPTIONS, "common.days")}
+                        </div>
                     </>
                 )}
                 {id === "status" && (
                     <>
                         <DonutChart data={statusCounts} title={t("dashboard.byStatus")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.status} action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("status")}
+                        </div>
                     </>
                 )}
                 {id === "perMonth" && (
                     <>
                         <BarChart data={perMonth} title={t("dashboard.createdPerMonth")} color="var(--accent)" size={size} type={chartType} icon={WIDGET_ICONS.perMonth} action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("perMonth")}
                         {rangeControl("perMonth", MONTH_OPTIONS, "common.months")}
+                        </div>
                     </>
                 )}
                 {id === "byProduct" && (
                     <>
                         <BarChart data={byProduct} title={t("dashboard.byProduct")} color="var(--success)" size={size} type={chartType} icon={WIDGET_ICONS.byProduct} action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("byProduct")}
                         {rangeControl("byProduct", RANGE_OPTIONS, "common.days")}
+                        </div>
                     </>
                 )}
                 {id === "activations" && (
                     <>
                         <TrendChart points={activations} title={`${t("dashboard.activationsTrend")} · ${layout.ranges.activations} ${t("common.days")}`} lang={lang} size={size} type={chartType} icon={WIDGET_ICONS.activations} widgetId="activations" action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("activations")}
                         {rangeControl("activations", RANGE_OPTIONS, "common.days")}
+                        </div>
                     </>
                 )}
                 {id === "webhooks" && (
                     <>
                         <WebhookStatsWidget stats={webhookStats} title={t("dashboard.webhookStats")} t={t} size={size} type={chartType} icon={WIDGET_ICONS.webhooks} action={headerAction} />
+                        <div className="widget-controls-card">
                         {typeControl("webhooks")}
+                        </div>
                     </>
                 )}
                 {/* v3.0.1: Services and Sending are real widgets now — they
@@ -1342,7 +1375,7 @@ function Dashboard() {
                     <>
                     <div className="chart-card service-status-card">
                         <div className="service-status-header">
-                            <h3><span className="chart-title-icon">{WIDGET_ICONS.services}</span>{t("dashboard.serviceStatusTitle")}</h3>
+                            <h3><span className="chart-title-icon">{WIDGET_ICONS.services}</span><span className="chart-title-label" title={t("dashboard.serviceStatusTitle")}>{t("dashboard.serviceStatusTitle")}</span></h3>
                             <div className="service-status-actions">
                                 {/* v3.0.11: the Services re-check IS this widget's
                                     per-widget refresh — same handler, spinner
@@ -1415,6 +1448,9 @@ function Dashboard() {
                 )}
                 {id === "sending" && (
                     <div className="sending-tab">
+                        {/* v3.0.12: the channel switcher is a body control —
+                            it gets its own raised card like type/range. */}
+                        <div className="widget-controls-card">
                         <div className="chart-channel-row" role="group" aria-label={t("dashboard.sendingChannel")}>
                             {["total", "email", "sms", "telegram"].map((ch) => (
                                 <button
@@ -1427,6 +1463,7 @@ function Dashboard() {
                                     {t(`dashboard.sendingChannel.${ch}`)}
                                 </button>
                             ))}
+                        </div>
                         </div>
                         {sendingLoading && !sendingStats ? (
                             <SkeletonCard lines={4} />
@@ -1441,6 +1478,7 @@ function Dashboard() {
                                     icon={WIDGET_ICONS.sending}
                                     action={headerAction}
                                 />
+                                <div className="widget-controls-card">
                                 {typeControl("sending")}
                                 <div className="chart-range" role="group" aria-label={t("dashboard.range")}>
                                     <span className="chart-range-label">{t("dashboard.range")}</span>
@@ -1455,6 +1493,7 @@ function Dashboard() {
                                             {d} {t("common.days")}
                                         </button>
                                     ))}
+                                </div>
                                 </div>
                             </>
                         )}
@@ -1498,12 +1537,10 @@ function Dashboard() {
                 {...blockDragProps(id)}
                 {...cardMotion(Math.min(index * 0.05, 0.4))}
             >
-                {blockControls(id)}
-                {sectionDensityControl(id)}
                 <div className="block-head">
                     <span className="block-head-title">
                         <span className="chart-title-icon">{iconFor[id]}</span>
-                        {blockTitle(id)}
+                        <span className="chart-title-label" title={blockTitle(id)}>{blockTitle(id)}</span>
                         {count !== undefined && <span className="count-badge" data-count-badge={id}>{count}</span>}
                     </span>
                     <span className="block-head-actions">
@@ -1514,6 +1551,11 @@ function Dashboard() {
                 {refreshError[id] && <p className="block-refresh-error">{refreshError[id]}</p>}
                 {!collapsed && (
                 <div className="block-body">
+                {/* v3.0.12: customize bar + density control inside the
+                    body, each in a raised card — hidden while collapsed;
+                    expand first, then resize/move. */}
+                {blockControls(id)}
+                {sectionDensityControl(id)}
                 {id === "actions" && (
                     <div className="action-buttons">
                         <Link className="action-btn" to="/licenses"><Plus size={16} />{t("dashboard.createLicense")}</Link>
@@ -1585,7 +1627,7 @@ function Dashboard() {
                         </table>
                         </div>
                     )}
-                    <p className="block-view-all"><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                    <p className="block-view-all"><Link className="action-btn block-view-all-btn" to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
                     </>
                 )}
                 {id === "recentLicenses" && (
@@ -1607,7 +1649,7 @@ function Dashboard() {
                         </table>
                         </div>
                     )}
-                    <p className="block-view-all"><Link to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
+                    <p className="block-view-all"><Link className="action-btn block-view-all-btn" to="/licenses">{t("dashboard.viewAll")} {t("nav.licenses")}</Link></p>
                     </>
                 )}
                 {id === "recentApiKeys" && (
@@ -1627,7 +1669,7 @@ function Dashboard() {
                         </table>
                         </div>
                     )}
-                    <p className="block-view-all"><Link to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
+                    <p className="block-view-all"><Link className="action-btn block-view-all-btn" to="/api-keys">{t("dashboard.viewAll")} {t("nav.apiKeys")}</Link></p>
                     </>
                 )}
                 {id === "recentUsers" && (
@@ -1647,7 +1689,7 @@ function Dashboard() {
                         </table>
                         </div>
                     )}
-                    <p className="block-view-all"><Link to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
+                    <p className="block-view-all"><Link className="action-btn block-view-all-btn" to="/users">{t("dashboard.viewAll")} {t("nav.users")}</Link></p>
                     </>
                 )}
                 </div>

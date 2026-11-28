@@ -1,6 +1,8 @@
-/* Animated theme toggle (v2.3) */
+/* Animated theme toggle (v2.3). v3.0.12 (slice B): shared 38px topbar
+   control height with flex-centered content (see Layout.css). */
 .theme-toggle {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 38px;
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: 999px;
   padding: 7px 10px; margin: 0; box-shadow: none;

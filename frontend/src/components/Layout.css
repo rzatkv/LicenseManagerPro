@@ -98,10 +98,26 @@
    and profile avatar sit at the end and never crowd it. */
 .layout-search { flex: 1; min-width: 0; display: flex; }
 .layout-search .global-search { flex: 1; max-width: none; }
+/* v3.0.12 (slice B): ONE shared topbar control height — 38px. The
+   topbar is flex/align-items:center, but the controls used to have
+   different heights/box models (bell 38, language/avatar 36, theme
+   ~35, hamburger 36) inside block wrappers whose inherited line box
+   made the wrapper 40px tall, so the language button sat 2px high
+   and the avatar 2px low (measured 360px fa: lang center 29,
+   avatar 33, row center 31). Every icon-button control and its
+   wrapper is now exactly 38px with flex-centered content, so every
+   glyph shares one center line. 38px (not 40) is deliberate: the
+   search box is the row-height driver at 42px (fa) / 39px (en), so
+   40px buttons would push the en row 60→61px. The search box and
+   the demo badge keep their natural heights — as direct flex
+   children their box centers already coincide with the shared line
+   (measured: search glyph = box center, badge text = badge box
+   center, both = row center in every combo), and forcing them to
+   38px would change the row height / distort the badge pill. */
 .layout-topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .layout-demo-badge { background: var(--warning); color: var(--on-warning); font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 999px; }
-.layout-hamburger { display: none; width: auto; padding: 8px 10px; background: transparent; border: 1px solid var(--border); flex-shrink: 0; }
-.layout-hamburger span { display: block; width: 18px; height: 2px; background: var(--text); margin: 3px 0; }
+.layout-hamburger { display: none; width: auto; height: 38px; padding: 8px 10px; background: transparent; border: 1px solid var(--border); flex-shrink: 0; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.layout-hamburger span { display: block; width: 18px; height: 2px; background: var(--text); margin: 0; }
 .layout-sidebar-close { display: none; }
 .layout-backdrop { display: none; }
 /* Mobile bottom nav: hidden on desktop/tablet, shown ≤768px (see below). */
@@ -161,7 +177,7 @@
     box-shadow: none;
   }
   .layout-sidebar-close:hover { transform: none; box-shadow: var(--shadow); filter: none; }
-  .layout-hamburger { display: block; }
+  .layout-hamburger { display: flex; }
   /* Backdrop sits above the topbar (z-50) and the page content, below the
      sidebar (z-210) and any modal (z-900). It is rendered last in the DOM
      (after .layout-main) so nothing in the normal flow paints above it,

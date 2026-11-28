@@ -1,4 +1,7 @@
-.notif-bell { position: relative; display: inline-flex; }
+/* v3.0.12 (slice B): shared 38px topbar control height — the wrapper
+   is a flex-centered 38px box so the button inside it cannot drift
+   off the shared center line (see Layout.css). */
+.notif-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; height: 38px; }
 .notif-bell-btn {
   position: relative;
   display: inline-flex;

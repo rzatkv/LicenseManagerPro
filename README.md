@@ -17,16 +17,15 @@ It runs in demo mode: every API call is answered by an in-browser mock (`fronten
 
 ---
 
-## What's new in v3.0.11
+## What's new in v3.0.12
 
-Every dashboard block except the summary is now a real widget, as the user asked from his laptop screenshot — the four table sections (expiring soon, recent licenses, recent API keys, recent users) were dry empty tables that never changed size, sat in the middle of the page and could not move:
+Dashboard polish, as the user asked from his phone screenshot — widget titles were clipped at the card's edge, the topbar icons sat on different lines, and the controls under each widget were flat rows:
 
-- **Beautiful rich tables:** the four sections show the same data, richer — license and API keys in mono with a copy button, days-left as a colored chip (red within 7 days, amber within 30), license status as a colored pill, API access rights as small chips instead of a comma string, users with an avatar circle of initials plus email and a role chip; every table has a count badge in its header, an icon empty state instead of bare text, hover row highlight and soft dividers, and the "view all" link is kept. On phones only the essential columns show.
-- **One unified widget grid:** all 16 blocks live in one layout order (summary pinned first) — the sections sit in the same grid as the charts (1 column on phones, 2 at laptop width, 3 at very wide screens) and take S/M/L sizes like every other widget, with the density control (compact/normal/roomy) kept as inner spacing alongside. An old saved layout with only the chart order migrates automatically, sections appended in their fixed positions.
-- **Four-direction moves + mouse drag-and-drop:** in Customize, every non-summary block has ← → ↑ ↓ buttons — left/right swap with the adjacent block, up/down swap with the block one row above/below (the row offset follows the current column count: 1 below 1024px, 2 at ≥1024px, 3 at ≥1440px) — and a grip handle to drag the block with the mouse and drop it on another block's position. Edge buttons are disabled, and every move persists per admin across reload. The summary has no move buttons and is not draggable.
-- **Per-widget refresh:** every non-summary block has a refresh button in its header — it re-fetches just that block's data (a spinner on that block only, a brief note on that block if it fails, never a page crash); the services widget re-checks its status and SMS balance, the SMS balance keeps its own path. In the demo the data is static, so refresh spins and re-renders honestly.
-- **Widget chrome everywhere:** every non-summary block is now a distinct glass card in the current dashboard style — header row with icon, title, count badge, refresh and collapse chevron; Customize shows the S/M/L buttons and the four move buttons there; a collapsed block shows only its header. The summary looks exactly as before.
-- **Version bump:** 3.0.11 everywhere, demo storage key `lmp-demo-db-v25`, `smoke_test_311.py`, all 10 module ZIPs rebuilt at 3.0.11 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
+- **Titles wrap, never clip:** every widget and section title now wraps to at most two lines, centered, with the icon attached — the trend title and "licenses by status" no longer lose their endings on phones; collapsed headers keep their one-line ellipsis with the full title on hover. The action buttons never overlap the title.
+- **Topbar icons on one line:** the profile avatar, language, theme, bell, search, hamburger and demo badge now share one exact vertical center line at every width — the language and profile wrappers were 40px boxes holding 36px buttons off-center; every control is a flex-centered 38px box now, with row heights unchanged.
+- **Every widget control in its own raised card:** the chart-type pills, the range pills and every other per-widget setting now live in a raised glass card inside the widget body, so they close together with the widget when it collapses — including the customize bar (size, four-direction moves, drag grip), which now hides on a collapsed widget too. The header refresh and collapse buttons stay in the header, as they are the ones that reopen a collapsed widget.
+- **"View all" links are buttons now:** the four section links (expiring licenses, recent licenses, recent API keys, recent users) are real gradient pill buttons with the same labels and destinations.
+- **Version bump:** 3.0.12 everywhere, demo storage key `lmp-demo-db-v26`, `smoke_test_312.py`, all 10 module ZIPs rebuilt at 3.0.12 parity. Older releases are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Publishing news
 
